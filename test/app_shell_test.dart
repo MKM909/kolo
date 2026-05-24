@@ -95,6 +95,31 @@ void main() {
     expect(find.text('sms'), findsOneWidget);
   });
 
+  testWidgets('transaction history filters income and expense rows', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.receipt_long_outlined));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Landing page gig'), findsOneWidget);
+    expect(find.text('Chicken Republic'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('transaction_filter_income')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Landing page gig'), findsOneWidget);
+    expect(find.text('Chicken Republic'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('transaction_filter_expense')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Landing page gig'), findsNothing);
+    expect(find.text('Chicken Republic'), findsOneWidget);
+  });
+
   testWidgets('balance adjustment sheet updates the dashboard balance', (
     tester,
   ) async {

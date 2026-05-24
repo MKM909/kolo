@@ -7,58 +7,82 @@ import 'package:kolo/ui/core/theme/kolo_theme.dart';
 import 'package:kolo/ui/core/widgets/domain_widgets.dart';
 import 'package:kolo/ui/core/widgets/kolo_scaffold.dart';
 
-class TransactionsScreen extends ConsumerWidget {
+class TransactionsScreen extends ConsumerStatefulWidget {
   const TransactionsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TransactionsScreen> createState() => _TransactionsScreenState();
+}
+
+class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
+  _TransactionFilter _filter = _TransactionFilter.all;
+
+  @override
+  Widget build(BuildContext context) {
     final dashboard = ref.watch(dashboardProvider);
 
     return dashboard.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stackTrace) => Center(child: Text('$error')),
-      data: (state) => KoloGradientScaffold(
-        title: 'Transactions',
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
-          children: [
-            KoloCard(
-              child: Row(
-                children: [
-                  _Metric(
-                    label: 'Income',
-                    amountKobo: state.transactions
-                        .where((tx) => tx.type == TransactionType.income)
-                        .fold(0, (total, tx) => total + tx.amountKobo),
-                    color: KoloColors.income,
-                  ),
-                  const SizedBox(width: 16),
-                  _Metric(
-                    label: 'Expense',
-                    amountKobo: state.transactions
-                        .where((tx) => tx.type == TransactionType.expense)
-                        .fold(0, (total, tx) => total + tx.amountKobo),
-                    color: KoloColors.expense,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            const KoloSectionHeader(title: 'History'),
-            KoloCard(
-              child: Column(
-                children: [
-                  for (final tx in state.transactions)
-                    TransactionTile(
-                      transaction: tx,
-                      onTap: () => _openTransactionDetail(context, tx),
+      data: (state) {
+        final filteredTransactions = _filter.apply(state.transactions);
+        return KoloGradientScaffold(
+          title: 'Transactions',
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
+            children: [
+              KoloCard(
+                child: Row(
+                  children: [
+                    _Metric(
+                      label: 'Income',
+                      amountKobo: state.transactions
+                          .where((tx) => tx.type == TransactionType.income)
+                          .fold(0, (total, tx) => total + tx.amountKobo),
+                      color: KoloColors.income,
                     ),
-                ],
+                    const SizedBox(width: 16),
+                    _Metric(
+                      label: 'Expense',
+                      amountKobo: state.transactions
+                          .where((tx) => tx.type == TransactionType.expense)
+                          .fold(0, (total, tx) => total + tx.amountKobo),
+                      color: KoloColors.expense,
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
-        ),
-      ),
+              const SizedBox(height: 24),
+              const KoloSectionHeader(title: 'History'),
+              const SizedBox(height: 8),
+              _TransactionFilterPill(
+                selected: _filter,
+                onChanged: (filter) => setState(() => _filter = filter),
+              ),
+              const SizedBox(height: 14),
+              KoloCard(
+                child: Column(
+                  children: [
+                    for (final tx in filteredTransactions)
+                      TransactionTile(
+                        transaction: tx,
+                        onTap: () => _openTransactionDetail(context, tx),
+                      ),
+                    if (filteredTransactions.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 14),
+                        child: Text(
+                          'No transactions here yet.',
+                          style: TextStyle(color: KoloColors.textSecondary),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -72,6 +96,84 @@ class TransactionsScreen extends ConsumerWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => _TransactionDetailSheet(transaction: transaction),
+    );
+  }
+}
+
+enum _TransactionFilter {
+  all(label: 'All', keyName: 'all'),
+  income(label: 'Income', keyName: 'income'),
+  expense(label: 'Expense', keyName: 'expense');
+
+  const _TransactionFilter({required this.label, required this.keyName});
+
+  final String label;
+  final String keyName;
+
+  List<TransactionRecord> apply(List<TransactionRecord> transactions) {
+    return switch (this) {
+      _TransactionFilter.all => transactions,
+      _TransactionFilter.income =>
+        transactions.where((tx) => tx.type == TransactionType.income).toList(),
+      _TransactionFilter.expense =>
+        transactions.where((tx) => tx.type == TransactionType.expense).toList(),
+    };
+  }
+}
+
+class _TransactionFilterPill extends StatelessWidget {
+  const _TransactionFilterPill({
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final _TransactionFilter selected;
+  final ValueChanged<_TransactionFilter> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 40,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.78),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        children: [
+          for (final filter in _TransactionFilter.values)
+            Expanded(
+              child: InkWell(
+                key: Key('transaction_filter_${filter.keyName}'),
+                borderRadius: BorderRadius.circular(999),
+                onTap: () => onChanged(filter),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 160),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: selected == filter
+                        ? KoloColors.primary
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    filter.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: selected == filter
+                          ? Colors.white
+                          : KoloColors.textSecondary,
+                      fontWeight: selected == filter
+                          ? FontWeight.w700
+                          : FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
