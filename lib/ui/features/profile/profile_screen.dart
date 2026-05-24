@@ -7,6 +7,7 @@ import 'package:kolo/domain/services/ai_model_config.dart';
 import 'package:kolo/domain/services/bill_reminder_schedule.dart';
 import 'package:kolo/domain/services/money_formatter.dart';
 import 'package:kolo/ui/core/theme/kolo_theme.dart';
+import 'package:kolo/ui/core/widgets/balance_adjustment_sheet.dart';
 import 'package:kolo/ui/core/widgets/kolo_scaffold.dart';
 
 class ProfileScreen extends ConsumerWidget {
@@ -217,6 +218,25 @@ class ProfileScreen extends ConsumerWidget {
               ],
             ),
             _ProfileSection(
+              title: 'Balance Adjustment',
+              children: [
+                InkWell(
+                  key: const Key('open_profile_balance_adjustment'),
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () => _openBalanceAdjustmentSheet(
+                    context,
+                    currentBalanceKobo: state.balanceKobo,
+                  ),
+                  child: _SimpleRow(
+                    icon: Icons.account_balance_wallet_outlined,
+                    label: 'Current balance',
+                    value: MoneyFormatter.formatKobo(state.balanceKobo),
+                    color: KoloColors.primary,
+                  ),
+                ),
+              ],
+            ),
+            _ProfileSection(
               title: 'Permissions',
               children: [
                 for (final entry in state.permissions.entries)
@@ -329,6 +349,20 @@ class ProfileScreen extends ConsumerWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => const _NotificationPreferencesSheet(),
+    );
+  }
+
+  Future<void> _openBalanceAdjustmentSheet(
+    BuildContext context, {
+    required int currentBalanceKobo,
+  }) {
+    return showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) =>
+          BalanceAdjustmentSheet(currentBalanceKobo: currentBalanceKobo),
     );
   }
 

@@ -92,6 +92,35 @@ void main() {
     expect(find.byKey(const Key('budget_period_label')), findsOneWidget);
     expect(find.text('Budget'), findsWidgets);
   });
+
+  testWidgets('profile balance adjustment updates the dashboard balance', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.person_outline));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('open_profile_balance_adjustment')),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    await tester.tap(find.byKey(const Key('open_profile_balance_adjustment')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('balance_adjustment_sheet')), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('balance_adjustment_amount')),
+      '70000',
+    );
+    await tester.tap(find.byKey(const Key('save_balance_adjustment')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('₦70,000.00'), findsOneWidget);
+  });
 }
 
 class _SignOutAuthRepository implements AuthRepository {
