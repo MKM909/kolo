@@ -66,13 +66,49 @@ void main() {
       expect(state, PermissionGrantState.granted);
     },
   );
+
+  test(
+    'reports accessibility service enabled status from MethodChannel',
+    () async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            expect(call.method, 'isAccessibilityServiceEnabled');
+            return true;
+          });
+
+      final service = AndroidCapabilityService(channel: channel);
+
+      expect(await service.isAccessibilityServiceEnabled(), isTrue);
+    },
+  );
+
+  test(
+    'accessibility request returns granted when service is enabled after settings',
+    () async {
+      final capabilities = _FakeAndroidCapabilities(
+        notificationListenerEnabled: false,
+        accessibilityServiceEnabled: true,
+      );
+      final requester = AndroidPermissionRequester(capabilities: capabilities);
+
+      final state = await requester.request(KoloPermission.accessibility);
+
+      expect(capabilities.openedAccessibilitySettings, isTrue);
+      expect(state, PermissionGrantState.granted);
+    },
+  );
 }
 
 class _FakeAndroidCapabilities extends AndroidCapabilityService {
-  _FakeAndroidCapabilities({required this.notificationListenerEnabled});
+  _FakeAndroidCapabilities({
+    required this.notificationListenerEnabled,
+    this.accessibilityServiceEnabled = false,
+  });
 
   final bool notificationListenerEnabled;
+  final bool accessibilityServiceEnabled;
   bool openedNotificationSettings = false;
+  bool openedAccessibilitySettings = false;
 
   @override
   Future<bool> openNotificationListenerSettings() async {
@@ -83,5 +119,16 @@ class _FakeAndroidCapabilities extends AndroidCapabilityService {
   @override
   Future<bool> isNotificationListenerEnabled() async {
     return notificationListenerEnabled;
+  }
+
+  @override
+  Future<bool> openAccessibilitySettings() async {
+    openedAccessibilitySettings = true;
+    return true;
+  }
+
+  @override
+  Future<bool> isAccessibilityServiceEnabled() async {
+    return accessibilityServiceEnabled;
   }
 }

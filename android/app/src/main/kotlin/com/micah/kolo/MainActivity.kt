@@ -25,25 +25,36 @@ class MainActivity : FlutterActivity() {
                     startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                     result.success(true)
                 }
+                "isAccessibilityServiceEnabled" -> result.success(isAccessibilityServiceEnabled())
                 "isNotificationListenerEnabled" -> result.success(isNotificationListenerEnabled())
                 else -> result.notImplemented()
             }
         }
     }
 
-    private fun isNotificationListenerEnabled(): Boolean {
-        val enabledListeners = Settings.Secure.getString(
-            contentResolver,
-            "enabled_notification_listeners"
-        ) ?: return false
-        val listenerComponent = ComponentName(
-            this,
-            KoloNotificationListenerService::class.java
+    private fun isAccessibilityServiceEnabled(): Boolean {
+        return isEnabledSecureComponent(
+            "enabled_accessibility_services",
+            ComponentName(this, KoloAccessibilityService::class.java)
         )
-        val flattened = listenerComponent.flattenToString()
-        val shortFlattened = listenerComponent.flattenToShortString()
+    }
 
-        return enabledListeners.split(":").any { enabled ->
+    private fun isNotificationListenerEnabled(): Boolean {
+        return isEnabledSecureComponent(
+            "enabled_notification_listeners",
+            ComponentName(this, KoloNotificationListenerService::class.java)
+        )
+    }
+
+    private fun isEnabledSecureComponent(settingName: String, component: ComponentName): Boolean {
+        val enabledComponents = Settings.Secure.getString(
+            contentResolver,
+            settingName
+        ) ?: return false
+        val flattened = component.flattenToString()
+        val shortFlattened = component.flattenToShortString()
+
+        return enabledComponents.split(":").any { enabled ->
             enabled.equals(flattened, ignoreCase = true) ||
                 enabled.equals(shortFlattened, ignoreCase = true)
         }

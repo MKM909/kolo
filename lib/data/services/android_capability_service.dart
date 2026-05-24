@@ -40,6 +40,13 @@ class AndroidCapabilityService {
     return opened ?? false;
   }
 
+  Future<bool> isAccessibilityServiceEnabled() async {
+    final enabled = await _channel.invokeMethod<bool>(
+      'isAccessibilityServiceEnabled',
+    );
+    return enabled ?? false;
+  }
+
   Future<bool> openNotificationListenerSettings() async {
     final opened = await _channel.invokeMethod<bool>(
       'openNotificationListenerSettings',

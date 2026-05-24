@@ -73,4 +73,13 @@ void main() {
     expect(mainActivity, contains('isNotificationListenerEnabled'));
     expect(mainActivity, contains('enabled_notification_listeners'));
   });
+
+  test('MainActivity exposes accessibility service enabled status', () {
+    final mainActivity = File(
+      'android/app/src/main/kotlin/com/micah/kolo/MainActivity.kt',
+    ).readAsStringSync();
+
+    expect(mainActivity, contains('isAccessibilityServiceEnabled'));
+    expect(mainActivity, contains('enabled_accessibility_services'));
+  });
 }

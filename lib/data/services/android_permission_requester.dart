@@ -23,7 +23,9 @@ class AndroidPermissionRequester implements PermissionRequester {
         return _fromStatus(await Permission.systemAlertWindow.request());
       case KoloPermission.accessibility:
         await _capabilities.openAccessibilitySettings();
-        return PermissionGrantState.notRequested;
+        return await _capabilities.isAccessibilityServiceEnabled()
+            ? PermissionGrantState.granted
+            : PermissionGrantState.notRequested;
       case KoloPermission.backgroundService:
         return PermissionGrantState.granted;
     }
