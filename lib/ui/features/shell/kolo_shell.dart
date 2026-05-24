@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kolo/ui/core/theme/kolo_theme.dart';
+import 'package:kolo/ui/features/assistant/kolo_floating_assistant.dart';
 
 class KoloShell extends StatelessWidget {
   const KoloShell({required this.navigationShell, super.key});
@@ -11,7 +12,12 @@ class KoloShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
-      body: navigationShell,
+      body: Stack(
+        children: [
+          navigationShell,
+          const KoloFloatingAssistant(),
+        ],
+      ),
       bottomNavigationBar: _KoloBottomNav(
         currentIndex: navigationShell.currentIndex,
         onSelect: (index) {
