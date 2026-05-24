@@ -49,6 +49,22 @@ void main() {
     expect(auth.lastCreateEmail, 'me@kolo.app');
     expect(auth.lastCreatePassword, 'secret123');
   });
+
+  testWidgets('login can start Google sign-in', (tester) async {
+    final auth = _RecordingAuthRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [authRepositoryProvider.overrideWithValue(auth)],
+        child: const MaterialApp(home: LoginScreen()),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('auth_google_sign_in')));
+    await tester.pump();
+
+    expect(auth.googleSignInCalls, 1);
+  });
 }
 
 class _RecordingAuthRepository implements AuthRepository {
@@ -57,6 +73,7 @@ class _RecordingAuthRepository implements AuthRepository {
   String? lastCreatePassword;
   String? lastSignInEmail;
   String? lastSignInPassword;
+  int googleSignInCalls = 0;
 
   @override
   Future<AuthUser> createUserWithEmail({
@@ -72,6 +89,16 @@ class _RecordingAuthRepository implements AuthRepository {
 
   @override
   Future<void> signOut() async {}
+
+  @override
+  Future<AuthUser> signInWithGoogle() async {
+    googleSignInCalls += 1;
+    return const AuthUser(
+      uid: 'google-user',
+      email: 'google@kolo.app',
+      displayName: 'Google User',
+    );
+  }
 
   @override
   Future<AuthUser> signInWithEmail({

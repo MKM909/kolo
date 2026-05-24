@@ -30,7 +30,22 @@ class FakeAuthRepository implements AuthRepository {
     required String email,
     required String password,
   }) async {
-    final user = AuthUser(uid: 'demo-user', email: email, displayName: 'Kolo User');
+    final user = AuthUser(
+      uid: 'demo-user',
+      email: email,
+      displayName: 'Kolo User',
+    );
+    _setUser(user);
+    return user;
+  }
+
+  @override
+  Future<AuthUser> signInWithGoogle() async {
+    const user = AuthUser(
+      uid: 'demo-google-user',
+      email: 'google@kolo.app',
+      displayName: 'Google User',
+    );
     _setUser(user);
     return user;
   }

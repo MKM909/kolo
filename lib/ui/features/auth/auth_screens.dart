@@ -200,6 +200,16 @@ class _AuthPanelState extends ConsumerState<_AuthPanel> {
                             child: Text(_loading ? 'Please wait' : 'Continue'),
                           ),
                         ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            key: const Key('auth_google_sign_in'),
+                            onPressed: _loading ? null : _signInWithGoogle,
+                            icon: const Icon(Icons.account_circle_outlined),
+                            label: const Text('Continue with Google'),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -250,6 +260,32 @@ class _AuthPanelState extends ConsumerState<_AuthPanel> {
       }
     }
   }
+
+  Future<void> _signInWithGoogle() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      await ref.read(authRepositoryProvider).signInWithGoogle();
+
+      if (!mounted) return;
+      final router = GoRouter.maybeOf(context);
+      router?.go(_isSignup ? '/onboarding' : '/home');
+    } on Object catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error.toString();
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
+    }
+  }
 }
 
 class _OnboardingSetupScreen extends ConsumerStatefulWidget {
@@ -260,7 +296,8 @@ class _OnboardingSetupScreen extends ConsumerStatefulWidget {
       _OnboardingSetupScreenState();
 }
 
-class _OnboardingSetupScreenState extends ConsumerState<_OnboardingSetupScreen> {
+class _OnboardingSetupScreenState
+    extends ConsumerState<_OnboardingSetupScreen> {
   final _incomeController = TextEditingController();
   final _balanceController = TextEditingController();
   int _step = 0;
@@ -486,10 +523,10 @@ class _OnboardingSetupScreenState extends ConsumerState<_OnboardingSetupScreen> 
   }
 
   String _keySlug(String value) {
-    return value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_').replaceAll(
-      RegExp(r'(^_|_$)'),
-      '',
-    );
+    return value
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+        .replaceAll(RegExp(r'(^_|_$)'), '');
   }
 }
 
@@ -684,10 +721,7 @@ class _PermissionSetupPanelState extends ConsumerState<_PermissionSetupPanel> {
                         .request(permission.permission);
                     await ref
                         .read(koloRepositoryProvider)
-                        .updatePermission(
-                          permission.permission,
-                          state,
-                        );
+                        .updatePermission(permission.permission, state);
                     if (!mounted) return;
                     if (state == PermissionGrantState.granted) {
                       setState(() => _granted.add(permission.permission));
@@ -782,7 +816,9 @@ class _PermissionSetupTile extends StatelessWidget {
               ),
               child: Text(
                 granted ? 'Granted' : 'Setup',
-                key: granted ? Key('permission_granted_${spec.permission.name}') : null,
+                key: granted
+                    ? Key('permission_granted_${spec.permission.name}')
+                    : null,
                 style: TextStyle(
                   color: granted ? KoloColors.income : KoloColors.primary,
                   fontWeight: FontWeight.w700,

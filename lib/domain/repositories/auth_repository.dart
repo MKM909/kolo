@@ -1,9 +1,5 @@
 class AuthUser {
-  const AuthUser({
-    required this.uid,
-    required this.email,
-    this.displayName,
-  });
+  const AuthUser({required this.uid, required this.email, this.displayName});
 
   final String uid;
   final String email;
@@ -23,6 +19,8 @@ abstract class AuthRepository {
     required String email,
     required String password,
   });
+
+  Future<AuthUser> signInWithGoogle();
 
   Future<void> signOut();
 }
