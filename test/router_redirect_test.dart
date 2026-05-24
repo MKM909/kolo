@@ -48,6 +48,23 @@ void main() {
 
     expect(find.text('Income source'), findsOneWidget);
   });
+
+  testWidgets('signed-in users with a locked session open biometric lock', (
+    tester,
+  ) async {
+    await _pumpWithRouter(
+      tester,
+      firebaseInitialized: true,
+      authKnown: true,
+      signedIn: true,
+      requiresBiometricUnlock: true,
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Unlock Kolo'), findsOneWidget);
+    expect(find.byKey(const Key('biometric_lock_unlock')), findsOneWidget);
+  });
 }
 
 Future<void> _pumpWithRouter(
@@ -56,6 +73,7 @@ Future<void> _pumpWithRouter(
   required bool authKnown,
   required bool signedIn,
   bool onboardingComplete = true,
+  bool requiresBiometricUnlock = false,
 }) {
   return tester.pumpWidget(
     ProviderScope(
@@ -65,6 +83,7 @@ Future<void> _pumpWithRouter(
           authKnown: authKnown,
           signedIn: signedIn,
           onboardingComplete: onboardingComplete,
+          requiresBiometricUnlock: requiresBiometricUnlock,
         ),
       ),
     ),

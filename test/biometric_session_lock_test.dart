@@ -34,6 +34,22 @@ void main() {
 
     expect(lock.requiresUnlock, isFalse);
   });
+
+  test('notifies listeners when unlock clears the session lock', () {
+    final clock = _FakeClock(DateTime(2026, 5, 24, 9));
+    final lock = BiometricSessionLock(now: clock.now);
+    var notifications = 0;
+
+    lock.addListener(() => notifications += 1);
+    lock.enable();
+    lock.markAppPaused();
+    clock.advance(const Duration(minutes: 6));
+    notifications = 0;
+    lock.markUnlocked();
+
+    expect(lock.requiresUnlock, isFalse);
+    expect(notifications, 1);
+  });
 }
 
 class _FakeClock {

@@ -72,6 +72,114 @@ class PermissionSetupScreen extends StatelessWidget {
   }
 }
 
+class BiometricLockScreen extends ConsumerStatefulWidget {
+  const BiometricLockScreen({super.key});
+
+  @override
+  ConsumerState<BiometricLockScreen> createState() =>
+      _BiometricLockScreenState();
+}
+
+class _BiometricLockScreenState extends ConsumerState<BiometricLockScreen> {
+  bool _loading = false;
+  String? _error;
+
+  @override
+  Widget build(BuildContext context) {
+    return KoloGradientScaffold(
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              KoloCard(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      height: 64,
+                      width: 64,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: KoloColors.primaryPastel,
+                      ),
+                      child: const Icon(
+                        Icons.fingerprint,
+                        color: KoloColors.primary,
+                        size: 34,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      'Unlock Kolo',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Your money context is private. Confirm it is you to continue.',
+                      textAlign: TextAlign.center,
+                    ),
+                    if (_error != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        _error!,
+                        style: const TextStyle(color: KoloColors.expense),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        key: const Key('biometric_lock_unlock'),
+                        onPressed: _loading ? null : _unlock,
+                        icon: const Icon(Icons.lock_open_rounded),
+                        label: Text(_loading ? 'Checking' : 'Unlock'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _unlock() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final unlocked = await ref.read(biometricUnlockServiceProvider).unlock();
+      if (!mounted) return;
+      if (unlocked) {
+        ref.read(biometricSessionLockProvider).markUnlocked();
+        GoRouter.maybeOf(context)?.go('/home');
+      } else {
+        setState(() {
+          _error = 'Biometric unlock was not available.';
+        });
+      }
+    } on Object catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error.toString();
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
+    }
+  }
+}
+
 enum _AuthMode { login, signup }
 
 class _AuthPanel extends ConsumerStatefulWidget {

@@ -1,4 +1,6 @@
-class BiometricSessionLock {
+import 'package:flutter/foundation.dart';
+
+class BiometricSessionLock extends ChangeNotifier {
   BiometricSessionLock({
     DateTime Function()? now,
     this.timeout = const Duration(minutes: 5),
@@ -26,25 +28,31 @@ class BiometricSessionLock {
     _enabled = true;
     _locked = false;
     _pausedAt = null;
+    notifyListeners();
   }
 
   void disable() {
     _enabled = false;
     _locked = false;
     _pausedAt = null;
+    notifyListeners();
   }
 
   void markAppPaused() {
     if (!_enabled) return;
     _pausedAt = _now();
+    notifyListeners();
   }
 
   void markUnlocked() {
     _locked = false;
     _pausedAt = null;
+    notifyListeners();
   }
 
   void lockNow() {
-    if (_enabled) _locked = true;
+    if (!_enabled) return;
+    _locked = true;
+    notifyListeners();
   }
 }

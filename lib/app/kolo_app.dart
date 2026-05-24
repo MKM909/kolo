@@ -59,11 +59,15 @@ final koloRouterProvider = Provider<GoRouter>((ref) {
               loading: () => true,
             )
       : true;
+  final requiresBiometricUnlock = bootstrap.initialized && signedIn
+      ? ref.watch(biometricSessionRequiresUnlockProvider)
+      : false;
 
   return buildKoloRouter(
     firebaseInitialized: bootstrap.initialized,
     authKnown: !authState.isLoading,
     signedIn: signedIn,
     onboardingComplete: onboardingComplete,
+    requiresBiometricUnlock: requiresBiometricUnlock,
   );
 });

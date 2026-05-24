@@ -1,10 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:kolo/app/backend_selector.dart';
 import 'package:kolo/data/repositories/fake_auth_repository.dart';
 import 'package:kolo/data/repositories/fake_kolo_repository.dart';
 import 'package:kolo/data/repositories/firebase_auth_repository.dart';
 import 'package:kolo/data/repositories/firebase_kolo_repository.dart';
 import 'package:kolo/data/services/android_capability_service.dart';
+import 'package:kolo/data/services/biometric_session_lock.dart';
 import 'package:kolo/data/services/biometric_unlock_service.dart';
 import 'package:kolo/data/services/cloud_ai_service.dart';
 import 'package:kolo/data/services/firebase_bootstrap.dart';
@@ -40,6 +42,15 @@ final overlayBubbleServiceProvider = Provider<OverlayBubbleService>((ref) {
 
 final biometricUnlockServiceProvider = Provider<BiometricUnlockService>((ref) {
   return BiometricUnlockService();
+});
+
+final biometricSessionLockProvider =
+    ChangeNotifierProvider<BiometricSessionLock>((ref) {
+      return BiometricSessionLock();
+    });
+
+final biometricSessionRequiresUnlockProvider = Provider<bool>((ref) {
+  return ref.watch(biometricSessionLockProvider).requiresUnlock;
 });
 
 final transactionCategorizerProvider = Provider<TransactionCategorizer?>((ref) {

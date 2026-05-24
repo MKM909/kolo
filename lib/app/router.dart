@@ -13,6 +13,7 @@ GoRouter buildKoloRouter({
   bool authKnown = true,
   bool signedIn = false,
   bool onboardingComplete = true,
+  bool requiresBiometricUnlock = false,
 }) {
   return GoRouter(
     initialLocation: '/home',
@@ -27,8 +28,17 @@ GoRouter buildKoloRouter({
           path == '/onboarding';
 
       if (!signedIn && !isAuthRoute) return '/login';
-      if (signedIn && !onboardingComplete && path != '/onboarding' && path != '/permissions') {
+      if (signedIn &&
+          !onboardingComplete &&
+          path != '/onboarding' &&
+          path != '/permissions') {
         return '/onboarding';
+      }
+      if (signedIn && onboardingComplete && requiresBiometricUnlock) {
+        if (path != '/lock') return '/lock';
+      }
+      if (signedIn && !requiresBiometricUnlock && path == '/lock') {
+        return '/home';
       }
       if (signedIn && (path == '/login' || path == '/signup')) return '/home';
       return null;
@@ -50,6 +60,10 @@ GoRouter buildKoloRouter({
       GoRoute(
         path: '/permissions',
         builder: (context, state) => const PermissionSetupScreen(),
+      ),
+      GoRoute(
+        path: '/lock',
+        builder: (context, state) => const BiometricLockScreen(),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
