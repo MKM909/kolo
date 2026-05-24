@@ -300,6 +300,42 @@ void main() {
     );
   });
 
+  testWidgets('profile partner sharing invites and revokes a partner', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.person_outline));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Partner Sharing'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const Key('open_partner_sharing')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('partner_sharing_sheet')), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('new_partner_email')),
+      'ade@example.com',
+    );
+    await tester.ensureVisible(find.byKey(const Key('save_new_partner')));
+    await tester.tap(find.byKey(const Key('save_new_partner')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ade@example.com'), findsWidgets);
+    expect(find.text('pending'), findsWidgets);
+
+    await tester.tap(find.byKey(const Key('revoke_partner_share-1')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('revoked'), findsWidgets);
+  });
+
   testWidgets('profile can grant a permission from locked state', (
     tester,
   ) async {

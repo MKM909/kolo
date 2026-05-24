@@ -120,6 +120,11 @@ class ProfileScreen extends ConsumerWidget {
             ),
             _ProfileSection(
               title: 'Partner Sharing',
+              action: TextButton(
+                key: const Key('open_partner_sharing'),
+                onPressed: () => _openPartnerSharingSheet(context),
+                child: const Text('Manage'),
+              ),
               children: [
                 for (final share in state.partnerShares)
                   _SimpleRow(
@@ -169,6 +174,16 @@ class ProfileScreen extends ConsumerWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => const _BillRemindersSheet(),
+    );
+  }
+
+  Future<void> _openPartnerSharingSheet(BuildContext context) {
+    return showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const _PartnerSharingSheet(),
     );
   }
 }
@@ -742,6 +757,253 @@ String _dateInput(DateTime date) {
   final month = date.month.toString().padLeft(2, '0');
   final day = date.day.toString().padLeft(2, '0');
   return '${date.year}-$month-$day';
+}
+
+class _PartnerSharingSheet extends ConsumerStatefulWidget {
+  const _PartnerSharingSheet();
+
+  @override
+  ConsumerState<_PartnerSharingSheet> createState() =>
+      _PartnerSharingSheetState();
+}
+
+class _PartnerSharingSheetState extends ConsumerState<_PartnerSharingSheet> {
+  static const _permissionOptions = {
+    'balance_summary': 'Balance summary',
+    'budget_summary': 'Budget summary',
+    'vault_goals': 'Vault goals',
+    'owings': 'Owings',
+    'bills': 'Bills',
+    'weekly_insights': 'Weekly insights',
+  };
+
+  final TextEditingController _emailController = TextEditingController();
+  final Set<String> _selectedPermissions = {
+    'balance_summary',
+    'budget_summary',
+    'weekly_insights',
+  };
+  String? _error;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dashboard = ref.watch(dashboardProvider);
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Container(
+        key: const Key('partner_sharing_sheet'),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.82,
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+        decoration: const BoxDecoration(
+          color: Color(0xF0FFFFFF),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          boxShadow: [
+            BoxShadow(
+              color: Color(0x20000000),
+              blurRadius: 40,
+              offset: Offset(0, -8),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    height: 4,
+                    width: 42,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE5E7EB),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Partner Sharing',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 18),
+                dashboard.when(
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (error, _) => Text('Could not load shares: $error'),
+                  data: (state) => Column(
+                    children: [
+                      for (final share in state.partnerShares)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _PartnerShareCard(
+                            share: share,
+                            onRevoke: () => _revoke(share),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Invite partner',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const Key('new_partner_email'),
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  textInputAction: TextInputAction.done,
+                  decoration: const InputDecoration(labelText: 'Email'),
+                ),
+                const SizedBox(height: 12),
+                for (final option in _permissionOptions.entries)
+                  CheckboxListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    activeColor: KoloColors.primary,
+                    title: Text(option.value),
+                    value: _selectedPermissions.contains(option.key),
+                    onChanged: (selected) {
+                      setState(() {
+                        if (selected ?? false) {
+                          _selectedPermissions.add(option.key);
+                        } else {
+                          _selectedPermissions.remove(option.key);
+                        }
+                      });
+                    },
+                  ),
+                if (_error != null) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    _error!,
+                    style: const TextStyle(color: KoloColors.expense),
+                  ),
+                ],
+                const SizedBox(height: 18),
+                ElevatedButton(
+                  key: const Key('save_new_partner'),
+                  onPressed: _save,
+                  child: const Text('Invite partner'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _save() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty || !email.contains('@') || _selectedPermissions.isEmpty) {
+      setState(() => _error = 'Enter an email and choose at least one area.');
+      return;
+    }
+
+    final now = DateTime.now();
+    await ref
+        .read(koloRepositoryProvider)
+        .upsertPartnerShare(
+          PartnerShare(
+            id: 'share-${now.microsecondsSinceEpoch}',
+            partnerEmail: email,
+            status: ShareStatus.pending,
+            permissions: Set.unmodifiable(_selectedPermissions),
+            createdAt: now,
+          ),
+        );
+    _emailController.clear();
+    if (mounted) setState(() => _error = null);
+  }
+
+  Future<void> _revoke(PartnerShare share) async {
+    await ref
+        .read(koloRepositoryProvider)
+        .upsertPartnerShare(
+          PartnerShare(
+            id: share.id,
+            partnerEmail: share.partnerEmail,
+            status: ShareStatus.revoked,
+            permissions: share.permissions,
+            createdAt: share.createdAt,
+            revokedAt: DateTime.now(),
+          ),
+        );
+  }
+}
+
+class _PartnerShareCard extends StatelessWidget {
+  const _PartnerShareCard({required this.share, required this.onRevoke});
+
+  final PartnerShare share;
+  final Future<void> Function() onRevoke;
+
+  @override
+  Widget build(BuildContext context) {
+    final revoked = share.status == ShareStatus.revoked;
+    final color = revoked ? KoloColors.textMuted : KoloColors.primary;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 20,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: KoloColors.primaryPastel,
+            child: Icon(Icons.verified_user_outlined, color: color),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  share.partnerEmail,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  share.status.name,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelMedium?.copyWith(color: color),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            key: Key('revoke_partner_${share.id}'),
+            onPressed: revoked ? null : onRevoke,
+            child: Text(revoked ? 'Revoked' : 'Revoke'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _ProgressRow extends StatelessWidget {
