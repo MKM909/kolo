@@ -1,6 +1,7 @@
 import {genkit, z} from "genkit";
 import {googleAI, gemini20Flash} from "@genkit-ai/googleai";
 import {onCallGenkit} from "firebase-functions/https";
+import {requireCallableAuth} from "./callable_guards.js";
 import {buildChatPrompt, KoloAiContext} from "./prompts.js";
 
 const ai = genkit({
@@ -49,7 +50,8 @@ const chatFlow = ai.defineFlow(
     inputSchema: chatSchema,
     outputSchema: z.object({content: z.string()}),
   },
-  async ({message, context}) => {
+  async ({message, context}, {context: flowContext}) => {
+    requireCallableAuth(flowContext);
     const response = await ai.generate({
       prompt: buildChatPrompt(message, context as KoloAiContext),
     });
@@ -77,7 +79,8 @@ const generateBudgetFlow = ai.defineFlow(
       ),
     }),
   },
-  async ({answers}) => {
+  async ({answers}, {context: flowContext}) => {
+    requireCallableAuth(flowContext);
     const balance = answers.currentBalanceKobo;
     const response = await ai.generate({
       prompt: [
@@ -118,9 +121,10 @@ const simpleTextFlow = (name: string, purpose: string) =>
       inputSchema: z.object({context: z.record(z.string(), z.unknown()).optional()}),
       outputSchema: z.object({content: z.string()}),
     },
-    async ({context}) => {
+    async ({context: inputContext}, {context: flowContext}) => {
+      requireCallableAuth(flowContext);
       const response = await ai.generate({
-        prompt: `${purpose}\nContext JSON: ${JSON.stringify(context ?? {})}`,
+        prompt: `${purpose}\nContext JSON: ${JSON.stringify(inputContext ?? {})}`,
       });
       return {content: response.text};
     },

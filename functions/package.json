@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc",
     "serve": "npm run build && firebase emulators:start --only functions,firestore,auth",
-    "test": "npm run build",
+    "test": "npm run build && node --test \"lib/**/*.test.js\"",
     "deploy": "firebase deploy --only functions,firestore"
   },
   "engines": {
