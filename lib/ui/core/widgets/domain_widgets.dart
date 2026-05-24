@@ -17,6 +17,8 @@ class BalanceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isNegative = balanceKobo < 0;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
@@ -65,13 +67,51 @@ class BalanceCard extends StatelessWidget {
               ),
               Text(
                 MoneyFormatter.formatKobo(balanceKobo),
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'DM Mono',
-                  color: Colors.white,
+                  color: isNegative ? KoloColors.expense : Colors.white,
                   fontSize: 34,
                   fontWeight: FontWeight.w800,
                 ),
               ),
+              if (isNegative) ...[
+                const SizedBox(height: 10),
+                Container(
+                  key: const Key('balance_negative_warning'),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: KoloColors.expense.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: KoloColors.expense.withValues(alpha: 0.36),
+                    ),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.warning_amber_rounded,
+                        color: KoloColors.expense,
+                        size: 16,
+                      ),
+                      SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          "Balance is in the red. Let's talk before spending.",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 18),
               Row(
                 children: [
