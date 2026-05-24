@@ -191,4 +191,25 @@ void main() {
     expect(payload['note'], 'Added social templates');
     expect((payload['date'] as Timestamp).toDate(), date);
   });
+
+  test('serializes bill reminders for Firebase persistence', () {
+    final dueDate = DateTime(2026, 6, 1);
+
+    final payload = FirebaseKoloMapper.billToJson(
+      BillReminder(
+        id: 'bill-wifi',
+        name: 'Wifi subscription',
+        amountKobo: 1800000,
+        frequency: 'Monthly',
+        nextDue: dueDate,
+        active: false,
+      ),
+    );
+
+    expect(payload['name'], 'Wifi subscription');
+    expect(payload['amountKobo'], 1800000);
+    expect(payload['frequency'], 'Monthly');
+    expect(payload['active'], isFalse);
+    expect((payload['nextDue'] as Timestamp).toDate(), dueDate);
+  });
 }

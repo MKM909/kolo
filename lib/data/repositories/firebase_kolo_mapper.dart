@@ -97,6 +97,16 @@ class FirebaseKoloMapper {
     };
   }
 
+  static Map<String, Object?> billToJson(BillReminder bill) {
+    return {
+      'name': bill.name,
+      'amountKobo': bill.amountKobo,
+      'frequency': bill.frequency,
+      'nextDue': Timestamp.fromDate(bill.nextDue),
+      'active': bill.active,
+    };
+  }
+
   static Map<String, Object?> aiMessageToJson(AiMessage message) {
     return {
       'role': message.role.name,

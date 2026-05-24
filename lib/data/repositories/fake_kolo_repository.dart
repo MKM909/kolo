@@ -302,6 +302,29 @@ class FakeKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<void> upsertBill(BillReminder bill) async {
+    final otherBills = _state.bills
+        .where((existing) => existing.id != bill.id)
+        .toList(growable: false);
+    _state = _state.copyWith(
+      bills: [bill, ...otherBills],
+      aiMessages: [
+        AiMessage(
+          id: 'ai-${bill.id}-${DateTime.now().microsecondsSinceEpoch}',
+          role: AiRole.assistant,
+          content: bill.active
+              ? '${bill.name} reminder is set for ${MoneyFormatter.formatKobo(bill.amountKobo)}.'
+              : '${bill.name} reminder is paused.',
+          timestamp: DateTime.now(),
+          context: 'bill',
+        ),
+        ..._state.aiMessages,
+      ],
+    );
+    _controller.add(_state);
+  }
+
+  @override
   Future<void> logTransaction(TransactionRecord transaction) async {
     final updatedTransactions = [transaction, ..._state.transactions];
     _state = _state.copyWith(

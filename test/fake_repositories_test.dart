@@ -155,6 +155,44 @@ void main() {
     expect(dashboard.aiMessages.first.context, 'gig');
   });
 
+  test('fake repository creates and updates bill reminders', () async {
+    final repository = FakeKoloRepository.seeded();
+    final dueDate = DateTime(2026, 6, 1);
+
+    await repository.upsertBill(
+      BillReminder(
+        id: 'bill-wifi',
+        name: 'Wifi subscription',
+        amountKobo: 1800000,
+        frequency: 'Monthly',
+        nextDue: dueDate,
+      ),
+    );
+
+    var dashboard = await repository.watchDashboard().first;
+    expect(dashboard.bills.first.name, 'Wifi subscription');
+    expect(dashboard.bills.first.active, isTrue);
+
+    await repository.upsertBill(
+      BillReminder(
+        id: 'bill-wifi',
+        name: 'Wifi subscription',
+        amountKobo: 1800000,
+        frequency: 'Monthly',
+        nextDue: dueDate,
+        active: false,
+      ),
+    );
+
+    dashboard = await repository.watchDashboard().first;
+    expect(dashboard.bills.first.active, isFalse);
+    expect(
+      dashboard.bills.where((bill) => bill.id == 'bill-wifi'),
+      hasLength(1),
+    );
+    expect(dashboard.aiMessages.first.context, 'bill');
+  });
+
   test('fake AI returns an onboarding budget and stores messages', () async {
     final repository = FakeKoloRepository.seeded();
 

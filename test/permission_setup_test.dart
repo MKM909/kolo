@@ -74,6 +74,11 @@ class _RecordingKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<void> upsertBill(BillReminder bill) {
+    throw UnimplementedError();
+  }
+
+  @override
   Future<BudgetPlan> completeOnboarding(OnboardingAnswers answers) {
     throw UnimplementedError();
   }
