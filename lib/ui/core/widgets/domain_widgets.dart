@@ -110,45 +110,50 @@ class BalanceCard extends StatelessWidget {
 }
 
 class TransactionTile extends StatelessWidget {
-  const TransactionTile({required this.transaction, super.key});
+  const TransactionTile({required this.transaction, this.onTap, super.key});
 
   final TransactionRecord transaction;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final isIncome = transaction.type == TransactionType.income;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        children: [
-          CircleAvatar(
-            backgroundColor: KoloColors.primaryPastel,
-            child: Text(isIncome ? '+' : _emojiFor(transaction.category)),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  transaction.description,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-                Text(
-                  transaction.category,
-                  style: Theme.of(context).textTheme.labelMedium,
-                ),
-              ],
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: KoloColors.primaryPastel,
+              child: Text(isIncome ? '+' : _emojiFor(transaction.category)),
             ),
-          ),
-          Text(
-            '${isIncome ? '+' : '-'}${MoneyFormatter.formatKobo(transaction.amountKobo)}',
-            style: TextStyle(
-              color: isIncome ? KoloColors.income : KoloColors.expense,
-              fontWeight: FontWeight.w800,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    transaction.description,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  Text(
+                    transaction.category,
+                    style: Theme.of(context).textTheme.labelMedium,
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+            Text(
+              '${isIncome ? '+' : '-'}${MoneyFormatter.formatKobo(transaction.amountKobo)}',
+              style: TextStyle(
+                color: isIncome ? KoloColors.income : KoloColors.expense,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

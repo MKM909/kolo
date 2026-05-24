@@ -56,6 +56,27 @@ void main() {
     expect(find.text('-₦2,500.00'), findsOneWidget);
   });
 
+  testWidgets('transaction history opens a detail sheet with AI context', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.receipt_long_outlined));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Chicken Republic'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('transaction_detail_sheet')), findsOneWidget);
+    expect(find.text('Food & Snacks'), findsWidgets);
+    expect(
+      find.text('Caution: food budget is climbing quickly.'),
+      findsOneWidget,
+    );
+    expect(find.text('sms'), findsOneWidget);
+  });
+
   testWidgets('balance adjustment sheet updates the dashboard balance', (
     tester,
   ) async {
