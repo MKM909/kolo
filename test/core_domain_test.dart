@@ -111,5 +111,32 @@ void main() {
       expect(draft.balanceAfterKobo, 2240000);
       expect(draft.source, TransactionSource.notification);
     });
+
+    test('parses Zenith credit alerts without keeping date fragments', () {
+      const sms =
+          'ZenithBank: Acct credited with NGN45,000.00 by ACME LTD on 24-May-2026. Bal: NGN90,000.00';
+
+      final draft = TransactionParser.parse(sms);
+
+      expect(draft, isNotNull);
+      expect(draft!.type, TransactionType.income);
+      expect(draft.amountKobo, 4500000);
+      expect(draft.merchantName, 'ACME LTD');
+      expect(draft.balanceAfterKobo, 9000000);
+    });
+
+    test('parses Access debit descriptions into airtime category', () {
+      const sms =
+          'AccessMore: Debit Amt: NGN7,500.00 Desc: MTN AIRTIME Bal: NGN15,000.00';
+
+      final draft = TransactionParser.parse(sms);
+
+      expect(draft, isNotNull);
+      expect(draft!.type, TransactionType.expense);
+      expect(draft.amountKobo, 750000);
+      expect(draft.merchantName, 'MTN AIRTIME');
+      expect(draft.category, 'Data & Airtime');
+      expect(draft.balanceAfterKobo, 1500000);
+    });
   });
 }

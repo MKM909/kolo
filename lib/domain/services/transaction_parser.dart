@@ -67,9 +67,13 @@ class TransactionParser {
     final patterns = type == TransactionType.income
         ? [
             RegExp(r'from\s+(.+?)(?:\.|,|$)', caseSensitive: false),
-            RegExp(r'by\s+(.+?)(?:\.|,|$)', caseSensitive: false),
+            RegExp(r'by\s+(.+?)(?:\s+on\s+|\.|,|$)', caseSensitive: false),
           ]
         : [
+            RegExp(
+              r'(?:desc|description|narration)[:\s]+(.+?)(?:\s+Bal|Balance|\.|,|$)',
+              caseSensitive: false,
+            ),
             RegExp(r'at\s+(.+?)(?:\.|,|Bal|Balance|$)', caseSensitive: false),
             RegExp(r'to\s+(.+?)(?:\.|,|Bal|Balance|$)', caseSensitive: false),
           ];
