@@ -276,6 +276,29 @@ void main() {
     expect(find.byKey(const Key('budget_weekly_bar_chart')), findsOneWidget);
   });
 
+  testWidgets('budget ask Kolo action opens AI with a re-plan prompt', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.pie_chart_outline));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('budget_ask_kolo_replan')),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const Key('budget_ask_kolo_replan')));
+    await tester.pumpAndSettle();
+
+    final input = tester.widget<TextField>(
+      find.byKey(const Key('kolo_ai_chat_input')),
+    );
+    expect(input.controller?.text, contains('Redo my budget'));
+  });
+
   testWidgets('home vaults quick action creates a savings vault', (
     tester,
   ) async {

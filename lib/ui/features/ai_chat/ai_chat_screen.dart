@@ -7,7 +7,9 @@ import 'package:kolo/ui/core/widgets/kolo_scaffold.dart';
 import 'package:kolo/ui/core/widgets/kolo_liquid_aether_orb.dart';
 
 class AiChatScreen extends ConsumerStatefulWidget {
-  const AiChatScreen({super.key});
+  const AiChatScreen({super.key, this.initialPrompt});
+
+  final String? initialPrompt;
 
   @override
   ConsumerState<AiChatScreen> createState() => _AiChatScreenState();
@@ -15,6 +17,19 @@ class AiChatScreen extends ConsumerStatefulWidget {
 
 class _AiChatScreenState extends ConsumerState<AiChatScreen> {
   final TextEditingController _controller = TextEditingController();
+  String? _seededPrompt;
+
+  @override
+  void initState() {
+    super.initState();
+    _seedPrompt();
+  }
+
+  @override
+  void didUpdateWidget(covariant AiChatScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialPrompt != widget.initialPrompt) _seedPrompt();
+  }
 
   @override
   void dispose() {
@@ -86,6 +101,13 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     if (text.isEmpty) return;
     await ref.read(koloRepositoryProvider).sendAiMessage(text);
     if (rawText == _controller.text) _controller.clear();
+  }
+
+  void _seedPrompt() {
+    final prompt = widget.initialPrompt?.trim();
+    if (prompt == null || prompt.isEmpty || prompt == _seededPrompt) return;
+    _controller.text = prompt;
+    _seededPrompt = prompt;
   }
 }
 

@@ -1,6 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:kolo/app/providers.dart';
 import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/services/financial_calculator.dart';
@@ -125,6 +126,17 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                       ),
                     ),
                 ],
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                key: const Key('budget_ask_kolo_replan'),
+                onPressed: () {
+                  context.go(
+                    '/ai?prompt=${Uri.encodeQueryComponent('Redo my budget based on my current balance, savings goal, and recent spending.')}',
+                  );
+                },
+                icon: const Icon(Icons.auto_awesome),
+                label: const Text('Ask Kolo to re-plan'),
               ),
               const SizedBox(height: 16),
               KoloCard(

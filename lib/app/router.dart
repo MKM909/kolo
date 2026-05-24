@@ -102,7 +102,9 @@ GoRouter buildKoloRouter({
             routes: [
               GoRoute(
                 path: '/ai',
-                builder: (context, state) => const AiChatScreen(),
+                builder: (context, state) => AiChatScreen(
+                  initialPrompt: state.uri.queryParameters['prompt'],
+                ),
               ),
             ],
           ),
