@@ -806,6 +806,49 @@ void main() {
     expect(find.text('revoked'), findsWidgets);
   });
 
+  testWidgets('partner sharing cards show selected summary areas', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.person_outline));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Partner Sharing'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const Key('open_partner_sharing')));
+    await tester.pumpAndSettle();
+
+    final shareCard = find.byKey(const Key('partner_share_card_share-1'));
+
+    expect(shareCard, findsOneWidget);
+    expect(
+      find.descendant(
+        of: shareCard,
+        matching: find.textContaining('Balance summary'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: shareCard,
+        matching: find.textContaining('Budget summary'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: shareCard,
+        matching: find.textContaining('Weekly insights'),
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('profile watched apps toggles an app', (tester) async {
     await tester.pumpWidget(const KoloApp());
     await tester.pumpAndSettle();

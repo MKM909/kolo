@@ -1541,6 +1541,15 @@ String _dateInput(DateTime date) {
   return '${date.year}-$month-$day';
 }
 
+const _partnerPermissionLabels = {
+  'balance_summary': 'Balance summary',
+  'budget_summary': 'Budget summary',
+  'vault_goals': 'Vault goals',
+  'owings': 'Owings',
+  'bills': 'Bills',
+  'weekly_insights': 'Weekly insights',
+};
+
 class _PartnerSharingSheet extends ConsumerStatefulWidget {
   const _PartnerSharingSheet();
 
@@ -1550,15 +1559,6 @@ class _PartnerSharingSheet extends ConsumerStatefulWidget {
 }
 
 class _PartnerSharingSheetState extends ConsumerState<_PartnerSharingSheet> {
-  static const _permissionOptions = {
-    'balance_summary': 'Balance summary',
-    'budget_summary': 'Budget summary',
-    'vault_goals': 'Vault goals',
-    'owings': 'Owings',
-    'bills': 'Bills',
-    'weekly_insights': 'Weekly insights',
-  };
-
   final TextEditingController _emailController = TextEditingController();
   final Set<String> _selectedPermissions = {
     'balance_summary',
@@ -1651,7 +1651,7 @@ class _PartnerSharingSheetState extends ConsumerState<_PartnerSharingSheet> {
                   decoration: const InputDecoration(labelText: 'Email'),
                 ),
                 const SizedBox(height: 12),
-                for (final option in _permissionOptions.entries)
+                for (final option in _partnerPermissionLabels.entries)
                   CheckboxListTile(
                     dense: true,
                     contentPadding: EdgeInsets.zero,
@@ -1739,6 +1739,7 @@ class _PartnerShareCard extends StatelessWidget {
     final revoked = share.status == ShareStatus.revoked;
     final color = revoked ? KoloColors.textMuted : KoloColors.primary;
     return Container(
+      key: Key('partner_share_card_${share.id}'),
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1774,6 +1775,15 @@ class _PartnerShareCard extends StatelessWidget {
                     context,
                   ).textTheme.labelMedium?.copyWith(color: color),
                 ),
+                const SizedBox(height: 4),
+                Text(
+                  _partnerPermissionSummary(share.permissions),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: KoloColors.textSecondary,
+                  ),
+                ),
               ],
             ),
           ),
@@ -1786,6 +1796,15 @@ class _PartnerShareCard extends StatelessWidget {
       ),
     );
   }
+}
+
+String _partnerPermissionSummary(Set<String> permissions) {
+  final labels = [
+    for (final entry in _partnerPermissionLabels.entries)
+      if (permissions.contains(entry.key)) entry.value,
+  ];
+  if (labels.isEmpty) return 'No shared areas';
+  return labels.join(', ');
 }
 
 class _WatchedAppsSheet extends ConsumerStatefulWidget {
