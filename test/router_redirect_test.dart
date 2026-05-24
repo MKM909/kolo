@@ -32,6 +32,22 @@ void main() {
 
     expect(find.text('Home'), findsWidgets);
   });
+
+  testWidgets('signed-in users with incomplete onboarding open onboarding', (
+    tester,
+  ) async {
+    await _pumpWithRouter(
+      tester,
+      firebaseInitialized: true,
+      authKnown: true,
+      signedIn: true,
+      onboardingComplete: false,
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Income source'), findsOneWidget);
+  });
 }
 
 Future<void> _pumpWithRouter(
@@ -39,6 +55,7 @@ Future<void> _pumpWithRouter(
   required bool firebaseInitialized,
   required bool authKnown,
   required bool signedIn,
+  bool onboardingComplete = true,
 }) {
   return tester.pumpWidget(
     ProviderScope(
@@ -47,6 +64,7 @@ Future<void> _pumpWithRouter(
           firebaseInitialized: firebaseInitialized,
           authKnown: authKnown,
           signedIn: signedIn,
+          onboardingComplete: onboardingComplete,
         ),
       ),
     ),

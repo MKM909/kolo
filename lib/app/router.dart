@@ -12,6 +12,7 @@ GoRouter buildKoloRouter({
   bool firebaseInitialized = false,
   bool authKnown = true,
   bool signedIn = false,
+  bool onboardingComplete = true,
 }) {
   return GoRouter(
     initialLocation: '/home',
@@ -26,6 +27,9 @@ GoRouter buildKoloRouter({
           path == '/onboarding';
 
       if (!signedIn && !isAuthRoute) return '/login';
+      if (signedIn && !onboardingComplete && path != '/onboarding' && path != '/permissions') {
+        return '/onboarding';
+      }
       if (signedIn && (path == '/login' || path == '/signup')) return '/home';
       return null;
     },
