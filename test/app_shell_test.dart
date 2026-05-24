@@ -5,6 +5,10 @@ import 'package:kolo/app/kolo_app.dart';
 import 'package:kolo/domain/services/money_formatter.dart';
 
 void main() {
+  setUpAll(() {
+    WidgetController.hitTestWarningShouldBeFatal = true;
+  });
+
   testWidgets('Kolo app shell renders all primary tabs', (tester) async {
     await tester.pumpWidget(const KoloApp());
     await tester.pumpAndSettle();
@@ -1057,14 +1061,14 @@ void main() {
     await tester.tap(find.byIcon(Icons.person_outline));
     await tester.pumpAndSettle();
 
+    const grantNotificationsKey = Key('grant_notifications');
     await tester.scrollUntilVisible(
-      find.text('notifications'),
+      find.byKey(grantNotificationsKey),
       500,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.drag(find.byType(Scrollable).first, const Offset(0, -180));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('grant_notifications')));
+    await tester.tap(find.byKey(grantNotificationsKey));
     await tester.pumpAndSettle();
 
     expect(find.text('granted'), findsWidgets);
