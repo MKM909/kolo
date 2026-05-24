@@ -607,6 +607,42 @@ void main() {
     );
   });
 
+  testWidgets('profile gig tracker shows earnings summary and cadence nudge', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.person_outline));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Gig Tracker'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const Key('open_gig_tracker')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('gig_summary_this_month')), findsOneWidget);
+    expect(find.byKey(const Key('gig_summary_this_year')), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('gig_summary_this_month')),
+        matching: find.text(MoneyFormatter.formatKobo(4500000)),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('gig_summary_this_year')),
+        matching: find.text(MoneyFormatter.formatKobo(4500000)),
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('since your last gig'), findsOneWidget);
+  });
+
   testWidgets('profile bill reminders logs a new bill', (tester) async {
     await tester.pumpWidget(const KoloApp());
     await tester.pumpAndSettle();

@@ -694,15 +694,47 @@ class _GigTrackerSheetState extends ConsumerState<_GigTrackerSheet> {
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
                   error: (error, _) => Text('Could not load gigs: $error'),
-                  data: (state) => Column(
-                    children: [
-                      for (final gig in state.gigs)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _GigCard(gig: gig),
+                  data: (state) {
+                    final now = DateTime.now();
+                    final thisMonthKobo = _gigTotalForPeriod(
+                      state.gigs,
+                      now,
+                      matchMonth: true,
+                    );
+                    final thisYearKobo = _gigTotalForPeriod(state.gigs, now);
+                    final latestGig = _latestGig(state.gigs);
+                    return Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _GigSummaryTile(
+                                key: const Key('gig_summary_this_month'),
+                                label: 'This month',
+                                amountKobo: thisMonthKobo,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _GigSummaryTile(
+                                key: const Key('gig_summary_this_year'),
+                                label: 'This year',
+                                amountKobo: thisYearKobo,
+                              ),
+                            ),
+                          ],
                         ),
-                    ],
-                  ),
+                        const SizedBox(height: 12),
+                        _GigCadenceCard(latestGig: latestGig, now: now),
+                        const SizedBox(height: 12),
+                        for (final gig in state.gigs)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: _GigCard(gig: gig),
+                          ),
+                      ],
+                    );
+                  },
                 ),
                 const SizedBox(height: 8),
                 Text('New gig', style: Theme.of(context).textTheme.titleMedium),
@@ -792,6 +824,97 @@ class _GigTrackerSheetState extends ConsumerState<_GigTrackerSheet> {
   }
 }
 
+class _GigSummaryTile extends StatelessWidget {
+  const _GigSummaryTile({
+    super.key,
+    required this.label,
+    required this.amountKobo,
+  });
+
+  final String label;
+  final int amountKobo;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 20,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(color: KoloColors.textSecondary),
+          ),
+          const SizedBox(height: 6),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              MoneyFormatter.formatKobo(amountKobo),
+              maxLines: 1,
+              style: const TextStyle(
+                color: KoloColors.primary,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GigCadenceCard extends StatelessWidget {
+  const _GigCadenceCard({required this.latestGig, required this.now});
+
+  final GigRecord? latestGig;
+  final DateTime now;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = latestGig == null
+        ? 'No gigs logged yet. Kolo will track your first one here.'
+        : '${_daysSinceGigLabel(latestGig!.date, now)} since your last gig income.';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: KoloColors.primaryPastel,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.auto_awesome, color: KoloColors.primary, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: KoloColors.textPrimary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _GigCard extends StatelessWidget {
   const _GigCard({required this.gig});
 
@@ -852,6 +975,36 @@ class _GigCard extends StatelessWidget {
       ),
     );
   }
+}
+
+int _gigTotalForPeriod(
+  List<GigRecord> gigs,
+  DateTime now, {
+  bool matchMonth = false,
+}) {
+  return gigs
+      .where(
+        (gig) =>
+            gig.date.year == now.year &&
+            (!matchMonth || gig.date.month == now.month),
+      )
+      .fold<int>(0, (total, gig) => total + gig.amountKobo);
+}
+
+GigRecord? _latestGig(List<GigRecord> gigs) {
+  if (gigs.isEmpty) return null;
+  return gigs.reduce((latest, gig) {
+    return gig.date.isAfter(latest.date) ? gig : latest;
+  });
+}
+
+String _daysSinceGigLabel(DateTime date, DateTime now) {
+  final gigDay = DateTime(date.year, date.month, date.day);
+  final today = DateTime(now.year, now.month, now.day);
+  final days = today.difference(gigDay).inDays;
+  if (days <= 0) return 'Today';
+  if (days == 1) return '1 day';
+  return '$days days';
 }
 
 class _BillRemindersSheet extends ConsumerStatefulWidget {
