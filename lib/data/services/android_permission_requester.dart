@@ -16,7 +16,9 @@ class AndroidPermissionRequester implements PermissionRequester {
         return _fromStatus(await Permission.sms.request());
       case KoloPermission.notifications:
         await _capabilities.openNotificationListenerSettings();
-        return PermissionGrantState.notRequested;
+        return await _capabilities.isNotificationListenerEnabled()
+            ? PermissionGrantState.granted
+            : PermissionGrantState.notRequested;
       case KoloPermission.overlay:
         return _fromStatus(await Permission.systemAlertWindow.request());
       case KoloPermission.accessibility:

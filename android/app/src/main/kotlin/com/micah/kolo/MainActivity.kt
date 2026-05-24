@@ -1,5 +1,6 @@
 package com.micah.kolo
 
+import android.content.ComponentName
 import android.content.Intent
 import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
@@ -24,8 +25,27 @@ class MainActivity : FlutterActivity() {
                     startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                     result.success(true)
                 }
+                "isNotificationListenerEnabled" -> result.success(isNotificationListenerEnabled())
                 else -> result.notImplemented()
             }
+        }
+    }
+
+    private fun isNotificationListenerEnabled(): Boolean {
+        val enabledListeners = Settings.Secure.getString(
+            contentResolver,
+            "enabled_notification_listeners"
+        ) ?: return false
+        val listenerComponent = ComponentName(
+            this,
+            KoloNotificationListenerService::class.java
+        )
+        val flattened = listenerComponent.flattenToString()
+        val shortFlattened = listenerComponent.flattenToShortString()
+
+        return enabledListeners.split(":").any { enabled ->
+            enabled.equals(flattened, ignoreCase = true) ||
+                enabled.equals(shortFlattened, ignoreCase = true)
         }
     }
 

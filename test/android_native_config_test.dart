@@ -64,4 +64,13 @@ void main() {
 
     expect(manifest, contains('android.permission.POST_NOTIFICATIONS'));
   });
+
+  test('MainActivity exposes notification listener enabled status', () {
+    final mainActivity = File(
+      'android/app/src/main/kotlin/com/micah/kolo/MainActivity.kt',
+    ).readAsStringSync();
+
+    expect(mainActivity, contains('isNotificationListenerEnabled'));
+    expect(mainActivity, contains('enabled_notification_listeners'));
+  });
 }

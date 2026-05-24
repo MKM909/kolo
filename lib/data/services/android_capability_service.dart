@@ -47,6 +47,13 @@ class AndroidCapabilityService {
     return opened ?? false;
   }
 
+  Future<bool> isNotificationListenerEnabled() async {
+    final enabled = await _channel.invokeMethod<bool>(
+      'isNotificationListenerEnabled',
+    );
+    return enabled ?? false;
+  }
+
   NativeAndroidEvent _nativeEventFromPayload(Map<dynamic, dynamic> item) {
     final rawPayload = item['payload'];
     final payload = rawPayload is Map
