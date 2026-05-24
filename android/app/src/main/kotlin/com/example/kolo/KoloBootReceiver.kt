@@ -1,4 +1,4 @@
-package com.example.kolo
+package com.micah.kolo
 
 import android.content.BroadcastReceiver
 import android.content.Context

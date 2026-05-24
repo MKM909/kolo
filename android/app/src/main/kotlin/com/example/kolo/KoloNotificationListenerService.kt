@@ -1,4 +1,4 @@
-package com.example.kolo
+package com.micah.kolo
 
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
