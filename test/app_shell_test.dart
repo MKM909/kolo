@@ -154,6 +154,33 @@ void main() {
     );
   });
 
+  testWidgets('vault detail sheet adds funds to an existing vault', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Vaults'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('New Phone'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('vault_detail_sheet')), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('vault_contribution_amount')),
+      '2500',
+    );
+    await tester.tap(find.byKey(const Key('save_vault_contribution')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining(MoneyFormatter.formatKobo(4850000)),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('profile can grant a permission from locked state', (
     tester,
   ) async {

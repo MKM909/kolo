@@ -626,7 +626,10 @@ class _VaultsSheetState extends ConsumerState<_VaultsSheet> {
                       for (final vault in state.vaults)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 12),
-                          child: _VaultCard(vault: vault),
+                          child: _VaultCard(
+                            vault: vault,
+                            onTap: () => _openVaultDetail(context, vault),
+                          ),
                         ),
                     ],
                   ),
@@ -697,78 +700,237 @@ class _VaultsSheetState extends ConsumerState<_VaultsSheet> {
     _targetController.clear();
     if (mounted) setState(() => _error = null);
   }
+
+  Future<void> _openVaultDetail(BuildContext context, SavingsVault vault) {
+    return showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _VaultDetailSheet(vault: vault),
+    );
+  }
 }
 
 class _VaultCard extends StatelessWidget {
-  const _VaultCard({required this.vault});
+  const _VaultCard({required this.vault, required this.onTap});
+
+  final SavingsVault vault;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: const [
+            BoxShadow(color: Color(0x14000000), blurRadius: 20),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  height: 36,
+                  width: 36,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: KoloColors.primaryPastel,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.lock_outline,
+                    color: KoloColors.primary,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    vault.name,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+                Text(
+                  MoneyFormatter.formatKobo(vault.targetKobo),
+                  style: const TextStyle(
+                    color: KoloColors.textSecondary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                value: vault.progress,
+                minHeight: 8,
+                backgroundColor: KoloColors.primaryPastel,
+                color: KoloColors.primary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${MoneyFormatter.formatKobo(vault.currentKobo)} saved',
+              style: const TextStyle(
+                color: KoloColors.primary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _VaultDetailSheet extends ConsumerStatefulWidget {
+  const _VaultDetailSheet({required this.vault});
 
   final SavingsVault vault;
 
   @override
+  ConsumerState<_VaultDetailSheet> createState() => _VaultDetailSheetState();
+}
+
+class _VaultDetailSheetState extends ConsumerState<_VaultDetailSheet> {
+  final TextEditingController _amountController = TextEditingController();
+  String? _error;
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 20)],
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      child: Container(
+        key: const Key('vault_detail_sheet'),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+        decoration: const BoxDecoration(
+          color: Color(0xF0FFFFFF),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          boxShadow: [
+            BoxShadow(
+              color: Color(0x20000000),
+              blurRadius: 40,
+              offset: Offset(0, -8),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                height: 36,
-                width: 36,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: KoloColors.primaryPastel,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.lock_outline,
-                  color: KoloColors.primary,
-                  size: 20,
+              Center(
+                child: Container(
+                  height: 4,
+                  width: 42,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE5E7EB),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  vault.name,
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
-              ),
+              const SizedBox(height: 20),
               Text(
-                MoneyFormatter.formatKobo(vault.targetKobo),
-                style: const TextStyle(
-                  color: KoloColors.textSecondary,
-                  fontWeight: FontWeight.w700,
+                widget.vault.name,
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
                 ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${MoneyFormatter.formatKobo(widget.vault.currentKobo)} / ${MoneyFormatter.formatKobo(widget.vault.targetKobo)}',
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 10),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(999),
+                      child: LinearProgressIndicator(
+                        value: widget.vault.progress,
+                        minHeight: 8,
+                        backgroundColor: KoloColors.primaryPastel,
+                        color: KoloColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                key: const Key('vault_contribution_amount'),
+                controller: _amountController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Add funds',
+                  prefixText: '\u20A6 ',
+                ),
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  _error!,
+                  style: const TextStyle(color: KoloColors.expense),
+                ),
+              ],
+              const SizedBox(height: 18),
+              ElevatedButton(
+                key: const Key('save_vault_contribution'),
+                onPressed: _save,
+                child: const Text('Add to vault'),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              value: vault.progress,
-              minHeight: 8,
-              backgroundColor: KoloColors.primaryPastel,
-              color: KoloColors.primary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '${MoneyFormatter.formatKobo(vault.currentKobo)} saved',
-            style: const TextStyle(
-              color: KoloColors.primary,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
+        ),
       ),
     );
+  }
+
+  Future<void> _save() async {
+    final amountKobo = MoneyFormatter.parseNairaToKobo(
+      _amountController.text.trim(),
+    );
+    if (amountKobo == null || amountKobo <= 0) {
+      setState(() => _error = 'Enter a valid amount.');
+      return;
+    }
+
+    await ref
+        .read(koloRepositoryProvider)
+        .upsertVault(
+          SavingsVault(
+            id: widget.vault.id,
+            name: widget.vault.name,
+            targetKobo: widget.vault.targetKobo,
+            currentKobo: widget.vault.currentKobo + amountKobo,
+            deadline: widget.vault.deadline,
+          ),
+        );
+    if (mounted) Navigator.of(context).pop();
   }
 }
