@@ -20,9 +20,7 @@ class HomeScreen extends ConsumerWidget {
       loading: () => const KoloGradientScaffold(
         child: Center(child: CircularProgressIndicator()),
       ),
-      error: (error, stackTrace) => KoloGradientScaffold(
-        child: Center(child: Text('Kolo is offline: $error')),
-      ),
+      error: (error, stackTrace) => const _HomeOfflineState(),
       data: (state) {
         final summary = FinancialCalculator.summarize(
           balanceKobo: state.balanceKobo,
@@ -207,6 +205,59 @@ class HomeScreen extends ConsumerWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => const _OwingsSheet(),
+    );
+  }
+}
+
+class _HomeOfflineState extends StatelessWidget {
+  const _HomeOfflineState();
+
+  @override
+  Widget build(BuildContext context) {
+    return KoloGradientScaffold(
+      title: 'Kolo',
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: KoloCard(
+            key: const Key('home_offline_state'),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                CircleAvatar(
+                  radius: 32,
+                  backgroundColor: KoloColors.primaryPastel,
+                  child: Icon(
+                    Icons.cloud_off_outlined,
+                    color: KoloColors.primary,
+                    size: 30,
+                  ),
+                ),
+                SizedBox(height: 18),
+                Text(
+                  'Kolo is offline',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Sora',
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: KoloColors.textPrimary,
+                  ),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Your money view will use local cache when it is available. Sync, Gemini updates, and fresh transactions resume when the connection returns.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: KoloColors.textSecondary,
+                    height: 1.45,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
