@@ -46,7 +46,14 @@ class TransactionParser {
 
   static TransactionSource _inferSource(String text) {
     final lower = text.toLowerCase();
-    const fintechs = ['kuda', 'opay', 'palmpay', 'moniepoint', 'carbon'];
+    const fintechs = [
+      'kuda',
+      'opay',
+      'palmpay',
+      'moniepoint',
+      'carbon',
+      'fairmoney',
+    ];
     return fintechs.any(lower.contains)
         ? TransactionSource.notification
         : TransactionSource.sms;
@@ -68,14 +75,25 @@ class TransactionParser {
         ? [
             RegExp(r'from\s+(.+?)(?:\.|,|$)', caseSensitive: false),
             RegExp(r'by\s+(.+?)(?:\s+on\s+|\.|,|$)', caseSensitive: false),
+            RegExp(
+              r'ref[:\s]+(.+?)(?:\.|,|Bal|Balance|$)',
+              caseSensitive: false,
+            ),
           ]
         : [
             RegExp(
               r'(?:desc|description|narration)[:\s]+(.+?)(?:\s+Bal|Balance|\.|,|$)',
               caseSensitive: false,
             ),
+            RegExp(
+              r'(?:pos/web\s+)?purchase\s+-\s+(.+?)(?:\.|,|Bal|Balance|$)',
+              caseSensitive: false,
+            ),
             RegExp(r'at\s+(.+?)(?:\.|,|Bal|Balance|$)', caseSensitive: false),
-            RegExp(r'to\s+(.+?)(?:\.|,|Bal|Balance|$)', caseSensitive: false),
+            RegExp(
+              r'to\s+(.+?)(?:\s+successful|\.|,|Bal|Balance|$)',
+              caseSensitive: false,
+            ),
           ];
 
     for (final pattern in patterns) {

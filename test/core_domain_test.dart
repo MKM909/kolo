@@ -138,5 +138,58 @@ void main() {
       expect(draft.category, 'Data & Airtime');
       expect(draft.balanceAfterKobo, 1500000);
     });
+
+    test('parses Polaris POS debit merchant and balance', () {
+      const sms =
+          'PolarisMobile: Account debit of N3,200.00 for POS/WEB Purchase - Jumia Nigeria. Available Balance: N12,800.00';
+
+      final draft = TransactionParser.parse(sms);
+
+      expect(draft, isNotNull);
+      expect(draft!.type, TransactionType.expense);
+      expect(draft.amountKobo, 320000);
+      expect(draft.merchantName, 'Jumia Nigeria');
+      expect(draft.balanceAfterKobo, 1280000);
+    });
+
+    test('parses Stanbic credit references as income merchant context', () {
+      const sms =
+          'Stanbic IBTC: Your account has been credited with NGN30,000.00 Ref: Freelance Logo. Available Bal: NGN45,000.00';
+
+      final draft = TransactionParser.parse(sms);
+
+      expect(draft, isNotNull);
+      expect(draft!.type, TransactionType.income);
+      expect(draft.amountKobo, 3000000);
+      expect(draft.merchantName, 'Freelance Logo');
+      expect(draft.balanceAfterKobo, 4500000);
+    });
+
+    test('parses PalmPay payment notifications without success suffixes', () {
+      const notification =
+          'PalmPay: Payment of N3,450 to NETFLIX successful. Available balance N8,200';
+
+      final draft = TransactionParser.parse(notification);
+
+      expect(draft, isNotNull);
+      expect(draft!.type, TransactionType.expense);
+      expect(draft.amountKobo, 345000);
+      expect(draft.merchantName, 'NETFLIX');
+      expect(draft.source, TransactionSource.notification);
+      expect(draft.balanceAfterKobo, 820000);
+    });
+
+    test('classifies FairMoney alerts as fintech notifications', () {
+      const notification =
+          'FairMoney: Loan repayment of N5,000 successful. Balance: N12,000';
+
+      final draft = TransactionParser.parse(notification);
+
+      expect(draft, isNotNull);
+      expect(draft!.type, TransactionType.expense);
+      expect(draft.amountKobo, 500000);
+      expect(draft.source, TransactionSource.notification);
+      expect(draft.balanceAfterKobo, 1200000);
+    });
   });
 }
