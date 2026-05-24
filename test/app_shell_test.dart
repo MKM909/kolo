@@ -139,6 +139,38 @@ void main() {
     expect(find.text('-₦2,500.00'), findsOneWidget);
   });
 
+  testWidgets('manual expense logging accepts a custom transaction date', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Log Expense'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('transaction_date')), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('transaction_amount')), '2500');
+    await tester.enterText(
+      find.byKey(const Key('transaction_description')),
+      'Missed bus fare',
+    );
+    await tester.enterText(
+      find.byKey(const Key('transaction_date')),
+      '2026-05-20',
+    );
+    await tester.ensureVisible(find.byKey(const Key('save_transaction')));
+    await tester.tap(find.byKey(const Key('save_transaction')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.receipt_long_outlined));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Missed bus fare'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('transaction_detail_sheet')), findsOneWidget);
+    expect(find.text('2026-05-20'), findsOneWidget);
+  });
+
   testWidgets('manual over-budget expense stores a Kolo justification note', (
     tester,
   ) async {

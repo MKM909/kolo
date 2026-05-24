@@ -343,13 +343,16 @@ class _TransactionEntrySheet extends StatefulWidget {
 class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
+  late final TextEditingController _dateController;
   final TextEditingController _justificationController =
       TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   String _category = 'Food & Snacks';
   String? _error;
   bool _needsJustification = false;
   int? _pendingAmountKobo;
   String? _pendingDescription;
+  DateTime? _pendingDate;
 
   bool get _isIncome => widget.type == TransactionType.income;
 
@@ -357,13 +360,16 @@ class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
   void initState() {
     super.initState();
     _category = _isIncome ? 'Gig Income' : 'Food & Snacks';
+    _dateController = TextEditingController(text: _dateInput(DateTime.now()));
   }
 
   @override
   void dispose() {
     _amountController.dispose();
     _descriptionController.dispose();
+    _dateController.dispose();
     _justificationController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -374,139 +380,159 @@ class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
       child: Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.86,
+        ),
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
         decoration: const BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                height: 4,
-                width: 42,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE5E7EB),
-                  borderRadius: BorderRadius.circular(999),
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  height: 4,
+                  width: 42,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE5E7EB),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              _isIncome ? 'Log Income' : 'Log Expense',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              key: const Key('transaction_amount'),
-              controller: _amountController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Amount',
-                prefixText: '₦ ',
+              const SizedBox(height: 20),
+              Text(
+                _isIncome ? 'Log Income' : 'Log Expense',
+                style: Theme.of(context).textTheme.titleLarge,
               ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              key: const Key('transaction_description'),
-              controller: _descriptionController,
-              decoration: const InputDecoration(labelText: 'Description'),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              initialValue: _category,
-              items: [
-                for (final category
-                    in _isIncome
-                        ? const [
-                            'Gig Income',
-                            'Family/Gift Income',
-                            'Miscellaneous',
-                          ]
-                        : const [
-                            'Food & Snacks',
-                            'Transport',
-                            'Data & Airtime',
-                            'Entertainment',
-                            'Utilities & Bills',
-                            'Miscellaneous',
-                          ])
-                  DropdownMenuItem(value: category, child: Text(category)),
-              ],
-              onChanged: (value) {
-                if (value == null) return;
-                setState(() => _category = value);
-              },
-              decoration: const InputDecoration(labelText: 'Category'),
-            ),
-            if (_needsJustification) ...[
-              const SizedBox(height: 14),
-              Container(
-                key: const Key('spending_justification_prompt'),
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: KoloColors.primaryPastel,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const CircleAvatar(
-                      radius: 14,
-                      backgroundColor: KoloColors.primary,
-                      child: Icon(
-                        Icons.auto_awesome,
-                        color: Colors.white,
-                        size: 16,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'This pushes past your $_category budget. What is this for?',
-                        style: const TextStyle(
-                          color: KoloColors.primary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ],
+              const SizedBox(height: 16),
+              TextField(
+                key: const Key('transaction_amount'),
+                controller: _amountController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Amount',
+                  prefixText: '₦ ',
                 ),
               ),
               const SizedBox(height: 12),
               TextField(
-                key: const Key('spending_justification_field'),
-                controller: _justificationController,
-                minLines: 2,
-                maxLines: 3,
+                key: const Key('transaction_description'),
+                controller: _descriptionController,
+                decoration: const InputDecoration(labelText: 'Description'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                key: const Key('transaction_date'),
+                controller: _dateController,
+                keyboardType: TextInputType.datetime,
                 decoration: const InputDecoration(
-                  labelText: 'Reason',
-                  prefixIcon: Icon(Icons.chat_bubble_outline),
+                  labelText: 'Date',
+                  hintText: 'YYYY-MM-DD',
+                  prefixIcon: Icon(Icons.calendar_today_outlined),
+                ),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: _category,
+                items: [
+                  for (final category
+                      in _isIncome
+                          ? const [
+                              'Gig Income',
+                              'Family/Gift Income',
+                              'Miscellaneous',
+                            ]
+                          : const [
+                              'Food & Snacks',
+                              'Transport',
+                              'Data & Airtime',
+                              'Entertainment',
+                              'Utilities & Bills',
+                              'Miscellaneous',
+                            ])
+                    DropdownMenuItem(value: category, child: Text(category)),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() => _category = value);
+                },
+                decoration: const InputDecoration(labelText: 'Category'),
+              ),
+              if (_needsJustification) ...[
+                const SizedBox(height: 14),
+                Container(
+                  key: const Key('spending_justification_prompt'),
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: KoloColors.primaryPastel,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const CircleAvatar(
+                        radius: 14,
+                        backgroundColor: KoloColors.primary,
+                        child: Icon(
+                          Icons.auto_awesome,
+                          color: Colors.white,
+                          size: 16,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'This pushes past your $_category budget. What is this for?',
+                          style: const TextStyle(
+                            color: KoloColors.primary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const Key('spending_justification_field'),
+                  controller: _justificationController,
+                  minLines: 2,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Reason',
+                    prefixIcon: Icon(Icons.chat_bubble_outline),
+                  ),
+                ),
+              ],
+              if (_error != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  _error!,
+                  style: const TextStyle(color: KoloColors.expense),
+                ),
+              ],
+              const SizedBox(height: 18),
+              ElevatedButton(
+                key: _needsJustification
+                    ? const Key('save_spending_justification')
+                    : const Key('save_transaction'),
+                onPressed: _needsJustification ? _saveJustifiedExpense : _save,
+                child: Text(
+                  _needsJustification
+                      ? 'Save with Kolo note'
+                      : _isIncome
+                      ? 'Save income'
+                      : 'Save expense',
                 ),
               ),
             ],
-            if (_error != null) ...[
-              const SizedBox(height: 10),
-              Text(_error!, style: const TextStyle(color: KoloColors.expense)),
-            ],
-            const SizedBox(height: 18),
-            ElevatedButton(
-              key: _needsJustification
-                  ? const Key('save_spending_justification')
-                  : const Key('save_transaction'),
-              onPressed: _needsJustification ? _saveJustifiedExpense : _save,
-              child: Text(
-                _needsJustification
-                    ? 'Save with Kolo note'
-                    : _isIncome
-                    ? 'Save income'
-                    : 'Save expense',
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -517,8 +543,13 @@ class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
       _amountController.text.trim(),
     );
     final description = _descriptionController.text.trim();
+    final date = _parseDateInput(_dateController.text.trim());
     if (amountKobo == null || amountKobo <= 0 || description.isEmpty) {
       setState(() => _error = 'Enter an amount and description.');
+      return;
+    }
+    if (date == null) {
+      setState(() => _error = 'Enter a date as YYYY-MM-DD.');
       return;
     }
 
@@ -528,19 +559,33 @@ class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
         _needsJustification = true;
         _pendingAmountKobo = amountKobo;
         _pendingDescription = description;
+        _pendingDate = date;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_scrollController.hasClients) return;
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOut,
+        );
       });
       return;
     }
 
-    await _logTransaction(amountKobo: amountKobo, description: description);
+    await _logTransaction(
+      amountKobo: amountKobo,
+      description: description,
+      date: date,
+    );
   }
 
   Future<void> _saveJustifiedExpense() async {
     final amountKobo = _pendingAmountKobo;
     final description = _pendingDescription;
+    final date = _pendingDate;
     final justification = _justificationController.text.trim();
 
-    if (amountKobo == null || description == null) {
+    if (amountKobo == null || description == null || date == null) {
       setState(() => _error = 'Confirm the expense again.');
       return;
     }
@@ -552,6 +597,7 @@ class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
     await _logTransaction(
       amountKobo: amountKobo,
       description: description,
+      date: date,
       justification: justification,
     );
   }
@@ -559,6 +605,7 @@ class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
   Future<void> _logTransaction({
     required int amountKobo,
     required String description,
+    required DateTime date,
     String? justification,
   }) async {
     final id = 'manual-${DateTime.now().microsecondsSinceEpoch}';
@@ -574,7 +621,7 @@ class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
             amountKobo: amountKobo,
             category: _category,
             description: description,
-            date: DateTime.now(),
+            date: date,
             source: TransactionSource.manual,
           )
         : TransactionRecord.expense(
@@ -582,7 +629,7 @@ class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
             amountKobo: amountKobo,
             category: _category,
             description: description,
-            date: DateTime.now(),
+            date: date,
             source: TransactionSource.manual,
             aiApproved: aiNote == null || aiNote.startsWith('Approved'),
             aiNote: aiNote,
@@ -616,9 +663,8 @@ class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
     final allocatedKobo = _categoryBudgetKobo(dashboard);
     final spendAfter = _categorySpendKobo(dashboard) + amountKobo;
     final overBy = spendAfter - allocatedKobo;
-    final adjustedTonePrefix = AiOverrideTone.shouldAdjustTone(
-      dashboard.transactions,
-    )
+    final adjustedTonePrefix =
+        AiOverrideTone.shouldAdjustTone(dashboard.transactions)
         ? '${AiOverrideTone.repeatedOverrideMessage} '
         : '';
 
@@ -650,6 +696,27 @@ class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
     return widget.ref
         .read(dashboardProvider)
         .maybeWhen(data: (state) => state, orElse: () => null);
+  }
+
+  DateTime? _parseDateInput(String value) {
+    final parts = value.split('-');
+    if (parts.length != 3) return null;
+    final year = int.tryParse(parts[0]);
+    final month = int.tryParse(parts[1]);
+    final day = int.tryParse(parts[2]);
+    if (year == null || month == null || day == null) return null;
+
+    final parsed = DateTime(year, month, day);
+    if (parsed.year != year || parsed.month != month || parsed.day != day) {
+      return null;
+    }
+    return parsed;
+  }
+
+  String _dateInput(DateTime date) {
+    final month = date.month.toString().padLeft(2, '0');
+    final day = date.day.toString().padLeft(2, '0');
+    return '${date.year}-$month-$day';
   }
 }
 

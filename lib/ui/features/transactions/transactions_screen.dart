@@ -290,6 +290,7 @@ class _TransactionDetailSheet extends StatelessWidget {
             _DetailRow(label: 'Category', value: transaction.category),
             _DetailRow(label: 'Source', value: transaction.source.name),
             _DetailRow(label: 'Type', value: transaction.type.name),
+            _DetailRow(label: 'Date', value: _dateInput(transaction.date)),
             if (transaction.aiNote != null) ...[
               const SizedBox(height: 16),
               Container(
@@ -321,6 +322,12 @@ class _TransactionDetailSheet extends StatelessWidget {
     if (category.contains('Gig')) return 'ðŸ’¼';
     return 'â€¢';
   }
+}
+
+String _dateInput(DateTime date) {
+  final month = date.month.toString().padLeft(2, '0');
+  final day = date.day.toString().padLeft(2, '0');
+  return '${date.year}-$month-$day';
 }
 
 class _DetailRow extends StatelessWidget {
