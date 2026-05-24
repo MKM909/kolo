@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kolo/app/kolo_app.dart';
 import 'package:kolo/domain/services/money_formatter.dart';
@@ -512,6 +513,53 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.widget<SwitchListTile>(opayToggle).value, isTrue);
+  });
+
+  testWidgets('profile refresh imports suggested watched apps disabled', (
+    tester,
+  ) async {
+    const channel = MethodChannel('kolo/android_capabilities');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          if (call.method == 'getSuggestedBankingApps') {
+            return [
+              {
+                'packageName': 'com.palmpay.android',
+                'displayName': 'PalmPay',
+                'enabled': true,
+              },
+            ];
+          }
+          return null;
+        });
+    addTearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null);
+    });
+
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.person_outline));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Watched Apps'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const Key('open_watched_apps')));
+    await tester.pumpAndSettle();
+
+    const palmpayToggleKey = Key('toggle_watched_app_com.palmpay.android');
+    expect(find.byKey(palmpayToggleKey), findsNothing);
+
+    await tester.tap(find.byKey(const Key('refresh_watched_apps')));
+    await tester.pumpAndSettle();
+
+    final palmpayToggle = find.byKey(palmpayToggleKey);
+    expect(palmpayToggle, findsOneWidget);
+    expect(tester.widget<SwitchListTile>(palmpayToggle).value, isFalse);
   });
 
   testWidgets('profile can grant a permission from locked state', (

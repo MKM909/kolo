@@ -1226,11 +1226,60 @@ class _PartnerShareCard extends StatelessWidget {
   }
 }
 
-class _WatchedAppsSheet extends ConsumerWidget {
+class _WatchedAppsSheet extends ConsumerStatefulWidget {
   const _WatchedAppsSheet();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_WatchedAppsSheet> createState() => _WatchedAppsSheetState();
+}
+
+class _WatchedAppsSheetState extends ConsumerState<_WatchedAppsSheet> {
+  bool _refreshing = false;
+  String? _refreshError;
+
+  Future<void> _refreshSuggestedApps() async {
+    setState(() {
+      _refreshing = true;
+      _refreshError = null;
+    });
+
+    try {
+      final suggestions = await ref
+          .read(androidCapabilityServiceProvider)
+          .getSuggestedBankingApps();
+      final currentState = ref
+          .read(dashboardProvider)
+          .maybeWhen(data: (state) => state, orElse: () => null);
+      final existingApps = {
+        for (final app in currentState?.watchedApps ?? const <WatchedApp>[])
+          app.packageName: app,
+      };
+
+      for (final suggestion in suggestions) {
+        final existing = existingApps[suggestion.packageName];
+        await ref
+            .read(koloRepositoryProvider)
+            .upsertWatchedApp(
+              WatchedApp(
+                packageName: suggestion.packageName,
+                displayName: suggestion.displayName,
+                enabled: existing?.enabled ?? false,
+              ),
+            );
+      }
+
+      if (mounted && suggestions.isEmpty) {
+        setState(() => _refreshError = 'No banking apps found yet.');
+      }
+    } catch (error) {
+      if (mounted) setState(() => _refreshError = 'Could not refresh apps.');
+    } finally {
+      if (mounted) setState(() => _refreshing = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final dashboard = ref.watch(dashboardProvider);
     return Container(
       key: const Key('watched_apps_sheet'),
@@ -1271,6 +1320,38 @@ class _WatchedAppsSheet extends ConsumerWidget {
                 'Watched Apps',
                 style: Theme.of(context).textTheme.titleLarge,
               ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                key: const Key('refresh_watched_apps'),
+                onPressed: _refreshing ? null : _refreshSuggestedApps,
+                icon: _refreshing
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh),
+                label: const Text('Refresh apps'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: KoloColors.primary,
+                  side: const BorderSide(color: KoloColors.primary),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                ),
+              ),
+              if (_refreshError != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _refreshError!,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: KoloColors.textSecondary,
+                  ),
+                ),
+              ],
               const SizedBox(height: 18),
               dashboard.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
