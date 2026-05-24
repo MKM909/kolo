@@ -1,5 +1,6 @@
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:kolo/domain/models/models.dart';
+import 'package:kolo/domain/services/ai_failure_message.dart';
 import 'package:kolo/domain/services/transaction_categorizer.dart';
 
 class CloudAiService implements TransactionCategorizer {
@@ -12,13 +13,16 @@ class CloudAiService implements TransactionCategorizer {
     required String message,
     required DashboardState context,
   }) async {
-    final callable = _functions.httpsCallable('chatWithKolo');
-    final response = await callable.call<Map<String, dynamic>>({
-      'message': message,
-      'context': _contextPayload(context),
-    });
-    return response.data['content'] as String? ??
-        'Kolo could not think clearly right now.';
+    try {
+      final callable = _functions.httpsCallable('chatWithKolo');
+      final response = await callable.call<Map<String, dynamic>>({
+        'message': message,
+        'context': _contextPayload(context),
+      });
+      return response.data['content'] as String? ?? AiFailureMessage.chat;
+    } on Object catch (_) {
+      return AiFailureMessage.chat;
+    }
   }
 
   Future<BudgetPlan> generateBudget(OnboardingAnswers answers) async {
