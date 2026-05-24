@@ -73,10 +73,16 @@ class _KoloMaterialAppState extends ConsumerState<_KoloMaterialApp>
 final koloRouterProvider = Provider<GoRouter>((ref) {
   final bootstrap = ref.watch(firebaseBootstrapResultProvider);
   final authState = ref.watch(authStateProvider);
-  final signedIn = authState.when(
-    data: (user) => user != null,
+  final authUser = authState.when(
+    data: (user) => user,
+    error: (_, _) => null,
+    loading: () => null,
+  );
+  final signedIn = authUser != null;
+  final emailVerified = authState.when(
+    data: (user) => user?.emailVerified ?? true,
     error: (_, _) => false,
-    loading: () => false,
+    loading: () => true,
   );
   final onboardingComplete = bootstrap.initialized && signedIn
       ? ref
@@ -96,6 +102,7 @@ final koloRouterProvider = Provider<GoRouter>((ref) {
     authKnown: !authState.isLoading,
     signedIn: signedIn,
     onboardingComplete: onboardingComplete,
+    emailVerified: emailVerified,
     requiresBiometricUnlock: requiresBiometricUnlock,
   );
 });

@@ -49,6 +49,7 @@ void main() {
     expect(auth.lastCreateName, 'Micah');
     expect(auth.lastCreateEmail, 'me@kolo.app');
     expect(auth.lastCreatePassword, 'secret123');
+    expect(auth.verificationEmailSends, 1);
   });
 
   testWidgets('login can start Google sign-in', (tester) async {
@@ -84,6 +85,34 @@ void main() {
 
     expect(biometric.unlockCalls, 1);
   });
+
+  testWidgets('email verification screen can resend and check status', (
+    tester,
+  ) async {
+    final auth = _RecordingAuthRepository(
+      reloadedUser: const AuthUser(
+        uid: 'created-user',
+        email: 'me@kolo.app',
+        emailVerified: false,
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [authRepositoryProvider.overrideWithValue(auth)],
+        child: const MaterialApp(home: EmailVerificationScreen()),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('resend_verification_email')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('check_email_verification')));
+    await tester.pump();
+
+    expect(auth.verificationEmailSends, 1);
+    expect(auth.reloadCurrentUserCalls, 1);
+    expect(find.text('Still waiting for verification.'), findsOneWidget);
+  });
 }
 
 class _RecordingBiometricUnlockService implements BiometricUnlockService {
@@ -97,12 +126,17 @@ class _RecordingBiometricUnlockService implements BiometricUnlockService {
 }
 
 class _RecordingAuthRepository implements AuthRepository {
+  _RecordingAuthRepository({this.reloadedUser});
+
   String? lastCreateEmail;
   String? lastCreateName;
   String? lastCreatePassword;
   String? lastSignInEmail;
   String? lastSignInPassword;
   int googleSignInCalls = 0;
+  int verificationEmailSends = 0;
+  int reloadCurrentUserCalls = 0;
+  final AuthUser? reloadedUser;
 
   @override
   Future<AuthUser> createUserWithEmail({
@@ -113,11 +147,27 @@ class _RecordingAuthRepository implements AuthRepository {
     lastCreateName = name;
     lastCreateEmail = email;
     lastCreatePassword = password;
-    return AuthUser(uid: 'created-user', email: email, displayName: name);
+    return AuthUser(
+      uid: 'created-user',
+      email: email,
+      displayName: name,
+      emailVerified: false,
+    );
   }
 
   @override
   Future<void> signOut() async {}
+
+  @override
+  Future<void> sendEmailVerification() async {
+    verificationEmailSends += 1;
+  }
+
+  @override
+  Future<AuthUser?> reloadCurrentUser() async {
+    reloadCurrentUserCalls += 1;
+    return reloadedUser;
+  }
 
   @override
   Future<AuthUser> signInWithGoogle() async {

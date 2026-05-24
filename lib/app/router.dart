@@ -13,6 +13,7 @@ GoRouter buildKoloRouter({
   bool authKnown = true,
   bool signedIn = false,
   bool onboardingComplete = true,
+  bool emailVerified = true,
   bool requiresBiometricUnlock = false,
 }) {
   return GoRouter(
@@ -25,9 +26,16 @@ GoRouter buildKoloRouter({
           path == '/login' ||
           path == '/signup' ||
           path == '/splash' ||
+          path == '/verify-email' ||
           path == '/onboarding';
 
       if (!signedIn && !isAuthRoute) return '/login';
+      if (signedIn && !emailVerified && path != '/verify-email') {
+        return '/verify-email';
+      }
+      if (signedIn && emailVerified && path == '/verify-email') {
+        return onboardingComplete ? '/home' : '/onboarding';
+      }
       if (signedIn &&
           !onboardingComplete &&
           path != '/onboarding' &&
@@ -52,6 +60,10 @@ GoRouter buildKoloRouter({
       GoRoute(
         path: '/signup',
         builder: (context, state) => const SignupScreen(),
+      ),
+      GoRoute(
+        path: '/verify-email',
+        builder: (context, state) => const EmailVerificationScreen(),
       ),
       GoRoute(
         path: '/onboarding',

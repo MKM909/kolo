@@ -54,6 +54,149 @@ class SignupScreen extends StatelessWidget {
   }
 }
 
+class EmailVerificationScreen extends ConsumerStatefulWidget {
+  const EmailVerificationScreen({super.key});
+
+  @override
+  ConsumerState<EmailVerificationScreen> createState() =>
+      _EmailVerificationScreenState();
+}
+
+class _EmailVerificationScreenState
+    extends ConsumerState<EmailVerificationScreen> {
+  bool _loading = false;
+  String? _message;
+  String? _error;
+
+  @override
+  Widget build(BuildContext context) {
+    final authUser = ref.watch(authStateProvider).maybeWhen(
+      data: (user) => user,
+      orElse: () => null,
+    );
+
+    return KoloGradientScaffold(
+      key: const Key('email_verification_screen'),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              KoloCard(
+                child: Column(
+                  children: [
+                    Container(
+                      height: 64,
+                      width: 64,
+                      decoration: const BoxDecoration(
+                        color: KoloColors.primaryPastel,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.mark_email_read_outlined,
+                        color: KoloColors.primary,
+                        size: 32,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      'Verify your email',
+                      style: Theme.of(context).textTheme.titleLarge,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      authUser?.email.isNotEmpty == true
+                          ? 'We sent a verification link to ${authUser!.email}.'
+                          : 'We sent a verification link to your email.',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: KoloColors.textSecondary),
+                    ),
+                    if (_message != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        _message!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: KoloColors.primary),
+                      ),
+                    ],
+                    if (_error != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        _error!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: KoloColors.expense),
+                      ),
+                    ],
+                    const SizedBox(height: 24),
+                    ElevatedButton.icon(
+                      key: const Key('check_email_verification'),
+                      onPressed: _loading ? null : _checkVerification,
+                      icon: const Icon(Icons.refresh),
+                      label: Text(_loading ? 'Checking' : 'I verified it'),
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      key: const Key('resend_verification_email'),
+                      onPressed: _loading ? null : _resendVerification,
+                      icon: const Icon(Icons.email_outlined),
+                      label: const Text('Resend link'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _resendVerification() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+      _message = null;
+    });
+
+    try {
+      await ref.read(authRepositoryProvider).sendEmailVerification();
+      if (!mounted) return;
+      setState(() => _message = 'Verification link sent.');
+    } on Object catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _checkVerification() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+      _message = null;
+    });
+
+    try {
+      final user = await ref.read(authRepositoryProvider).reloadCurrentUser();
+      if (!mounted) return;
+      if (user?.emailVerified == true) {
+        GoRouter.maybeOf(context)?.go('/home');
+      } else {
+        setState(() => _message = 'Still waiting for verification.');
+      }
+    } on Object catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+}
+
 class OnboardingScreen extends StatelessWidget {
   const OnboardingScreen({super.key});
 
@@ -359,6 +502,7 @@ class _AuthPanelState extends ConsumerState<_AuthPanel> {
           email: _emailController.text,
           password: _passwordController.text,
         );
+        await auth.sendEmailVerification();
       } else {
         await auth.signInWithEmail(
           email: _emailController.text,
@@ -368,7 +512,7 @@ class _AuthPanelState extends ConsumerState<_AuthPanel> {
 
       if (!mounted) return;
       final router = GoRouter.maybeOf(context);
-      router?.go(_isSignup ? '/onboarding' : '/home');
+      router?.go(_isSignup ? '/verify-email' : '/home');
     } on Object catch (error) {
       if (!mounted) return;
       setState(() {

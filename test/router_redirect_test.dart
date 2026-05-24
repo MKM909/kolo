@@ -49,6 +49,23 @@ void main() {
     expect(find.text('Income source'), findsOneWidget);
   });
 
+  testWidgets('signed-in users with unverified email open verification', (
+    tester,
+  ) async {
+    await _pumpWithRouter(
+      tester,
+      firebaseInitialized: true,
+      authKnown: true,
+      signedIn: true,
+      emailVerified: false,
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('email_verification_screen')), findsOneWidget);
+    expect(find.text('Verify your email'), findsOneWidget);
+  });
+
   testWidgets('signed-in users with a locked session open biometric lock', (
     tester,
   ) async {
@@ -73,6 +90,7 @@ Future<void> _pumpWithRouter(
   required bool authKnown,
   required bool signedIn,
   bool onboardingComplete = true,
+  bool emailVerified = true,
   bool requiresBiometricUnlock = false,
 }) {
   return tester.pumpWidget(
@@ -83,6 +101,7 @@ Future<void> _pumpWithRouter(
           authKnown: authKnown,
           signedIn: signedIn,
           onboardingComplete: onboardingComplete,
+          emailVerified: emailVerified,
           requiresBiometricUnlock: requiresBiometricUnlock,
         ),
       ),

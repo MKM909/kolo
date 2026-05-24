@@ -62,6 +62,7 @@ class FirebaseAuthRepository implements AuthRepository {
       uid: user.uid,
       email: email.trim(),
       displayName: name.trim(),
+      emailVerified: user.emailVerified,
     );
   }
 
@@ -84,6 +85,7 @@ class FirebaseAuthRepository implements AuthRepository {
           uid: user.uid,
           email: email.trim(),
           displayName: user.displayName,
+          emailVerified: user.emailVerified,
         );
   }
 
@@ -125,7 +127,25 @@ class FirebaseAuthRepository implements AuthRepository {
           uid: user.uid,
           email: user.email ?? googleUser.email,
           displayName: user.displayName ?? googleUser.displayName,
+          emailVerified: user.emailVerified,
         );
+  }
+
+  @override
+  Future<void> sendEmailVerification() async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw StateError('No signed-in user can receive verification email.');
+    }
+    if (!user.emailVerified) await user.sendEmailVerification();
+  }
+
+  @override
+  Future<AuthUser?> reloadCurrentUser() async {
+    final user = _auth.currentUser;
+    if (user == null) return null;
+    await user.reload();
+    return _fromFirebaseUser(_auth.currentUser);
   }
 
   @override
@@ -137,6 +157,7 @@ class FirebaseAuthRepository implements AuthRepository {
       uid: user.uid,
       email: user.email ?? '',
       displayName: user.displayName,
+      emailVerified: user.emailVerified,
     );
   }
 }

@@ -20,7 +20,12 @@ class FakeAuthRepository implements AuthRepository {
     required String email,
     required String password,
   }) async {
-    final user = AuthUser(uid: 'demo-user', email: email, displayName: name);
+    final user = AuthUser(
+      uid: 'demo-user',
+      email: email,
+      displayName: name,
+      emailVerified: false,
+    );
     _setUser(user);
     return user;
   }
@@ -48,6 +53,20 @@ class FakeAuthRepository implements AuthRepository {
     );
     _setUser(user);
     return user;
+  }
+
+  @override
+  Future<void> sendEmailVerification() async {}
+
+  @override
+  Future<AuthUser?> reloadCurrentUser() async {
+    return _currentUser;
+  }
+
+  void markEmailVerified() {
+    final user = _currentUser;
+    if (user == null) return;
+    _setUser(user.copyWith(emailVerified: true));
   }
 
   @override
