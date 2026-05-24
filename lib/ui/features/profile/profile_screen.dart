@@ -1744,6 +1744,17 @@ class _BillDetailSheet extends ConsumerWidget {
               icon: const Icon(Icons.pause_circle_outline),
               label: const Text('Pause reminder'),
             ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              key: Key('delete_bill_${bill.id}'),
+              onPressed: () => _delete(context, ref),
+              icon: const Icon(Icons.delete_outline),
+              label: const Text('Delete reminder'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: KoloColors.expense,
+                side: const BorderSide(color: KoloColors.expense),
+              ),
+            ),
           ],
         ),
       ),
@@ -1795,6 +1806,19 @@ class _BillDetailSheet extends ConsumerWidget {
           '${bill.name} paid. Balance is now ${MoneyFormatter.formatKobo(balanceAfter)}.',
         ),
       ),
+    );
+  }
+
+  Future<void> _delete(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
+    await ref.read(koloRepositoryProvider).deleteBill(bill.id);
+    if (!context.mounted) return;
+
+    navigator.pop();
+    messenger.showSnackBar(
+      SnackBar(content: Text('${bill.name} reminder removed')),
     );
   }
 }
