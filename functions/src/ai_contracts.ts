@@ -16,6 +16,13 @@ export const transactionCategorizationSchema = z.object({
   reason: z.string().min(1),
 });
 
+export type TransactionCategorizationInput = z.infer<
+  typeof transactionCategorizationInputSchema
+>;
+export type TransactionCategorization = z.infer<
+  typeof transactionCategorizationSchema
+>;
+
 export const interventionInputSchema = z.object({
   context: z.record(z.string(), z.unknown()).optional(),
 });
@@ -25,6 +32,8 @@ export const interventionMessageSchema = z.object({
   severity: z.enum(["safe", "caution", "stop"]),
   suggestedAction: z.string().min(1),
 });
+
+export type InterventionMessage = z.infer<typeof interventionMessageSchema>;
 
 export const reminderInputSchema = z.object({
   owing: z.object({
@@ -40,6 +49,9 @@ export const reminderDraftSchema = z.object({
   tone: z.enum(["friendly", "firm", "urgent"]),
 });
 
+export type ReminderInput = z.infer<typeof reminderInputSchema>;
+export type ReminderDraft = z.infer<typeof reminderDraftSchema>;
+
 export const weeklyInsightInputSchema = z.object({
   context: z.record(z.string(), z.unknown()).optional(),
 });
@@ -50,3 +62,52 @@ export const weeklyInsightSchema = z.object({
   category: z.string().optional().nullable(),
   severity: z.enum(["safe", "warning", "risk"]),
 });
+
+export type WeeklyInsight = z.infer<typeof weeklyInsightSchema>;
+
+export function fallbackTransactionCategorization(
+  input: TransactionCategorizationInput,
+): TransactionCategorization {
+  return {
+    amountKobo: 0,
+    type: "expense",
+    category: "Miscellaneous",
+    description: input.rawText.slice(0, 120),
+    merchantName: null,
+    confidence: 0,
+    reason: "Gemini did not return a structured transaction draft.",
+  };
+}
+
+export function fallbackInterventionMessage(): InterventionMessage {
+  return {
+    content: "Pause for a moment and check your Kolo balance before spending.",
+    severity: "caution",
+    suggestedAction: "Open Kolo and review today's budget.",
+  };
+}
+
+export function fallbackReminderDraft(input: ReminderInput): ReminderDraft {
+  return {
+    message: `Hi ${input.owing.person}, gentle reminder about the ${formatKobo(
+      input.owing.amountKobo,
+    )} we noted. Please send it when you can.`,
+    tone: "friendly",
+  };
+}
+
+export function fallbackWeeklyInsight(): WeeklyInsight {
+  return {
+    title: "Spending pattern needs more data",
+    body: "Kolo needs more transactions before it can produce a confident weekly insight.",
+    category: null,
+    severity: "safe",
+  };
+}
+
+function formatKobo(kobo: number): string {
+  return `NGN ${(kobo / 100).toLocaleString("en-NG", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}

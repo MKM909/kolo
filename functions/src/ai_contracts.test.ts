@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  fallbackInterventionMessage,
+  fallbackReminderDraft,
+  fallbackTransactionCategorization,
+  fallbackWeeklyInsight,
   transactionCategorizationSchema,
   interventionMessageSchema,
   weeklyInsightSchema,
@@ -53,4 +57,32 @@ test("intervention and insight contracts expose user-facing copy", () => {
     }).severity,
     "warning",
   );
+});
+
+test("fallback outputs satisfy the typed AI contracts", () => {
+  assert.equal(
+    transactionCategorizationSchema.safeParse(
+      fallbackTransactionCategorization({
+        rawText: "POS debit Chicken Republic NGN 1250",
+        source: "sms",
+      }),
+    ).success,
+    true,
+  );
+
+  assert.equal(
+    interventionMessageSchema.safeParse(fallbackInterventionMessage()).success,
+    true,
+  );
+  assert.equal(
+    fallbackReminderDraft({
+      owing: {
+        person: "Sade",
+        amountKobo: 1200000,
+        note: null,
+      },
+    }).tone,
+    "friendly",
+  );
+  assert.equal(weeklyInsightSchema.safeParse(fallbackWeeklyInsight()).success, true);
 });
