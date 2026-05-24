@@ -28,6 +28,7 @@ void main() {
 
     expect(repository.permission, KoloPermission.sms);
     expect(repository.state, PermissionGrantState.granted);
+    expect(find.byKey(const Key('permission_granted_sms')), findsOneWidget);
   });
 }
 

@@ -595,11 +595,19 @@ class _ChoicePill extends StatelessWidget {
   }
 }
 
-class _PermissionSetupPanel extends ConsumerWidget {
+class _PermissionSetupPanel extends ConsumerStatefulWidget {
   const _PermissionSetupPanel();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_PermissionSetupPanel> createState() =>
+      _PermissionSetupPanelState();
+}
+
+class _PermissionSetupPanelState extends ConsumerState<_PermissionSetupPanel> {
+  final Set<KoloPermission> _granted = {};
+
+  @override
+  Widget build(BuildContext context) {
     final permissions = const [
       _PermissionSpec(
         permission: KoloPermission.sms,
@@ -669,12 +677,17 @@ class _PermissionSetupPanel extends ConsumerWidget {
                 padding: const EdgeInsets.only(bottom: 12),
                 child: _PermissionSetupTile(
                   spec: permission,
-                  onGrant: () => ref
-                      .read(koloRepositoryProvider)
-                      .updatePermission(
-                        permission.permission,
-                        PermissionGrantState.granted,
-                      ),
+                  granted: _granted.contains(permission.permission),
+                  onGrant: () async {
+                    await ref
+                        .read(koloRepositoryProvider)
+                        .updatePermission(
+                          permission.permission,
+                          PermissionGrantState.granted,
+                        );
+                    if (!mounted) return;
+                    setState(() => _granted.add(permission.permission));
+                  },
                 ),
               ),
             const SizedBox(height: 8),
@@ -706,9 +719,14 @@ class _PermissionSpec {
 }
 
 class _PermissionSetupTile extends StatelessWidget {
-  const _PermissionSetupTile({required this.spec, required this.onGrant});
+  const _PermissionSetupTile({
+    required this.spec,
+    required this.granted,
+    required this.onGrant,
+  });
 
   final _PermissionSpec spec;
+  final bool granted;
   final Future<void> Function() onGrant;
 
   @override
@@ -748,17 +766,20 @@ class _PermissionSetupTile extends StatelessWidget {
           InkWell(
             key: Key('permission_setup_${spec.permission.name}'),
             borderRadius: BorderRadius.circular(999),
-            onTap: onGrant,
+            onTap: granted ? null : onGrant,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: KoloColors.primaryPastel,
+                color: granted
+                    ? KoloColors.income.withValues(alpha: 0.12)
+                    : KoloColors.primaryPastel,
                 borderRadius: BorderRadius.circular(999),
               ),
-              child: const Text(
-                'Setup',
+              child: Text(
+                granted ? 'Granted' : 'Setup',
+                key: granted ? Key('permission_granted_${spec.permission.name}') : null,
                 style: TextStyle(
-                  color: KoloColors.primary,
+                  color: granted ? KoloColors.income : KoloColors.primary,
                   fontWeight: FontWeight.w700,
                   fontSize: 12,
                 ),
