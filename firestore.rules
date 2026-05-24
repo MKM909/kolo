@@ -21,7 +21,7 @@ service cloud.firestore {
         allow read, write: if isOwner(uid);
         allow read: if signedIn()
           && resource.data.status == 'active'
-          && resource.data.partnerUid == request.auth.uid;
+          && resource.data.partnerEmail == request.auth.token.email;
       }
     }
   }
