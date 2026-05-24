@@ -27,7 +27,9 @@ class AndroidPermissionRequester implements PermissionRequester {
             ? PermissionGrantState.granted
             : PermissionGrantState.notRequested;
       case KoloPermission.backgroundService:
-        return PermissionGrantState.granted;
+        return await _capabilities.startBackgroundWatcher()
+            ? PermissionGrantState.granted
+            : PermissionGrantState.notRequested;
     }
   }
 

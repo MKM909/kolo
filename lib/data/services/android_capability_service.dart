@@ -33,6 +33,11 @@ class AndroidCapabilityService {
     return result.map(_nativeEventFromPayload).toList();
   }
 
+  Future<bool> startBackgroundWatcher() async {
+    final started = await _channel.invokeMethod<bool>('startBackgroundWatcher');
+    return started ?? false;
+  }
+
   Future<bool> openAccessibilitySettings() async {
     final opened = await _channel.invokeMethod<bool>(
       'openAccessibilitySettings',

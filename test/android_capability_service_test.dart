@@ -97,18 +97,46 @@ void main() {
       expect(state, PermissionGrantState.granted);
     },
   );
+
+  test('starts the Android background watcher from MethodChannel', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          expect(call.method, 'startBackgroundWatcher');
+          return true;
+        });
+
+    final service = AndroidCapabilityService(channel: channel);
+
+    expect(await service.startBackgroundWatcher(), isTrue);
+  });
+
+  test('background service request starts watcher before granting', () async {
+    final capabilities = _FakeAndroidCapabilities(
+      notificationListenerEnabled: false,
+      backgroundWatcherStarted: true,
+    );
+    final requester = AndroidPermissionRequester(capabilities: capabilities);
+
+    final state = await requester.request(KoloPermission.backgroundService);
+
+    expect(capabilities.startedBackgroundWatcher, isTrue);
+    expect(state, PermissionGrantState.granted);
+  });
 }
 
 class _FakeAndroidCapabilities extends AndroidCapabilityService {
   _FakeAndroidCapabilities({
     required this.notificationListenerEnabled,
     this.accessibilityServiceEnabled = false,
+    this.backgroundWatcherStarted = false,
   });
 
   final bool notificationListenerEnabled;
   final bool accessibilityServiceEnabled;
+  final bool backgroundWatcherStarted;
   bool openedNotificationSettings = false;
   bool openedAccessibilitySettings = false;
+  bool startedBackgroundWatcher = false;
 
   @override
   Future<bool> openNotificationListenerSettings() async {
@@ -130,5 +158,11 @@ class _FakeAndroidCapabilities extends AndroidCapabilityService {
   @override
   Future<bool> isAccessibilityServiceEnabled() async {
     return accessibilityServiceEnabled;
+  }
+
+  @override
+  Future<bool> startBackgroundWatcher() async {
+    startedBackgroundWatcher = true;
+    return backgroundWatcherStarted;
   }
 }

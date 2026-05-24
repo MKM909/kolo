@@ -2,6 +2,7 @@ package com.micah.kolo
 
 import android.content.ComponentName
 import android.content.Intent
+import android.os.Build
 import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -27,9 +28,21 @@ class MainActivity : FlutterActivity() {
                 }
                 "isAccessibilityServiceEnabled" -> result.success(isAccessibilityServiceEnabled())
                 "isNotificationListenerEnabled" -> result.success(isNotificationListenerEnabled())
+                "startBackgroundWatcher" -> result.success(startBackgroundWatcher())
                 else -> result.notImplemented()
             }
         }
+    }
+
+    private fun startBackgroundWatcher(): Boolean {
+        val serviceIntent = Intent(this, KoloForegroundService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(serviceIntent)
+        } else {
+            @Suppress("DEPRECATION")
+            startService(serviceIntent)
+        }
+        return true
     }
 
     private fun isAccessibilityServiceEnabled(): Boolean {

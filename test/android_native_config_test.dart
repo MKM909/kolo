@@ -82,4 +82,14 @@ void main() {
     expect(mainActivity, contains('isAccessibilityServiceEnabled'));
     expect(mainActivity, contains('enabled_accessibility_services'));
   });
+
+  test('MainActivity can start the foreground watcher service', () {
+    final mainActivity = File(
+      'android/app/src/main/kotlin/com/micah/kolo/MainActivity.kt',
+    ).readAsStringSync();
+
+    expect(mainActivity, contains('startBackgroundWatcher'));
+    expect(mainActivity, contains('KoloForegroundService::class.java'));
+    expect(mainActivity, contains('startForegroundService'));
+  });
 }
