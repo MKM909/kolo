@@ -867,6 +867,32 @@ void main() {
     );
   });
 
+  testWidgets('partner sharing publishes a partner-safe summary', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.person_outline));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Partner Sharing'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const Key('open_partner_sharing')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('publish_partner_share-1')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Partner-safe summary published for accountability@friend.ng'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('profile watched apps toggles an app', (tester) async {
     await tester.pumpWidget(const KoloApp());
     await tester.pumpAndSettle();

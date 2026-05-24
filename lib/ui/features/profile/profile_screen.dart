@@ -1933,6 +1933,7 @@ class _PartnerSharingSheetState extends ConsumerState<_PartnerSharingSheet> {
                           child: _PartnerShareCard(
                             share: share,
                             onRevoke: () => _revoke(share),
+                            onPublish: () => _publish(share),
                           ),
                         ),
                     ],
@@ -2027,13 +2028,32 @@ class _PartnerSharingSheetState extends ConsumerState<_PartnerSharingSheet> {
           ),
         );
   }
+
+  Future<void> _publish(PartnerShare share) async {
+    final summary = await ref
+        .read(koloRepositoryProvider)
+        .publishPartnerSummary(share);
+    if (!mounted) return;
+
+    final message = summary == null
+        ? 'Partner share is not active'
+        : 'Partner-safe summary published for ${share.partnerEmail}';
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
 }
 
 class _PartnerShareCard extends StatelessWidget {
-  const _PartnerShareCard({required this.share, required this.onRevoke});
+  const _PartnerShareCard({
+    required this.share,
+    required this.onRevoke,
+    required this.onPublish,
+  });
 
   final PartnerShare share;
   final Future<void> Function() onRevoke;
+  final Future<void> Function() onPublish;
 
   @override
   Widget build(BuildContext context) {
@@ -2054,44 +2074,62 @@ class _PartnerShareCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
-            backgroundColor: KoloColors.primaryPastel,
-            child: Icon(Icons.verified_user_outlined, color: color),
+          Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: KoloColors.primaryPastel,
+                child: Icon(Icons.verified_user_outlined, color: color),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      share.partnerEmail,
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      share.status.name,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.labelMedium?.copyWith(color: color),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _partnerPermissionSummary(share.permissions),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: KoloColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  share.partnerEmail,
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  share.status.name,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.labelMedium?.copyWith(color: color),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _partnerPermissionSummary(share.permissions),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: KoloColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          TextButton(
-            key: Key('revoke_partner_${share.id}'),
-            onPressed: revoked ? null : onRevoke,
-            child: Text(revoked ? 'Revoked' : 'Revoke'),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton.icon(
+                key: Key('publish_partner_${share.id}'),
+                onPressed: revoked ? null : onPublish,
+                icon: const Icon(Icons.ios_share_outlined, size: 18),
+                label: const Text('Publish summary'),
+              ),
+              const SizedBox(width: 8),
+              TextButton(
+                key: Key('revoke_partner_${share.id}'),
+                onPressed: revoked ? null : onRevoke,
+                child: Text(revoked ? 'Revoked' : 'Revoke'),
+              ),
+            ],
           ),
         ],
       ),
