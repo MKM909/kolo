@@ -5,6 +5,7 @@ import 'package:kolo/data/repositories/fake_kolo_repository.dart';
 import 'package:kolo/data/repositories/firebase_auth_repository.dart';
 import 'package:kolo/data/repositories/firebase_kolo_repository.dart';
 import 'package:kolo/data/services/android_capability_service.dart';
+import 'package:kolo/data/services/biometric_unlock_service.dart';
 import 'package:kolo/data/services/cloud_ai_service.dart';
 import 'package:kolo/data/services/firebase_bootstrap.dart';
 import 'package:kolo/data/services/android_permission_requester.dart';
@@ -34,6 +35,10 @@ final androidCapabilityServiceProvider = Provider<AndroidCapabilityService>((
 
 final overlayBubbleServiceProvider = Provider<OverlayBubbleService>((ref) {
   return OverlayBubbleService();
+});
+
+final biometricUnlockServiceProvider = Provider<BiometricUnlockService>((ref) {
+  return BiometricUnlockService();
 });
 
 final transactionCategorizerProvider = Provider<TransactionCategorizer?>((ref) {

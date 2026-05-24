@@ -210,6 +210,20 @@ class _AuthPanelState extends ConsumerState<_AuthPanel> {
                             label: const Text('Continue with Google'),
                           ),
                         ),
+                        if (!_isSignup) ...[
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: TextButton.icon(
+                              key: const Key('auth_biometric_unlock'),
+                              onPressed: _loading
+                                  ? null
+                                  : _unlockWithBiometrics,
+                              icon: const Icon(Icons.fingerprint),
+                              label: const Text('Unlock with biometrics'),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -273,6 +287,36 @@ class _AuthPanelState extends ConsumerState<_AuthPanel> {
       if (!mounted) return;
       final router = GoRouter.maybeOf(context);
       router?.go(_isSignup ? '/onboarding' : '/home');
+    } on Object catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error.toString();
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _unlockWithBiometrics() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final unlocked = await ref.read(biometricUnlockServiceProvider).unlock();
+      if (!mounted) return;
+      if (unlocked) {
+        GoRouter.maybeOf(context)?.go('/home');
+      } else {
+        setState(() {
+          _error = 'Biometric unlock was not available.';
+        });
+      }
     } on Object catch (error) {
       if (!mounted) return;
       setState(() {

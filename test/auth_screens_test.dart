@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kolo/app/providers.dart';
+import 'package:kolo/data/services/biometric_unlock_service.dart';
 import 'package:kolo/domain/repositories/auth_repository.dart';
 import 'package:kolo/ui/features/auth/auth_screens.dart';
 
@@ -65,6 +66,34 @@ void main() {
 
     expect(auth.googleSignInCalls, 1);
   });
+
+  testWidgets('login can unlock with biometrics', (tester) async {
+    final biometric = _RecordingBiometricUnlockService();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          biometricUnlockServiceProvider.overrideWithValue(biometric),
+        ],
+        child: const MaterialApp(home: LoginScreen()),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('auth_biometric_unlock')));
+    await tester.pump();
+
+    expect(biometric.unlockCalls, 1);
+  });
+}
+
+class _RecordingBiometricUnlockService implements BiometricUnlockService {
+  int unlockCalls = 0;
+
+  @override
+  Future<bool> unlock() async {
+    unlockCalls += 1;
+    return true;
+  }
 }
 
 class _RecordingAuthRepository implements AuthRepository {
