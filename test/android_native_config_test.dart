@@ -56,4 +56,12 @@ void main() {
       );
     }
   });
+
+  test('Android manifest declares notification runtime permission', () {
+    final manifest = File(
+      'android/app/src/main/AndroidManifest.xml',
+    ).readAsStringSync();
+
+    expect(manifest, contains('android.permission.POST_NOTIFICATIONS'));
+  });
 }
