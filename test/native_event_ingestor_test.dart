@@ -4,6 +4,8 @@ import 'package:kolo/data/repositories/fake_kolo_repository.dart';
 import 'package:kolo/data/services/android_capability_service.dart';
 import 'package:kolo/data/services/native_event_ingestor.dart';
 import 'package:kolo/data/services/overlay_bubble_service.dart';
+import 'package:kolo/domain/models/models.dart';
+import 'package:kolo/domain/services/transaction_categorizer.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -115,6 +117,82 @@ void main() {
     expect(processed, 1);
     expect(overlayBubble.showCalls, 1);
   });
+
+  test(
+    'uses Gemini categorization when local notification parsing fails',
+    () async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            expect(call.method, 'drainNativeEvents');
+            return [
+              {
+                'id': 'notif-ai-1',
+                'type': 'notification_posted',
+                'createdAt': DateTime(2026, 5, 24, 11).millisecondsSinceEpoch,
+                'payload': {
+                  'title': 'Kuda',
+                  'text':
+                      'Your payment to Shoprite for two thousand naira was successful.',
+                },
+              },
+            ];
+          });
+
+      final repository = FakeKoloRepository.seeded();
+      final overlayBubble = _FakeOverlayBubbleService();
+      final categorizer = _FakeTransactionCategorizer(
+        draft: const TransactionDraft(
+          amountKobo: 200000,
+          type: TransactionType.expense,
+          merchantName: 'Shoprite',
+          source: TransactionSource.notification,
+          rawText:
+              'Kuda Your payment to Shoprite for two thousand naira was successful.',
+          category: 'Food & Snacks',
+        ),
+      );
+      final ingestor = NativeEventIngestor(
+        capabilities: AndroidCapabilityService(channel: channel),
+        repository: repository,
+        overlayBubble: overlayBubble,
+        categorizer: categorizer,
+      );
+
+      final processed = await ingestor.drainAndProcess();
+      final dashboard = await repository.watchDashboard().first;
+
+      expect(processed, 1);
+      expect(categorizer.calls, 1);
+      expect(categorizer.lastSource, TransactionSource.notification);
+      expect(categorizer.lastContext?.balanceKobo, 5080000);
+      expect(dashboard.transactions.first.id, 'native-notif-ai-1');
+      expect(dashboard.transactions.first.merchantName, 'Shoprite');
+      expect(dashboard.transactions.first.amountKobo, 200000);
+      expect(dashboard.transactions.first.category, 'Food & Snacks');
+      expect(overlayBubble.showCalls, 1);
+    },
+  );
+}
+
+class _FakeTransactionCategorizer implements TransactionCategorizer {
+  _FakeTransactionCategorizer({required this.draft});
+
+  final TransactionDraft? draft;
+  int calls = 0;
+  TransactionSource? lastSource;
+  DashboardState? lastContext;
+
+  @override
+  Future<TransactionDraft?> categorizeTransaction({
+    required String rawText,
+    required TransactionSource source,
+    required DashboardState context,
+  }) async {
+    calls += 1;
+    lastSource = source;
+    lastContext = context;
+    return draft;
+  }
 }
 
 class _FakeOverlayBubbleService implements OverlayBubbleService {

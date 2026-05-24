@@ -28,4 +28,14 @@ void main() {
       contains('overlayBubble: ref.watch(overlayBubbleServiceProvider)'),
     );
   });
+
+  test('native event ingestor is wired to Gemini categorization', () {
+    final providersSource = File('lib/app/providers.dart').readAsStringSync();
+
+    expect(providersSource, contains('transactionCategorizerProvider'));
+    expect(
+      providersSource,
+      contains('categorizer: ref.watch(transactionCategorizerProvider)'),
+    );
+  });
 }

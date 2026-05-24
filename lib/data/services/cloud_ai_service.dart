@@ -1,7 +1,8 @@
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:kolo/domain/models/models.dart';
+import 'package:kolo/domain/services/transaction_categorizer.dart';
 
-class CloudAiService {
+class CloudAiService implements TransactionCategorizer {
   CloudAiService({FirebaseFunctions? functions})
     : _functions = functions ?? FirebaseFunctions.instance;
 
@@ -43,6 +44,7 @@ class CloudAiService {
         'Pause and check your Kolo balance before spending.';
   }
 
+  @override
   Future<TransactionDraft> categorizeTransaction({
     required String rawText,
     required TransactionSource source,

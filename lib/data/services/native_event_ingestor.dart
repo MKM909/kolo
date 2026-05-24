@@ -3,6 +3,7 @@ import 'package:kolo/data/services/overlay_bubble_service.dart';
 import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/repositories/kolo_repository.dart';
 import 'package:kolo/domain/services/money_formatter.dart';
+import 'package:kolo/domain/services/transaction_categorizer.dart';
 import 'package:kolo/domain/services/transaction_parser.dart';
 
 class NativeEventIngestor {
@@ -10,13 +11,16 @@ class NativeEventIngestor {
     required AndroidCapabilityService capabilities,
     required KoloRepository repository,
     OverlayBubbleService? overlayBubble,
+    TransactionCategorizer? categorizer,
   }) : _capabilities = capabilities,
        _repository = repository,
-       _overlayBubble = overlayBubble;
+       _overlayBubble = overlayBubble,
+       _categorizer = categorizer;
 
   final AndroidCapabilityService _capabilities;
   final KoloRepository _repository;
   final OverlayBubbleService? _overlayBubble;
+  final TransactionCategorizer? _categorizer;
 
   Future<int> drainAndProcess() async {
     final events = await _capabilities.drainNativeEvents();
@@ -31,7 +35,8 @@ class NativeEventIngestor {
       final rawText = _rawTextFor(event);
       if (rawText == null || rawText.trim().isEmpty) continue;
 
-      final draft = TransactionParser.parse(rawText);
+      final draft =
+          TransactionParser.parse(rawText) ?? await _aiDraft(event, rawText);
       if (draft == null) continue;
 
       await _repository.logTransaction(_transactionFromDraft(event, draft));
@@ -40,6 +45,21 @@ class NativeEventIngestor {
     }
 
     return processed;
+  }
+
+  Future<TransactionDraft?> _aiDraft(
+    NativeAndroidEvent event,
+    String rawText,
+  ) async {
+    final categorizer = _categorizer;
+    if (categorizer == null) return null;
+
+    final context = await _repository.watchDashboard().first;
+    return categorizer.categorizeTransaction(
+      rawText: rawText,
+      source: _sourceFor(event),
+      context: context,
+    );
   }
 
   Future<bool> _processForegroundApp(NativeAndroidEvent event) async {
@@ -68,6 +88,14 @@ class NativeEventIngestor {
     );
     await _overlayBubble?.showKoloBubble();
     return true;
+  }
+
+  TransactionSource _sourceFor(NativeAndroidEvent event) {
+    return switch (event.type) {
+      'notification_posted' => TransactionSource.notification,
+      'sms_received' => TransactionSource.sms,
+      _ => TransactionSource.manual,
+    };
   }
 
   String? _rawTextFor(NativeAndroidEvent event) {

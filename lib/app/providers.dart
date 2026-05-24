@@ -5,6 +5,7 @@ import 'package:kolo/data/repositories/fake_kolo_repository.dart';
 import 'package:kolo/data/repositories/firebase_auth_repository.dart';
 import 'package:kolo/data/repositories/firebase_kolo_repository.dart';
 import 'package:kolo/data/services/android_capability_service.dart';
+import 'package:kolo/data/services/cloud_ai_service.dart';
 import 'package:kolo/data/services/firebase_bootstrap.dart';
 import 'package:kolo/data/services/android_permission_requester.dart';
 import 'package:kolo/data/services/native_event_ingestor.dart';
@@ -13,6 +14,7 @@ import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/repositories/auth_repository.dart';
 import 'package:kolo/domain/repositories/kolo_repository.dart';
 import 'package:kolo/domain/services/permission_requester.dart';
+import 'package:kolo/domain/services/transaction_categorizer.dart';
 
 final firebaseBootstrapResultProvider = Provider<FirebaseBootstrapResult>((
   ref,
@@ -32,6 +34,12 @@ final androidCapabilityServiceProvider = Provider<AndroidCapabilityService>((
 
 final overlayBubbleServiceProvider = Provider<OverlayBubbleService>((ref) {
   return OverlayBubbleService();
+});
+
+final transactionCategorizerProvider = Provider<TransactionCategorizer?>((ref) {
+  final bootstrap = ref.watch(firebaseBootstrapResultProvider);
+  if (!bootstrap.initialized) return null;
+  return CloudAiService();
 });
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
@@ -69,6 +77,7 @@ final nativeEventIngestorProvider = Provider<NativeEventIngestor>((ref) {
     capabilities: ref.watch(androidCapabilityServiceProvider),
     repository: ref.watch(koloRepositoryProvider),
     overlayBubble: ref.watch(overlayBubbleServiceProvider),
+    categorizer: ref.watch(transactionCategorizerProvider),
   );
 });
 
