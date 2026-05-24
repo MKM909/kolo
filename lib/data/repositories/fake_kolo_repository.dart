@@ -414,6 +414,24 @@ class FakeKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<WeeklyInsight> generateWeeklyInsight() async {
+    final now = DateTime.now();
+    final expenseTotal = _state.transactions
+        .where((transaction) => transaction.type == TransactionType.expense)
+        .fold<int>(0, (total, transaction) => total + transaction.amountKobo);
+    final insight = WeeklyInsight(
+      id: 'insight-${now.microsecondsSinceEpoch}',
+      title: 'Kolo weekly spending check',
+      body:
+          'Kolo reviewed your week and found ${MoneyFormatter.formatKobo(expenseTotal)} in tracked spending. Keep protecting your vault money first.',
+      createdAt: now,
+    );
+    _state = _state.copyWith(insights: [insight, ..._state.insights]);
+    _controller.add(_state);
+    return insight;
+  }
+
+  @override
   Future<BudgetPlan> completeOnboarding(OnboardingAnswers answers) async {
     final budget = await generateBudget(answers);
     _state = _state.copyWith(

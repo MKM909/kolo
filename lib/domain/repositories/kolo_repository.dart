@@ -12,6 +12,7 @@ abstract class KoloRepository {
   Future<void> logTransaction(TransactionRecord transaction);
   Future<void> recordAiMessage(AiMessage message);
   Future<String> draftOwingReminder(Owing owing);
+  Future<WeeklyInsight> generateWeeklyInsight();
   Future<BudgetPlan> completeOnboarding(OnboardingAnswers answers);
   Future<BudgetPlan> generateBudget(OnboardingAnswers answers);
   Future<AiMessage> sendAiMessage(String message);

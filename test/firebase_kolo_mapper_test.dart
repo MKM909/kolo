@@ -248,4 +248,21 @@ void main() {
     expect(payload['displayName'], 'Moniepoint');
     expect(payload['enabled'], isTrue);
   });
+
+  test('serializes weekly insights for Firebase persistence', () {
+    final createdAt = DateTime(2026, 5, 24, 18);
+
+    final payload = FirebaseKoloMapper.insightToJson(
+      WeeklyInsight(
+        id: 'insight-food',
+        title: 'Food spending is heating up',
+        body: 'Kolo noticed more late-night food this week.',
+        createdAt: createdAt,
+      ),
+    );
+
+    expect(payload['title'], 'Food spending is heating up');
+    expect(payload['body'], contains('Kolo noticed'));
+    expect((payload['createdAt'] as Timestamp).toDate(), createdAt);
+  });
 }

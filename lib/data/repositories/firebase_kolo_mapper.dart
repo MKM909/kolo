@@ -136,6 +136,14 @@ class FirebaseKoloMapper {
     };
   }
 
+  static Map<String, Object?> insightToJson(WeeklyInsight insight) {
+    return {
+      'title': insight.title,
+      'body': insight.body,
+      'createdAt': Timestamp.fromDate(insight.createdAt),
+    };
+  }
+
   static Map<String, Object?> budgetToJson(BudgetPlan budget) {
     return {
       'monthlyIncomeKobo': budget.monthlyIncomeKobo,

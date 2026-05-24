@@ -178,6 +178,17 @@ class FirebaseKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<WeeklyInsight> generateWeeklyInsight() async {
+    final context = await _loadDashboard();
+    final insight = await _aiService.analyzeSpending(context: context);
+    await _userDoc.collection('insights').doc(insight.id).set({
+      ...FirebaseKoloMapper.insightToJson(insight),
+      'serverCreatedAt': FieldValue.serverTimestamp(),
+    });
+    return insight;
+  }
+
+  @override
   Future<BudgetPlan> generateBudget(OnboardingAnswers answers) async {
     final budget = await _aiService.generateBudget(answers);
     await updateBudget(budget);

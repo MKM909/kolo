@@ -146,6 +146,11 @@ class _RecordingKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<WeeklyInsight> generateWeeklyInsight() {
+    throw UnimplementedError();
+  }
+
+  @override
   Future<AiMessage> sendAiMessage(String message) {
     throw UnimplementedError();
   }

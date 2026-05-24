@@ -312,4 +312,17 @@ void main() {
       expect(dashboard.aiMessages.first.context, 'onboarding');
     },
   );
+
+  test('fake repository generates and stores a weekly insight', () async {
+    final repository = FakeKoloRepository.seeded();
+    final initial = await repository.watchDashboard().first;
+
+    final insight = await repository.generateWeeklyInsight();
+    final updated = await repository.watchDashboard().first;
+
+    expect(updated.insights, hasLength(initial.insights.length + 1));
+    expect(updated.insights.first.id, insight.id);
+    expect(updated.insights.first.title, isNotEmpty);
+    expect(updated.insights.first.body, contains('Kolo'));
+  });
 }
