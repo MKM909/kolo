@@ -682,6 +682,41 @@ void main() {
     );
   });
 
+  testWidgets('bill reminders groups due soon and upcoming bills', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.person_outline));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Bill Reminders'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const Key('open_bill_reminders')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('bill_section_due_soon')), findsOneWidget);
+    expect(find.byKey(const Key('bill_section_upcoming')), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('bill_section_due_soon')),
+        matching: find.text('Monthly data'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('bill_section_upcoming')),
+        matching: find.text('Hostel dues'),
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('bill reminder detail pauses an active bill', (tester) async {
     await tester.pumpWidget(const KoloApp());
     await tester.pumpAndSettle();

@@ -1092,18 +1092,49 @@ class _BillRemindersSheetState extends ConsumerState<_BillRemindersSheet> {
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
                   error: (error, _) => Text('Could not load bills: $error'),
-                  data: (state) => Column(
-                    children: [
-                      for (final bill in state.bills)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _BillCard(
-                            bill: bill,
-                            onTap: () => _openBillDetail(context, bill),
+                  data: (state) {
+                    final dueSoon = _billsWithUrgency(state.bills, {
+                      BillReminderUrgency.overdue,
+                      BillReminderUrgency.dueToday,
+                      BillReminderUrgency.dueSoon,
+                    });
+                    final upcoming = _billsWithUrgency(state.bills, {
+                      BillReminderUrgency.upcoming,
+                    });
+                    final paused = _billsWithUrgency(state.bills, {
+                      BillReminderUrgency.paused,
+                    });
+                    return Column(
+                      children: [
+                        if (dueSoon.isNotEmpty)
+                          _BillSection(
+                            key: const Key('bill_section_due_soon'),
+                            title: 'Due soon',
+                            bills: dueSoon,
+                            onOpen: (bill) => _openBillDetail(context, bill),
                           ),
-                        ),
-                    ],
-                  ),
+                        if (upcoming.isNotEmpty)
+                          _BillSection(
+                            key: const Key('bill_section_upcoming'),
+                            title: 'Upcoming',
+                            bills: upcoming,
+                            onOpen: (bill) => _openBillDetail(context, bill),
+                          ),
+                        if (paused.isNotEmpty)
+                          _BillSection(
+                            key: const Key('bill_section_paused'),
+                            title: 'Paused',
+                            bills: paused,
+                            onOpen: (bill) => _openBillDetail(context, bill),
+                          ),
+                        if (state.bills.isEmpty)
+                          const Text(
+                            'No bill reminders yet.',
+                            style: TextStyle(color: KoloColors.textSecondary),
+                          ),
+                      ],
+                    );
+                  },
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -1208,6 +1239,44 @@ class _BillRemindersSheetState extends ConsumerState<_BillRemindersSheet> {
   }
 }
 
+class _BillSection extends StatelessWidget {
+  const _BillSection({
+    super.key,
+    required this.title,
+    required this.bills,
+    required this.onOpen,
+  });
+
+  final String title;
+  final List<BillReminder> bills;
+  final void Function(BillReminder bill) onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: KoloColors.textSecondary,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 10),
+          for (final bill in bills)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _BillCard(bill: bill, onTap: () => onOpen(bill)),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _BillCard extends StatelessWidget {
   const _BillCard({required this.bill, required this.onTap});
 
@@ -1287,6 +1356,18 @@ class _BillCard extends StatelessWidget {
       ),
     );
   }
+}
+
+List<BillReminder> _billsWithUrgency(
+  List<BillReminder> bills,
+  Set<BillReminderUrgency> urgencies,
+) {
+  return bills
+      .where(
+        (bill) =>
+            urgencies.contains(BillReminderSchedule.statusFor(bill).urgency),
+      )
+      .toList(growable: false);
 }
 
 class _BillDetailSheet extends ConsumerWidget {
