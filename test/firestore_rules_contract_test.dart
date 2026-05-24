@@ -23,5 +23,11 @@ void main() {
       rules,
       contains('resource.data.partnerEmail == request.auth.token.email'),
     );
+    expect(
+      RegExp(
+        "resource\\.data\\.status == 'active'",
+      ).allMatches(rules).length,
+      greaterThanOrEqualTo(2),
+    );
   });
 }

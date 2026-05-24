@@ -20,6 +20,7 @@ class PartnerSafeSummary {
     return {
       'shareId': shareId,
       'partnerEmail': partnerEmail,
+      'status': 'active',
       'generatedAt': generatedAt.toIso8601String(),
       'permissions': permissions.toList()..sort(),
       'sections': sections,

@@ -27,6 +27,7 @@ service cloud.firestore {
       match /partnerSummaries/{summaryId} {
         allow read, write: if isOwner(uid);
         allow read: if signedIn()
+          && resource.data.status == 'active'
           && resource.data.partnerEmail == request.auth.token.email;
       }
     }

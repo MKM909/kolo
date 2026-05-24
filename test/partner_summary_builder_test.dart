@@ -17,6 +17,7 @@ void main() {
     expect(summary, isNotNull);
     expect(summary!.shareId, share.id);
     expect(summary.partnerEmail, share.partnerEmail);
+    expect(summary.toJson()['status'], 'active');
     expect(summary.sections.keys, contains('balance_summary'));
     expect(summary.sections.keys, contains('budget_summary'));
     expect(summary.sections.keys, contains('weekly_insights'));
