@@ -1543,9 +1543,15 @@ class _OwingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theyOweMe = owing.type == OwingType.theyOweMe;
+    final timelineLabel = _owingTimelineLabel(owing.date, DateTime.now());
     final dueLabel = owing.dueDate == null
         ? null
         : 'Due ${_owingDateInput(owing.dueDate!)}';
+    final actionLabel = owing.settled
+        ? 'Settled'
+        : theyOweMe
+        ? 'Remind'
+        : 'Settle';
     return InkWell(
       borderRadius: BorderRadius.circular(20),
       onTap: onTap,
@@ -1581,12 +1587,10 @@ class _OwingCard extends StatelessWidget {
                     style: const TextStyle(fontWeight: FontWeight.w800),
                   ),
                   Text(
-                    owing.settled
-                        ? 'Settled'
-                        : theyOweMe
-                        ? 'They owe you'
-                        : 'You owe them',
-                    style: Theme.of(context).textTheme.labelMedium,
+                    timelineLabel,
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: KoloColors.textMuted,
+                    ),
                   ),
                   if (dueLabel != null)
                     Text(
@@ -1598,18 +1602,69 @@ class _OwingCard extends StatelessWidget {
                 ],
               ),
             ),
-            Text(
-              MoneyFormatter.formatKobo(owing.amountKobo),
-              style: TextStyle(
-                color: theyOweMe ? KoloColors.income : KoloColors.expense,
-                fontWeight: FontWeight.w800,
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  MoneyFormatter.formatKobo(owing.amountKobo),
+                  style: TextStyle(
+                    color: theyOweMe ? KoloColors.income : KoloColors.expense,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  actionLabel,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: owing.settled
+                        ? KoloColors.textMuted
+                        : KoloColors.primary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
       ),
     );
   }
+}
+
+String _owingTimelineLabel(DateTime date, DateTime now) {
+  final opened = DateTime(date.year, date.month, date.day);
+  final today = DateTime(now.year, now.month, now.day);
+  final dayDelta = today.difference(opened).inDays;
+  final age = dayDelta == 0
+      ? 'today'
+      : dayDelta > 0
+      ? dayDelta == 1
+            ? '1 day ago'
+            : '$dayDelta days ago'
+      : dayDelta == -1
+      ? 'tomorrow'
+      : 'in ${dayDelta.abs()} days';
+
+  return '${_owingMonthLabel(date.month)} ${date.day} - $age';
+}
+
+String _owingMonthLabel(int month) {
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  if (month < 1 || month > months.length) return '';
+  return months[month - 1];
 }
 
 String _owingDateInput(DateTime date) {

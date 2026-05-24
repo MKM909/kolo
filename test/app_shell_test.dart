@@ -473,6 +473,24 @@ void main() {
     expect(find.text('Ada'), findsNothing);
   });
 
+  testWidgets('owing cards show age and action labels', (tester) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Owings'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('May 18'), findsOneWidget);
+    expect(find.textContaining('days ago'), findsOneWidget);
+    expect(find.text('Remind'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('owings_filter_i_owe_them')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('May 21'), findsOneWidget);
+    expect(find.text('Settle'), findsOneWidget);
+  });
+
   testWidgets('home owings quick action creates an owing record', (
     tester,
   ) async {
