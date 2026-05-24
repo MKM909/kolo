@@ -164,13 +164,13 @@ class _FloatingConversationPanel extends ConsumerWidget {
                       ),
                     ),
                     dashboard.when(
-                      loading: () => const _FloatingHeader(
+                      loading: () => _FloatingHeader(
                         balanceLabel: 'Loading...',
-                        onClose: null,
+                        onClose: onClose,
                       ),
-                      error: (_, _) => const _FloatingHeader(
+                      error: (_, _) => _FloatingHeader(
                         balanceLabel: 'Offline',
-                        onClose: null,
+                        onClose: onClose,
                       ),
                       data: (state) => _FloatingHeader(
                         balanceLabel: MoneyFormatter.formatKobo(
