@@ -610,6 +610,24 @@ void main() {
     );
   });
 
+  testWidgets('owing detail sheet deletes an owing', (tester) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Owings'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Timi'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('delete_owing')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('owing_detail_sheet')), findsNothing);
+    expect(find.text('Owing removed'), findsOneWidget);
+    expect(find.text('Timi'), findsNothing);
+  });
+
   testWidgets('owing reminder draft can be copied', (tester) async {
     final clipboardWrites = <String>[];
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger

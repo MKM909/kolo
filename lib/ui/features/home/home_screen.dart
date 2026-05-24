@@ -1702,6 +1702,18 @@ class _OwingDetailSheetState extends ConsumerState<_OwingDetailSheet> {
                     },
               child: const Text('Mark settled'),
             ),
+            const SizedBox(height: 8),
+            Center(
+              child: TextButton.icon(
+                key: const Key('delete_owing'),
+                onPressed: _delete,
+                icon: const Icon(Icons.delete_outline, size: 18),
+                label: const Text('Delete owing'),
+                style: TextButton.styleFrom(
+                  foregroundColor: KoloColors.expense,
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -1718,6 +1730,17 @@ class _OwingDetailSheetState extends ConsumerState<_OwingDetailSheet> {
       _draft = draft;
       _drafting = false;
     });
+  }
+
+  Future<void> _delete() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
+    await ref.read(koloRepositoryProvider).deleteOwing(widget.owing.id);
+    if (!mounted) return;
+
+    navigator.pop();
+    messenger.showSnackBar(const SnackBar(content: Text('Owing removed')));
   }
 
   Future<void> _copyDraft() async {
