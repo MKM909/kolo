@@ -5,12 +5,18 @@ import 'package:kolo/data/repositories/fake_kolo_repository.dart';
 import 'package:kolo/data/repositories/firebase_auth_repository.dart';
 import 'package:kolo/data/repositories/firebase_kolo_repository.dart';
 import 'package:kolo/data/services/firebase_bootstrap.dart';
+import 'package:kolo/data/services/android_permission_requester.dart';
 import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/repositories/auth_repository.dart';
 import 'package:kolo/domain/repositories/kolo_repository.dart';
+import 'package:kolo/domain/services/permission_requester.dart';
 
 final firebaseBootstrapResultProvider = Provider<FirebaseBootstrapResult>((ref) {
   return const FirebaseBootstrapResult(initialized: false);
+});
+
+final permissionRequesterProvider = Provider<PermissionRequester>((ref) {
+  return AndroidPermissionRequester();
 });
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {

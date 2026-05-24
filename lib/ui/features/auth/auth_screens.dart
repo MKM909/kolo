@@ -679,14 +679,19 @@ class _PermissionSetupPanelState extends ConsumerState<_PermissionSetupPanel> {
                   spec: permission,
                   granted: _granted.contains(permission.permission),
                   onGrant: () async {
+                    final state = await ref
+                        .read(permissionRequesterProvider)
+                        .request(permission.permission);
                     await ref
                         .read(koloRepositoryProvider)
                         .updatePermission(
                           permission.permission,
-                          PermissionGrantState.granted,
+                          state,
                         );
                     if (!mounted) return;
-                    setState(() => _granted.add(permission.permission));
+                    if (state == PermissionGrantState.granted) {
+                      setState(() => _granted.add(permission.permission));
+                    }
                   },
                 ),
               ),

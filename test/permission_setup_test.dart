@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kolo/app/providers.dart';
 import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/repositories/kolo_repository.dart';
+import 'package:kolo/domain/services/permission_requester.dart';
 import 'package:kolo/ui/core/theme/kolo_theme.dart';
 import 'package:kolo/ui/features/auth/auth_screens.dart';
 
@@ -12,10 +13,14 @@ void main() {
     tester,
   ) async {
     final repository = _RecordingKoloRepository();
+    final requester = _RecordingPermissionRequester();
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [koloRepositoryProvider.overrideWithValue(repository)],
+        overrides: [
+          koloRepositoryProvider.overrideWithValue(repository),
+          permissionRequesterProvider.overrideWithValue(requester),
+        ],
         child: MaterialApp(
           theme: KoloTheme.light,
           home: const PermissionSetupScreen(),
@@ -26,10 +31,21 @@ void main() {
     await tester.tap(find.byKey(const Key('permission_setup_sms')));
     await tester.pumpAndSettle();
 
+    expect(requester.permission, KoloPermission.sms);
     expect(repository.permission, KoloPermission.sms);
     expect(repository.state, PermissionGrantState.granted);
     expect(find.byKey(const Key('permission_granted_sms')), findsOneWidget);
   });
+}
+
+class _RecordingPermissionRequester implements PermissionRequester {
+  KoloPermission? permission;
+
+  @override
+  Future<PermissionGrantState> request(KoloPermission permission) async {
+    this.permission = permission;
+    return PermissionGrantState.granted;
+  }
 }
 
 class _RecordingKoloRepository implements KoloRepository {
