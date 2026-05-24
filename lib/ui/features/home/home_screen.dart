@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kolo/app/providers.dart';
 import 'package:kolo/domain/models/models.dart';
+import 'package:kolo/domain/services/ai_override_tone.dart';
 import 'package:kolo/domain/services/financial_calculator.dart';
 import 'package:kolo/domain/services/money_formatter.dart';
 import 'package:kolo/ui/core/theme/kolo_theme.dart';
@@ -607,12 +608,17 @@ class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
     final allocatedKobo = _categoryBudgetKobo(dashboard);
     final spendAfter = _categorySpendKobo(dashboard) + amountKobo;
     final overBy = spendAfter - allocatedKobo;
+    final adjustedTonePrefix = AiOverrideTone.shouldAdjustTone(
+      dashboard.transactions,
+    )
+        ? '${AiOverrideTone.repeatedOverrideMessage} '
+        : '';
 
     if (allocatedKobo > 0 && overBy > 0) {
-      return 'Caution - $justification. This leaves you ${MoneyFormatter.formatKobo(overBy)} over $_category.';
+      return '${adjustedTonePrefix}Caution - $justification. This leaves you ${MoneyFormatter.formatKobo(overBy)} over $_category.';
     }
 
-    return 'Approved - $justification. Kolo reviewed it against your current balance.';
+    return '${adjustedTonePrefix}Approved - $justification. Kolo reviewed it against your current balance.';
   }
 
   int _categoryBudgetKobo(DashboardState dashboard) {
