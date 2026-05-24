@@ -462,6 +462,11 @@ void main() {
 
     await tester.enterText(find.byKey(const Key('new_owing_person')), 'Sade');
     await tester.enterText(find.byKey(const Key('new_owing_amount')), '12000');
+    expect(find.byKey(const Key('new_owing_due_date')), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const Key('new_owing_due_date')),
+      '2026-05-28',
+    );
     await tester.ensureVisible(find.byKey(const Key('save_new_owing')));
     await tester.tap(find.byKey(const Key('save_new_owing')));
     await tester.pumpAndSettle();
@@ -471,6 +476,14 @@ void main() {
       find.textContaining(MoneyFormatter.formatKobo(1200000)),
       findsOneWidget,
     );
+    expect(find.text('Due 2026-05-28'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Sade'));
+    await tester.tap(find.text('Sade'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('owing_detail_sheet')), findsOneWidget);
+    expect(find.text('2026-05-28'), findsOneWidget);
   });
 
   testWidgets('owing detail sheet marks an owing as settled', (tester) async {

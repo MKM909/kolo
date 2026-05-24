@@ -1261,6 +1261,7 @@ class _OwingsSheet extends ConsumerStatefulWidget {
 class _OwingsSheetState extends ConsumerState<_OwingsSheet> {
   final TextEditingController _personController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
+  final TextEditingController _dueDateController = TextEditingController();
   final TextEditingController _noteController = TextEditingController();
   OwingType _type = OwingType.theyOweMe;
   String? _error;
@@ -1269,6 +1270,7 @@ class _OwingsSheetState extends ConsumerState<_OwingsSheet> {
   void dispose() {
     _personController.dispose();
     _amountController.dispose();
+    _dueDateController.dispose();
     _noteController.dispose();
     super.dispose();
   }
@@ -1382,6 +1384,17 @@ class _OwingsSheetState extends ConsumerState<_OwingsSheet> {
                 ),
                 const SizedBox(height: 12),
                 TextField(
+                  key: const Key('new_owing_due_date'),
+                  controller: _dueDateController,
+                  keyboardType: TextInputType.datetime,
+                  decoration: const InputDecoration(
+                    labelText: 'Due date',
+                    hintText: 'YYYY-MM-DD (optional)',
+                    prefixIcon: Icon(Icons.event_available_outlined),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
                   controller: _noteController,
                   decoration: const InputDecoration(labelText: 'Note'),
                 ),
@@ -1411,8 +1424,13 @@ class _OwingsSheetState extends ConsumerState<_OwingsSheet> {
     final amountKobo = MoneyFormatter.parseNairaToKobo(
       _amountController.text.trim(),
     );
+    final dueDate = _parseOptionalDateInput(_dueDateController.text.trim());
     if (person.isEmpty || amountKobo == null || amountKobo <= 0) {
       setState(() => _error = 'Enter a person and amount.');
+      return;
+    }
+    if (_dueDateController.text.trim().isNotEmpty && dueDate == null) {
+      setState(() => _error = 'Enter the due date as YYYY-MM-DD.');
       return;
     }
 
@@ -1426,6 +1444,7 @@ class _OwingsSheetState extends ConsumerState<_OwingsSheet> {
             person: person,
             amountKobo: amountKobo,
             date: now,
+            dueDate: dueDate,
             note: _noteController.text.trim().isEmpty
                 ? null
                 : _noteController.text.trim(),
@@ -1433,8 +1452,25 @@ class _OwingsSheetState extends ConsumerState<_OwingsSheet> {
         );
     _personController.clear();
     _amountController.clear();
+    _dueDateController.clear();
     _noteController.clear();
     if (mounted) setState(() => _error = null);
+  }
+
+  DateTime? _parseOptionalDateInput(String value) {
+    if (value.isEmpty) return null;
+    final parts = value.split('-');
+    if (parts.length != 3) return null;
+    final year = int.tryParse(parts[0]);
+    final month = int.tryParse(parts[1]);
+    final day = int.tryParse(parts[2]);
+    if (year == null || month == null || day == null) return null;
+
+    final parsed = DateTime(year, month, day);
+    if (parsed.year != year || parsed.month != month || parsed.day != day) {
+      return null;
+    }
+    return parsed;
   }
 
   Future<void> _openOwingDetail(BuildContext context, Owing owing) {
@@ -1457,6 +1493,9 @@ class _OwingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theyOweMe = owing.type == OwingType.theyOweMe;
+    final dueLabel = owing.dueDate == null
+        ? null
+        : 'Due ${_owingDateInput(owing.dueDate!)}';
     return InkWell(
       borderRadius: BorderRadius.circular(20),
       onTap: onTap,
@@ -1499,6 +1538,13 @@ class _OwingCard extends StatelessWidget {
                         : 'You owe them',
                     style: Theme.of(context).textTheme.labelMedium,
                   ),
+                  if (dueLabel != null)
+                    Text(
+                      dueLabel,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: KoloColors.textSecondary,
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -1514,6 +1560,12 @@ class _OwingCard extends StatelessWidget {
       ),
     );
   }
+}
+
+String _owingDateInput(DateTime date) {
+  final month = date.month.toString().padLeft(2, '0');
+  final day = date.day.toString().padLeft(2, '0');
+  return '${date.year}-$month-$day';
 }
 
 class _OwingDetailSheet extends ConsumerStatefulWidget {
@@ -1573,6 +1625,11 @@ class _OwingDetailSheetState extends ConsumerState<_OwingDetailSheet> {
             ),
             if (owing.note != null)
               _OwingDetailRow(label: 'Note', value: owing.note!),
+            if (owing.dueDate != null)
+              _OwingDetailRow(
+                label: 'Due date',
+                value: _owingDateInput(owing.dueDate!),
+              ),
             _OwingDetailRow(
               label: 'Status',
               value: owing.settled ? 'Settled' : 'Open',
