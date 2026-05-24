@@ -135,7 +135,14 @@ class HomeScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 24),
-              const KoloSectionHeader(title: 'Kolo Insights'),
+              KoloSectionHeader(
+                title: 'Kolo Insights',
+                action: 'Refresh',
+                actionKey: const Key('generate_weekly_insight'),
+                onAction: () {
+                  ref.read(koloRepositoryProvider).generateWeeklyInsight();
+                },
+              ),
               for (final insight in state.insights)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),

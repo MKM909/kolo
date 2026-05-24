@@ -295,6 +295,24 @@ void main() {
     expect(find.byKey(const Key('transaction_filter_all')), findsOneWidget);
   });
 
+  testWidgets('home can refresh weekly Kolo insights', (tester) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('generate_weekly_insight')),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    expect(find.text('Kolo weekly spending check'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('generate_weekly_insight')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Kolo weekly spending check'), findsOneWidget);
+  });
+
   testWidgets('balance adjustment sheet updates the dashboard balance', (
     tester,
   ) async {
