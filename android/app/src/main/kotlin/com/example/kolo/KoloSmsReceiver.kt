@@ -11,6 +11,11 @@ class KoloSmsReceiver : BroadcastReceiver() {
         if (intent.action == Telephony.Sms.Intents.SMS_RECEIVED_ACTION) {
             val messages = Telephony.Sms.Intents.getMessagesFromIntent(intent)
             val body = messages.joinToString(separator = "") { it.messageBody.orEmpty() }
+            KoloNativeEventQueue.enqueue(
+                context,
+                "sms_received",
+                mapOf("body" to body)
+            )
             Log.d("KoloSmsReceiver", "SMS received for parsing: $body")
         }
     }

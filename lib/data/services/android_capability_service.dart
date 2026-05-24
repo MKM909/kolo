@@ -25,6 +25,14 @@ class AndroidCapabilityService {
         .toList();
   }
 
+  Future<List<NativeAndroidEvent>> drainNativeEvents() async {
+    final result = await _channel.invokeListMethod<Map<dynamic, dynamic>>(
+      'drainNativeEvents',
+    );
+    if (result == null) return const [];
+    return result.map(_nativeEventFromPayload).toList();
+  }
+
   Future<bool> openAccessibilitySettings() async {
     final opened = await _channel.invokeMethod<bool>(
       'openAccessibilitySettings',
@@ -37,5 +45,27 @@ class AndroidCapabilityService {
       'openNotificationListenerSettings',
     );
     return opened ?? false;
+  }
+
+  NativeAndroidEvent _nativeEventFromPayload(Map<dynamic, dynamic> item) {
+    final rawPayload = item['payload'];
+    final payload = rawPayload is Map
+        ? {
+            for (final entry in rawPayload.entries)
+              entry.key.toString(): entry.value as Object?,
+          }
+        : <String, Object?>{};
+    final createdAtMillis = switch (item['createdAt']) {
+      final int value => value,
+      final num value => value.toInt(),
+      _ => 0,
+    };
+
+    return NativeAndroidEvent(
+      id: item['id'] as String? ?? '',
+      type: item['type'] as String? ?? 'unknown',
+      createdAt: DateTime.fromMillisecondsSinceEpoch(createdAtMillis),
+      payload: payload,
+    );
   }
 }

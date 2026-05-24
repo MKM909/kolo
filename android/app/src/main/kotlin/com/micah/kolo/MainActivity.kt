@@ -15,6 +15,7 @@ class MainActivity : FlutterActivity() {
         ).setMethodCallHandler { call, result ->
             when (call.method) {
                 "getSuggestedBankingApps" -> result.success(getSuggestedBankingApps())
+                "drainNativeEvents" -> result.success(KoloNativeEventQueue.drain(this))
                 "openAccessibilitySettings" -> {
                     startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                     result.success(true)

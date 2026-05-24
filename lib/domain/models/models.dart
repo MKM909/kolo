@@ -308,6 +308,20 @@ class WatchedApp {
   final bool enabled;
 }
 
+class NativeAndroidEvent {
+  const NativeAndroidEvent({
+    required this.id,
+    required this.type,
+    required this.createdAt,
+    required this.payload,
+  });
+
+  final String id;
+  final String type;
+  final DateTime createdAt;
+  final Map<String, Object?> payload;
+}
+
 class PartnerShare {
   const PartnerShare({
     required this.id,

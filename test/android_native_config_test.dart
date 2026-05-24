@@ -30,4 +30,30 @@ void main() {
       );
     }
   });
+
+  test('Android services enqueue native events for Flutter to drain', () {
+    expect(
+      File(
+        'android/app/src/main/kotlin/com/micah/kolo/KoloNativeEventQueue.kt',
+      ).existsSync(),
+      isTrue,
+    );
+
+    final mainActivity = File(
+      'android/app/src/main/kotlin/com/micah/kolo/MainActivity.kt',
+    ).readAsStringSync();
+    expect(mainActivity, contains('drainNativeEvents'));
+
+    for (final path in [
+      'android/app/src/main/kotlin/com/example/kolo/KoloSmsReceiver.kt',
+      'android/app/src/main/kotlin/com/example/kolo/KoloNotificationListenerService.kt',
+      'android/app/src/main/kotlin/com/example/kolo/KoloAccessibilityService.kt',
+    ]) {
+      expect(
+        File(path).readAsStringSync(),
+        contains('KoloNativeEventQueue.enqueue'),
+        reason: '$path must persist events for Flutter',
+      );
+    }
+  });
 }

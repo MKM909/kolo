@@ -7,6 +7,11 @@ import android.view.accessibility.AccessibilityEvent
 class KoloAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            KoloNativeEventQueue.enqueue(
+                this,
+                "foreground_app",
+                mapOf("packageName" to event.packageName?.toString().orEmpty())
+            )
             Log.d("KoloAccessibility", "Foreground app changed: ${event.packageName}")
         }
     }
