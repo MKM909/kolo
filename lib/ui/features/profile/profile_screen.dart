@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:kolo/app/providers.dart';
 import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/services/ai_model_config.dart';
@@ -194,6 +195,22 @@ class ProfileScreen extends ConsumerWidget {
                     icon: Icons.auto_awesome,
                     label: 'Default for Gemini calls',
                     value: koloAiModelLabel(state.profile.preferredAiModel),
+                    color: KoloColors.primary,
+                  ),
+                ),
+              ],
+            ),
+            _ProfileSection(
+              title: 'Budget Settings',
+              children: [
+                InkWell(
+                  key: const Key('open_budget_settings'),
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () => context.go('/budget'),
+                  child: const _SimpleRow(
+                    icon: Icons.pie_chart_outline,
+                    label: 'Budget screen',
+                    value: 'Open',
                     color: KoloColors.primary,
                   ),
                 ),

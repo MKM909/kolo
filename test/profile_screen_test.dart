@@ -71,6 +71,27 @@ void main() {
     expect(find.text('Weekly insights'), findsWidgets);
     expect(find.text('Off'), findsWidgets);
   });
+
+  testWidgets('profile budget settings opens the budget screen', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.person_outline));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('open_budget_settings')),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    await tester.tap(find.byKey(const Key('open_budget_settings')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('budget_period_label')), findsOneWidget);
+    expect(find.text('Budget'), findsWidgets);
+  });
 }
 
 class _SignOutAuthRepository implements AuthRepository {
