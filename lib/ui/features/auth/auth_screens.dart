@@ -818,7 +818,9 @@ class _OnboardingSetupScreenState
       _error = null;
     });
     try {
-      await ref.read(koloRepositoryProvider).completeOnboarding(answers);
+      await ref
+          .read(koloRepositoryProvider)
+          .completeOnboarding(answers, budget: _previewBudget);
       if (!mounted) return;
       GoRouter.maybeOf(context)?.go('/permissions');
     } on Object catch (error) {

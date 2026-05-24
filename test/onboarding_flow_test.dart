@@ -91,6 +91,8 @@ void main() {
     expect(repository.answers?.currentBalanceKobo, 4200000);
     expect(repository.answers?.biggestProblem, 'Impulse snacks after class');
     expect(repository.answers?.savingsGoal, 'New laptop');
+    expect(repository.acceptedBudget?.savingsGoal, 'New laptop');
+    expect(repository.acceptedBudget?.categories, hasLength(2));
     expect(find.text('Permissions reached'), findsOneWidget);
   });
 }
@@ -98,6 +100,7 @@ void main() {
 class _RecordingKoloRepository implements KoloRepository {
   OnboardingAnswers? answers;
   OnboardingAnswers? generatedAnswers;
+  BudgetPlan? acceptedBudget;
 
   @override
   Future<void> adjustBalance(BalanceAdjustment adjustment) {
@@ -140,8 +143,12 @@ class _RecordingKoloRepository implements KoloRepository {
   }
 
   @override
-  Future<BudgetPlan> completeOnboarding(OnboardingAnswers answers) async {
+  Future<BudgetPlan> completeOnboarding(
+    OnboardingAnswers answers, {
+    BudgetPlan? budget,
+  }) async {
     this.answers = answers;
+    acceptedBudget = budget;
     return const BudgetPlan(
       monthlyIncomeKobo: 8400000,
       incomeType: 'irregular',

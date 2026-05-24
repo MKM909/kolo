@@ -91,7 +91,10 @@ class _StubRepository implements KoloRepository {
   }
 
   @override
-  Future<BudgetPlan> completeOnboarding(OnboardingAnswers answers) {
+  Future<BudgetPlan> completeOnboarding(
+    OnboardingAnswers answers, {
+    BudgetPlan? budget,
+  }) {
     throw UnimplementedError();
   }
 

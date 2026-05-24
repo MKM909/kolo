@@ -476,8 +476,17 @@ class FakeKoloRepository implements KoloRepository {
   }
 
   @override
-  Future<BudgetPlan> completeOnboarding(OnboardingAnswers answers) async {
-    final budget = await generateBudget(answers);
+  Future<BudgetPlan> completeOnboarding(
+    OnboardingAnswers answers, {
+    BudgetPlan? budget,
+  }) async {
+    final acceptedBudget = budget ?? await generateBudget(answers);
+    if (budget != null) {
+      _state = _state.copyWith(
+        balanceKobo: answers.currentBalanceKobo,
+        budgetPlan: acceptedBudget,
+      );
+    }
     _state = _state.copyWith(
       profile: _state.profile.copyWith(onboardingComplete: true),
       aiMessages: [
@@ -485,7 +494,7 @@ class FakeKoloRepository implements KoloRepository {
           id: 'ai-onboarding-${DateTime.now().microsecondsSinceEpoch}',
           role: AiRole.assistant,
           content:
-              'Your first Kolo budget is ready. I kept ${answers.biggestProblem.toLowerCase()} in view and protected ${budget.savingsGoal}.',
+              'Your first Kolo budget is ready. I kept ${answers.biggestProblem.toLowerCase()} in view and protected ${acceptedBudget.savingsGoal}.',
           timestamp: DateTime.now(),
           context: 'onboarding',
         ),
@@ -493,7 +502,7 @@ class FakeKoloRepository implements KoloRepository {
       ],
     );
     _controller.add(_state);
-    return budget;
+    return acceptedBudget;
   }
 
   @override

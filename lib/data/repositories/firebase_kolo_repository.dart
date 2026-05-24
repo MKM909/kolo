@@ -278,12 +278,14 @@ class FirebaseKoloRepository implements KoloRepository {
   }
 
   @override
-  Future<BudgetPlan> completeOnboarding(OnboardingAnswers answers) async {
+  Future<BudgetPlan> completeOnboarding(
+    OnboardingAnswers answers, {
+    BudgetPlan? budget,
+  }) async {
     final modelName = await _preferredAiModel();
-    final budget = await _aiService.generateBudget(
-      answers,
-      modelName: modelName,
-    );
+    final acceptedBudget =
+        budget ??
+        await _aiService.generateBudget(answers, modelName: modelName);
     final now = DateTime.now();
     final messageDoc = _userDoc
         .collection('aiMessages')
@@ -292,7 +294,7 @@ class FirebaseKoloRepository implements KoloRepository {
       id: messageDoc.id,
       role: AiRole.assistant,
       content:
-          'Your first Kolo budget is ready. I kept ${answers.biggestProblem.toLowerCase()} in view and protected ${budget.savingsGoal}.',
+          'Your first Kolo budget is ready. I kept ${answers.biggestProblem.toLowerCase()} in view and protected ${acceptedBudget.savingsGoal}.',
       timestamp: now,
       context: 'onboarding',
     );
@@ -307,7 +309,7 @@ class FirebaseKoloRepository implements KoloRepository {
         'biggestProblem': answers.biggestProblem,
         'savingsGoal': answers.savingsGoal,
       },
-      'budgetPlan': FirebaseKoloMapper.budgetToJson(budget),
+      'budgetPlan': FirebaseKoloMapper.budgetToJson(acceptedBudget),
       'onboardingComplete': true,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
@@ -316,7 +318,7 @@ class FirebaseKoloRepository implements KoloRepository {
       'createdAt': FieldValue.serverTimestamp(),
     });
     await batch.commit();
-    return budget;
+    return acceptedBudget;
   }
 
   @override
