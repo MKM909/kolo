@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kolo/app/kolo_app.dart';
+import 'package:kolo/domain/services/money_formatter.dart';
 
 void main() {
   testWidgets('Kolo app shell renders all primary tabs', (tester) async {
@@ -23,7 +24,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.auto_awesome));
     await tester.pumpAndSettle();
 
-    expect(find.text('Ask Kolo'), findsOneWidget);
+    expect(find.byKey(const Key('kolo_ai_chat_input')), findsOneWidget);
     expect(find.textContaining('Can I afford'), findsOneWidget);
   });
 
@@ -53,6 +54,31 @@ void main() {
 
     expect(find.text('Suya stop'), findsOneWidget);
     expect(find.text('-₦2,500.00'), findsOneWidget);
+  });
+
+  testWidgets('balance adjustment sheet updates the dashboard balance', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('balance_adjust_button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('balance_adjustment_sheet')), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('balance_adjustment_amount')),
+      '60000',
+    );
+    await tester.enterText(
+      find.byKey(const Key('balance_adjustment_note')),
+      'Matched bank app',
+    );
+    await tester.tap(find.byKey(const Key('save_balance_adjustment')));
+    await tester.pumpAndSettle();
+
+    expect(find.text(MoneyFormatter.formatKobo(6000000)), findsOneWidget);
   });
 
   testWidgets('profile can grant a permission from locked state', (

@@ -4,10 +4,16 @@ import 'package:kolo/domain/services/money_formatter.dart';
 import 'package:kolo/ui/core/theme/kolo_theme.dart';
 
 class BalanceCard extends StatelessWidget {
-  const BalanceCard({required this.balanceKobo, required this.name, super.key});
+  const BalanceCard({
+    required this.balanceKobo,
+    required this.name,
+    this.onAdjust,
+    super.key,
+  });
 
   final int balanceKobo;
   final String name;
+  final VoidCallback? onAdjust;
 
   @override
   Widget build(BuildContext context) {
@@ -74,18 +80,23 @@ class BalanceCard extends StatelessWidget {
                     style: const TextStyle(color: Colors.white),
                   ),
                   const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: const Text(
-                      'Adjust',
-                      style: TextStyle(fontWeight: FontWeight.w700),
+                  InkWell(
+                    key: const Key('balance_adjust_button'),
+                    borderRadius: BorderRadius.circular(999),
+                    onTap: onAdjust,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: const Text(
+                        'Adjust',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
                     ),
                   ),
                 ],
