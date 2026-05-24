@@ -129,4 +129,23 @@ void main() {
     expect(state.budgetPlan.categories, isNotEmpty);
     expect(state.permissions.length, KoloPermission.values.length);
   });
+
+  test('serializes savings vaults for Firebase persistence', () {
+    final deadline = DateTime(2026, 12, 1);
+
+    final payload = FirebaseKoloMapper.vaultToJson(
+      SavingsVault(
+        id: 'vault-trip',
+        name: 'Detty December',
+        targetKobo: 25000000,
+        currentKobo: 750000,
+        deadline: deadline,
+      ),
+    );
+
+    expect(payload['name'], 'Detty December');
+    expect(payload['targetKobo'], 25000000);
+    expect(payload['currentKobo'], 750000);
+    expect((payload['deadline'] as Timestamp).toDate(), deadline);
+  });
 }

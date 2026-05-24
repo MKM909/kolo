@@ -88,6 +88,14 @@ class FirebaseKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<void> upsertVault(SavingsVault vault) async {
+    await _userDoc.collection('vaults').doc(vault.id).set({
+      ...FirebaseKoloMapper.vaultToJson(vault),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  @override
   Future<void> logTransaction(TransactionRecord transaction) async {
     await _userDoc.collection('transactions').doc(transaction.id).set({
       ...FirebaseKoloMapper.transactionToJson(transaction),

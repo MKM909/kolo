@@ -235,6 +235,28 @@ class FakeKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<void> upsertVault(SavingsVault vault) async {
+    final otherVaults = _state.vaults
+        .where((existing) => existing.id != vault.id)
+        .toList(growable: false);
+    _state = _state.copyWith(
+      vaults: [vault, ...otherVaults],
+      aiMessages: [
+        AiMessage(
+          id: 'ai-${vault.id}-${DateTime.now().microsecondsSinceEpoch}',
+          role: AiRole.assistant,
+          content:
+              '${vault.name} is now protected at ${MoneyFormatter.formatKobo(vault.currentKobo)} of ${MoneyFormatter.formatKobo(vault.targetKobo)}.',
+          timestamp: DateTime.now(),
+          context: 'vault',
+        ),
+        ..._state.aiMessages,
+      ],
+    );
+    _controller.add(_state);
+  }
+
+  @override
   Future<void> logTransaction(TransactionRecord transaction) async {
     final updatedTransactions = [transaction, ..._state.transactions];
     _state = _state.copyWith(

@@ -45,6 +45,42 @@ void main() {
     expect(updated.aiMessages.first.context, 'balance_adjustment');
   });
 
+  test('fake repository creates and updates savings vaults', () async {
+    final repository = FakeKoloRepository.seeded();
+
+    await repository.upsertVault(
+      SavingsVault(
+        id: 'vault-trip',
+        name: 'Detty December',
+        targetKobo: 25000000,
+        currentKobo: 500000,
+        deadline: DateTime(2026, 12, 1),
+      ),
+    );
+
+    var dashboard = await repository.watchDashboard().first;
+    expect(dashboard.vaults.first.name, 'Detty December');
+    expect(dashboard.vaults.first.progress, closeTo(0.02, 0.001));
+
+    await repository.upsertVault(
+      SavingsVault(
+        id: 'vault-trip',
+        name: 'Detty December',
+        targetKobo: 25000000,
+        currentKobo: 750000,
+        deadline: DateTime(2026, 12, 1),
+      ),
+    );
+
+    dashboard = await repository.watchDashboard().first;
+    expect(dashboard.vaults.first.currentKobo, 750000);
+    expect(
+      dashboard.vaults.where((vault) => vault.id == 'vault-trip'),
+      hasLength(1),
+    );
+    expect(dashboard.aiMessages.first.context, 'vault');
+  });
+
   test('fake AI returns an onboarding budget and stores messages', () async {
     final repository = FakeKoloRepository.seeded();
 

@@ -62,6 +62,17 @@ class FirebaseKoloMapper {
     };
   }
 
+  static Map<String, Object?> vaultToJson(SavingsVault vault) {
+    return {
+      'name': vault.name,
+      'targetKobo': vault.targetKobo,
+      'currentKobo': vault.currentKobo,
+      'deadline': vault.deadline == null
+          ? null
+          : Timestamp.fromDate(vault.deadline!),
+    };
+  }
+
   static Map<String, Object?> aiMessageToJson(AiMessage message) {
     return {
       'role': message.role.name,
