@@ -13,6 +13,7 @@ abstract class KoloRepository {
   Future<void> upsertWatchedApp(WatchedApp app);
   Future<void> logTransaction(TransactionRecord transaction);
   Future<void> recordAiMessage(AiMessage message);
+  Future<void> clearAiMessages();
   Future<String> draftOwingReminder(Owing owing);
   Future<WeeklyInsight> generateWeeklyInsight();
   Future<BudgetPlan> completeOnboarding(OnboardingAnswers answers);

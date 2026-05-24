@@ -115,6 +115,11 @@ class _RecordingKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<void> clearAiMessages() {
+    throw UnimplementedError();
+  }
+
+  @override
   Future<String> draftOwingReminder(Owing owing) {
     throw UnimplementedError();
   }

@@ -22,7 +22,7 @@ void main() {
     await tester.pumpWidget(const KoloApp());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.auto_awesome));
+    await tester.tap(find.byIcon(Icons.auto_awesome).last);
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('kolo_ai_chat_input')), findsOneWidget);
@@ -45,6 +45,45 @@ void main() {
     final sentPrompt = tester.widget<Text>(find.text(prompt));
     expect(sentPrompt.style?.color, Colors.white);
     expect(find.textContaining('I would keep'), findsOneWidget);
+  });
+
+  testWidgets('profile AI history can clear chat messages', (tester) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.auto_awesome));
+    await tester.pumpAndSettle();
+
+    const customPrompt = 'How much can I save this week?';
+    await tester.enterText(
+      find.byKey(const Key('kolo_ai_chat_input')),
+      customPrompt,
+    );
+    await tester.tap(find.byIcon(Icons.send));
+    await tester.pumpAndSettle();
+
+    expect(find.text(customPrompt), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.person_outline));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('AI Chat History'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const Key('open_ai_history')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('ai_history_sheet')), findsOneWidget);
+    expect(find.text(customPrompt), findsWidgets);
+
+    await tester.tap(find.byKey(const Key('clear_ai_history')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.auto_awesome).last);
+    await tester.pumpAndSettle();
+
+    expect(find.text(customPrompt), findsNothing);
   });
 
   testWidgets('manual expense logging updates the dashboard', (tester) async {
@@ -673,6 +712,8 @@ void main() {
       500,
       scrollable: find.byType(Scrollable).first,
     );
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -180));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('grant_notifications')));
     await tester.pumpAndSettle();
 

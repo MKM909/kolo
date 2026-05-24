@@ -188,6 +188,18 @@ class FirebaseKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<void> clearAiMessages() async {
+    final snapshot = await _userDoc.collection('aiMessages').get();
+    if (snapshot.docs.isEmpty) return;
+
+    final batch = _firestore.batch();
+    for (final doc in snapshot.docs) {
+      batch.delete(doc.reference);
+    }
+    await batch.commit();
+  }
+
+  @override
   Future<String> draftOwingReminder(Owing owing) async {
     final context = await _loadDashboard();
     final draft = await _aiService.draftReminder(

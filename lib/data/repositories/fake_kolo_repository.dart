@@ -413,6 +413,12 @@ class FakeKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<void> clearAiMessages() async {
+    _state = _state.copyWith(aiMessages: const []);
+    _controller.add(_state);
+  }
+
+  @override
   Future<String> draftOwingReminder(Owing owing) async {
     final draft =
         'Hi ${owing.person}, gentle reminder about the ${MoneyFormatter.formatKobo(owing.amountKobo)} we noted. Please send it when you can.';

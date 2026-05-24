@@ -19,7 +19,7 @@ class ProfileScreen extends ConsumerWidget {
       data: (state) => KoloGradientScaffold(
         title: 'Profile',
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 160),
           children: [
             KoloCard(
               child: Row(
@@ -141,6 +141,22 @@ class ProfileScreen extends ConsumerWidget {
               ],
             ),
             _ProfileSection(
+              title: 'AI Chat History',
+              action: TextButton(
+                key: const Key('open_ai_history'),
+                onPressed: () => _openAiHistorySheet(context),
+                child: const Text('Manage'),
+              ),
+              children: [
+                _SimpleRow(
+                  icon: Icons.auto_awesome,
+                  label: 'Saved messages',
+                  value: '${state.aiMessages.length}',
+                  color: KoloColors.primary,
+                ),
+              ],
+            ),
+            _ProfileSection(
               title: 'Permissions',
               children: [
                 for (final entry in state.permissions.entries)
@@ -199,6 +215,137 @@ class ProfileScreen extends ConsumerWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => const _WatchedAppsSheet(),
+    );
+  }
+
+  Future<void> _openAiHistorySheet(BuildContext context) {
+    return showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const _AiHistorySheet(),
+    );
+  }
+}
+
+class _AiHistorySheet extends ConsumerWidget {
+  const _AiHistorySheet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dashboard = ref.watch(dashboardProvider);
+
+    return Container(
+      key: const Key('ai_history_sheet'),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.82,
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+      decoration: const BoxDecoration(
+        color: Color(0xF0FFFFFF),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x20000000),
+            blurRadius: 40,
+            offset: Offset(0, -8),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: dashboard.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, _) => Text('Could not load chat history: $error'),
+          data: (state) => SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    height: 4,
+                    width: 42,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE5E7EB),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'AI Chat History',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 16),
+                if (state.aiMessages.isEmpty)
+                  const Text(
+                    'No messages yet.',
+                    style: TextStyle(color: KoloColors.textSecondary),
+                  )
+                else
+                  for (final message in state.aiMessages.take(8))
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _AiHistoryMessage(message: message),
+                    ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    key: const Key('clear_ai_history'),
+                    onPressed: state.aiMessages.isEmpty
+                        ? null
+                        : () async {
+                            await ref
+                                .read(koloRepositoryProvider)
+                                .clearAiMessages();
+                            if (context.mounted) Navigator.of(context).pop();
+                          },
+                    icon: const Icon(Icons.delete_outline),
+                    label: const Text('Clear history'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AiHistoryMessage extends StatelessWidget {
+  const _AiHistoryMessage({required this.message});
+
+  final AiMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    final isUser = message.role == AiRole.user;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isUser ? KoloColors.primaryPastel : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            isUser ? 'You' : 'Kolo',
+            style: TextStyle(
+              color: isUser ? KoloColors.primary : KoloColors.textSecondary,
+              fontWeight: FontWeight.w800,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(message.content),
+        ],
+      ),
     );
   }
 }
