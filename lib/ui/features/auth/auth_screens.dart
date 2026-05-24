@@ -595,38 +595,38 @@ class _ChoicePill extends StatelessWidget {
   }
 }
 
-class _PermissionSetupPanel extends StatelessWidget {
+class _PermissionSetupPanel extends ConsumerWidget {
   const _PermissionSetupPanel();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final permissions = const [
       _PermissionSpec(
-        keyName: 'permission_sms',
+        permission: KoloPermission.sms,
         icon: Icons.sms_outlined,
         title: 'SMS monitoring',
         body: 'Reads bank alerts so Kolo can detect transactions.',
       ),
       _PermissionSpec(
-        keyName: 'permission_notifications',
+        permission: KoloPermission.notifications,
         icon: Icons.notifications_none,
         title: 'Notifications',
         body: 'Watches fintech alerts when SMS is missing.',
       ),
       _PermissionSpec(
-        keyName: 'permission_overlay',
+        permission: KoloPermission.overlay,
         icon: Icons.bubble_chart_outlined,
         title: 'Floating Kolo bubble',
         body: 'Shows quick guidance while you are inside money apps.',
       ),
       _PermissionSpec(
-        keyName: 'permission_accessibility',
+        permission: KoloPermission.accessibility,
         icon: Icons.visibility_outlined,
         title: 'Watched app detection',
         body: 'Lets Kolo notice when selected finance apps are opened.',
       ),
       _PermissionSpec(
-        keyName: 'permission_backgroundService',
+        permission: KoloPermission.backgroundService,
         icon: Icons.sync_outlined,
         title: 'Background service',
         body: 'Keeps reminders, parsing, and retry sync alive.',
@@ -667,7 +667,15 @@ class _PermissionSetupPanel extends StatelessWidget {
             for (final permission in permissions)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
-                child: _PermissionSetupTile(spec: permission),
+                child: _PermissionSetupTile(
+                  spec: permission,
+                  onGrant: () => ref
+                      .read(koloRepositoryProvider)
+                      .updatePermission(
+                        permission.permission,
+                        PermissionGrantState.granted,
+                      ),
+                ),
               ),
             const SizedBox(height: 8),
             ElevatedButton(
@@ -683,22 +691,25 @@ class _PermissionSetupPanel extends StatelessWidget {
 
 class _PermissionSpec {
   const _PermissionSpec({
-    required this.keyName,
+    required this.permission,
     required this.icon,
     required this.title,
     required this.body,
   });
 
-  final String keyName;
+  final KoloPermission permission;
   final IconData icon;
   final String title;
   final String body;
+
+  String get keyName => 'permission_${permission.name}';
 }
 
 class _PermissionSetupTile extends StatelessWidget {
-  const _PermissionSetupTile({required this.spec});
+  const _PermissionSetupTile({required this.spec, required this.onGrant});
 
   final _PermissionSpec spec;
+  final Future<void> Function() onGrant;
 
   @override
   Widget build(BuildContext context) {
@@ -734,18 +745,23 @@ class _PermissionSetupTile extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: KoloColors.primaryPastel,
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: const Text(
-              'Setup',
-              style: TextStyle(
-                color: KoloColors.primary,
-                fontWeight: FontWeight.w700,
-                fontSize: 12,
+          InkWell(
+            key: Key('permission_setup_${spec.permission.name}'),
+            borderRadius: BorderRadius.circular(999),
+            onTap: onGrant,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: KoloColors.primaryPastel,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: const Text(
+                'Setup',
+                style: TextStyle(
+                  color: KoloColors.primary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
               ),
             ),
           ),
