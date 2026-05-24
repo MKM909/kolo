@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kolo/app/providers.dart';
 import 'package:kolo/domain/models/models.dart';
+import 'package:kolo/domain/services/ai_failure_message.dart';
 import 'package:kolo/ui/core/theme/kolo_theme.dart';
 import 'package:kolo/ui/core/widgets/kolo_scaffold.dart';
 import 'package:kolo/ui/core/widgets/kolo_liquid_aether_orb.dart';
@@ -17,6 +18,7 @@ class AiChatScreen extends ConsumerStatefulWidget {
 
 class _AiChatScreenState extends ConsumerState<AiChatScreen> {
   final TextEditingController _controller = TextEditingController();
+  final List<AiMessage> _localMessages = [];
   String? _seededPrompt;
 
   @override
@@ -53,6 +55,8 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                 reverse: true,
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                 children: [
+                  for (final message in _localMessages)
+                    _ChatBubble(message: message),
                   for (final message in state.aiMessages)
                     _ChatBubble(message: message),
                   _PromptChip(
@@ -99,7 +103,29 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
   Future<void> _sendMessage(String rawText) async {
     final text = rawText.trim();
     if (text.isEmpty) return;
-    await ref.read(koloRepositoryProvider).sendAiMessage(text);
+    try {
+      await ref.read(koloRepositoryProvider).sendAiMessage(text);
+    } on Object {
+      final now = DateTime.now();
+      setState(() {
+        _localMessages.insertAll(0, [
+          AiMessage(
+            id: 'local-ai-failure-${now.microsecondsSinceEpoch}',
+            role: AiRole.assistant,
+            content: AiFailureMessage.chat,
+            timestamp: now,
+            context: 'chat_failure',
+          ),
+          AiMessage(
+            id: 'local-user-${now.microsecondsSinceEpoch}',
+            role: AiRole.user,
+            content: text,
+            timestamp: now,
+            context: 'chat_failure',
+          ),
+        ]);
+      });
+    }
     if (rawText == _controller.text) _controller.clear();
   }
 
