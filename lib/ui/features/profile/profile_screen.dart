@@ -1661,101 +1661,171 @@ List<BillReminder> _billsWithUrgency(
       .toList(growable: false);
 }
 
-class _BillDetailSheet extends ConsumerWidget {
+class _BillDetailSheet extends ConsumerStatefulWidget {
   const _BillDetailSheet({required this.bill});
 
   final BillReminder bill;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Container(
-      key: const Key('bill_detail_sheet'),
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-      decoration: const BoxDecoration(
-        color: Color(0xF0FFFFFF),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        boxShadow: [
-          BoxShadow(
-            color: Color(0x20000000),
-            blurRadius: 40,
-            offset: Offset(0, -8),
-          ),
-        ],
+  ConsumerState<_BillDetailSheet> createState() => _BillDetailSheetState();
+}
+
+class _BillDetailSheetState extends ConsumerState<_BillDetailSheet> {
+  late final TextEditingController _amountController;
+  late final TextEditingController _frequencyController;
+  late final TextEditingController _nextDueController;
+  String? _error;
+
+  BillReminder get bill => widget.bill;
+
+  @override
+  void initState() {
+    super.initState();
+    _amountController = TextEditingController(
+      text: (bill.amountKobo ~/ 100).toString(),
+    );
+    _frequencyController = TextEditingController(text: bill.frequency);
+    _nextDueController = TextEditingController(text: _dateInput(bill.nextDue));
+  }
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    _frequencyController.dispose();
+    _nextDueController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                height: 4,
-                width: 42,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE5E7EB),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(bill.name, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 12),
-            _ProfileMetricRow(
-              label: 'Amount',
-              value: MoneyFormatter.formatKobo(bill.amountKobo),
-            ),
-            _ProfileMetricRow(label: 'Frequency', value: bill.frequency),
-            _ProfileMetricRow(
-              label: 'Next due',
-              value: _dateInput(bill.nextDue),
-            ),
-            _ProfileMetricRow(
-              label: 'Status',
-              value: BillReminderSchedule.statusFor(bill).label,
-            ),
-            const SizedBox(height: 18),
-            ElevatedButton.icon(
-              key: Key('mark_bill_paid_${bill.id}'),
-              onPressed: () => _markPaid(context, ref),
-              icon: const Icon(Icons.check_circle_outline),
-              label: const Text('Mark paid'),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              key: Key('pause_bill_${bill.id}'),
-              onPressed: bill.active
-                  ? () async {
-                      await ref
-                          .read(koloRepositoryProvider)
-                          .upsertBill(
-                            BillReminder(
-                              id: bill.id,
-                              name: bill.name,
-                              amountKobo: bill.amountKobo,
-                              frequency: bill.frequency,
-                              nextDue: bill.nextDue,
-                              active: false,
-                            ),
-                          );
-                      if (context.mounted) Navigator.of(context).pop();
-                    }
-                  : null,
-              icon: const Icon(Icons.pause_circle_outline),
-              label: const Text('Pause reminder'),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              key: Key('delete_bill_${bill.id}'),
-              onPressed: () => _delete(context, ref),
-              icon: const Icon(Icons.delete_outline),
-              label: const Text('Delete reminder'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: KoloColors.expense,
-                side: const BorderSide(color: KoloColors.expense),
-              ),
+      child: Container(
+        key: const Key('bill_detail_sheet'),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.86,
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+        decoration: const BoxDecoration(
+          color: Color(0xF0FFFFFF),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          boxShadow: [
+            BoxShadow(
+              color: Color(0x20000000),
+              blurRadius: 40,
+              offset: Offset(0, -8),
             ),
           ],
+        ),
+        child: SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    height: 4,
+                    width: 42,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE5E7EB),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(bill.name, style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 12),
+                _ProfileMetricRow(
+                  label: 'Amount',
+                  value: MoneyFormatter.formatKobo(bill.amountKobo),
+                ),
+                _ProfileMetricRow(label: 'Frequency', value: bill.frequency),
+                _ProfileMetricRow(
+                  label: 'Next due',
+                  value: _dateInput(bill.nextDue),
+                ),
+                _ProfileMetricRow(
+                  label: 'Status',
+                  value: BillReminderSchedule.statusFor(bill).label,
+                ),
+                const SizedBox(height: 18),
+                ElevatedButton.icon(
+                  key: Key('mark_bill_paid_${bill.id}'),
+                  onPressed: () => _markPaid(context, ref),
+                  icon: const Icon(Icons.check_circle_outline),
+                  label: const Text('Mark paid'),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  key: Key('pause_bill_${bill.id}'),
+                  onPressed: bill.active ? _pause : null,
+                  icon: const Icon(Icons.pause_circle_outline),
+                  label: const Text('Pause reminder'),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  key: Key('delete_bill_${bill.id}'),
+                  onPressed: () => _delete(context, ref),
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('Delete reminder'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: KoloColors.expense,
+                    side: const BorderSide(color: KoloColors.expense),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  'Edit reminder',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  key: Key('edit_bill_amount_${bill.id}'),
+                  controller: _amountController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Amount',
+                    prefixText: '\u20A6 ',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  key: Key('edit_bill_frequency_${bill.id}'),
+                  controller: _frequencyController,
+                  decoration: const InputDecoration(labelText: 'Frequency'),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  key: Key('edit_bill_next_due_${bill.id}'),
+                  controller: _nextDueController,
+                  keyboardType: TextInputType.datetime,
+                  decoration: const InputDecoration(
+                    labelText: 'Next due date',
+                    hintText: 'YYYY-MM-DD',
+                    prefixIcon: Icon(Icons.event_available_outlined),
+                  ),
+                ),
+                if (_error != null) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    _error!,
+                    style: const TextStyle(color: KoloColors.expense),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  key: Key('save_bill_edits_${bill.id}'),
+                  onPressed: _saveEdits,
+                  icon: const Icon(Icons.edit_calendar_outlined),
+                  label: const Text('Save bill edits'),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -1807,6 +1877,51 @@ class _BillDetailSheet extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _saveEdits() async {
+    final amountKobo = MoneyFormatter.parseNairaToKobo(
+      _amountController.text.trim(),
+    );
+    final frequency = _frequencyController.text.trim();
+    final nextDue = DateTime.tryParse(_nextDueController.text.trim());
+    if (amountKobo == null ||
+        amountKobo <= 0 ||
+        frequency.isEmpty ||
+        nextDue == null) {
+      setState(() => _error = 'Enter bill amount, frequency, and due date.');
+      return;
+    }
+
+    await ref
+        .read(koloRepositoryProvider)
+        .upsertBill(
+          BillReminder(
+            id: bill.id,
+            name: bill.name,
+            amountKobo: amountKobo,
+            frequency: frequency,
+            nextDue: nextDue,
+            active: bill.active,
+          ),
+        );
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _pause() async {
+    await ref
+        .read(koloRepositoryProvider)
+        .upsertBill(
+          BillReminder(
+            id: bill.id,
+            name: bill.name,
+            amountKobo: bill.amountKobo,
+            frequency: bill.frequency,
+            nextDue: bill.nextDue,
+            active: false,
+          ),
+        );
+    if (mounted) Navigator.of(context).pop();
   }
 
   Future<void> _delete(BuildContext context, WidgetRef ref) async {

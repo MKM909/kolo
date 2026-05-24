@@ -859,6 +859,55 @@ void main() {
     expect(find.text('Paused'), findsWidgets);
   });
 
+  testWidgets('bill reminder detail edits amount frequency and due date', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.person_outline));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Bill Reminders'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const Key('open_bill_reminders')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('bill_card_bill-data')));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(
+      find.byKey(const Key('edit_bill_amount_bill-data')),
+    );
+    await tester.enterText(
+      find.byKey(const Key('edit_bill_amount_bill-data')),
+      '12500',
+    );
+    await tester.enterText(
+      find.byKey(const Key('edit_bill_frequency_bill-data')),
+      'Weekly',
+    );
+    await tester.enterText(
+      find.byKey(const Key('edit_bill_next_due_bill-data')),
+      '2026-06-10',
+    );
+    await tester.ensureVisible(
+      find.byKey(const Key('save_bill_edits_bill-data')),
+    );
+    await tester.tap(find.byKey(const Key('save_bill_edits_bill-data')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('bill_detail_sheet')), findsNothing);
+    expect(find.text('Weekly - 2026-06-10'), findsOneWidget);
+    expect(
+      find.textContaining(MoneyFormatter.formatKobo(1250000)),
+      findsWidgets,
+    );
+  });
+
   testWidgets('bill reminder detail deletes a bill', (tester) async {
     await tester.pumpWidget(const KoloApp());
     await tester.pumpAndSettle();
