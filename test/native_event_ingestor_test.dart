@@ -290,6 +290,46 @@ void main() {
     expect(dashboard.balanceKobo, initial.balanceKobo);
     expect(overlayBubble.showCalls, 0);
   });
+
+  test('prompts manual categorization when SMS parsing fails', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          expect(call.method, 'drainNativeEvents');
+          return [
+            {
+              'id': 'sms-unrecognized-1',
+              'type': 'sms_received',
+              'createdAt': DateTime(2026, 5, 24, 13).millisecondsSinceEpoch,
+              'payload': {
+                'body':
+                    'Bank alert: your account changed after a card payment. Please check your app.',
+              },
+            },
+          ];
+        });
+
+    final repository = FakeKoloRepository.seeded();
+    final initial = await repository.watchDashboard().first;
+    final overlayBubble = _FakeOverlayBubbleService();
+    final ingestor = NativeEventIngestor(
+      capabilities: AndroidCapabilityService(channel: channel),
+      repository: repository,
+      overlayBubble: overlayBubble,
+    );
+
+    final processed = await ingestor.drainAndProcess();
+    final dashboard = await repository.watchDashboard().first;
+
+    expect(processed, 1);
+    expect(dashboard.transactions, hasLength(initial.transactions.length));
+    expect(
+      dashboard.aiMessages.first.id,
+      'native-unrecognized-sms-unrecognized-1',
+    );
+    expect(dashboard.aiMessages.first.context, 'unrecognized_transaction');
+    expect(dashboard.aiMessages.first.content, contains('categorize'));
+    expect(overlayBubble.showCalls, 1);
+  });
 }
 
 class _FakeTransactionCategorizer implements TransactionCategorizer {

@@ -49,7 +49,12 @@ class NativeEventIngestor {
 
       final draft =
           TransactionParser.parse(rawText) ?? await _aiDraft(event, rawText);
-      if (draft == null) continue;
+      if (draft == null) {
+        await _recordUnrecognizedTransaction(event);
+        await _overlayBubble?.showKoloBubble();
+        processed += 1;
+        continue;
+      }
 
       await _repository.logTransaction(_transactionFromDraft(event, draft));
       await _overlayBubble?.showKoloBubble();
@@ -71,6 +76,19 @@ class NativeEventIngestor {
       rawText: rawText,
       source: _sourceFor(event),
       context: context,
+    );
+  }
+
+  Future<void> _recordUnrecognizedTransaction(NativeAndroidEvent event) async {
+    await _repository.recordAiMessage(
+      AiMessage(
+        id: 'native-unrecognized-${event.id}',
+        role: AiRole.assistant,
+        content:
+            'I saw a money alert I could not read clearly. Please categorize it manually so your balance stays accurate.',
+        timestamp: event.createdAt,
+        context: 'unrecognized_transaction',
+      ),
     );
   }
 
@@ -132,7 +150,10 @@ class NativeEventIngestor {
     return _fallbackIntervention(dashboard, watchedApp);
   }
 
-  String _fallbackIntervention(DashboardState dashboard, WatchedApp watchedApp) {
+  String _fallbackIntervention(
+    DashboardState dashboard,
+    WatchedApp watchedApp,
+  ) {
     return 'You just opened ${watchedApp.displayName}. Your balance is ${MoneyFormatter.formatKobo(dashboard.balanceKobo)}. What are you about to do?';
   }
 
