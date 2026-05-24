@@ -92,4 +92,23 @@ void main() {
     expect(mainActivity, contains('KoloForegroundService::class.java'));
     expect(mainActivity, contains('startForegroundService'));
   });
+
+  test('MainActivity suggests every v1 fintech app from the PRD', () {
+    final mainActivity = File(
+      'android/app/src/main/kotlin/com/micah/kolo/MainActivity.kt',
+    ).readAsStringSync();
+
+    const expectedApps = {
+      'com.kuda.android': 'Kuda',
+      'team.opay.pay': 'Opay',
+      'com.palmpay.android': 'Palmpay',
+      'com.moniepoint.personal': 'Moniepoint',
+      'com.lenddo.mobile.paylater': 'Carbon',
+      'ng.com.fairmoney.fairmoney': 'FairMoney',
+    };
+
+    for (final entry in expectedApps.entries) {
+      expect(mainActivity, contains('"${entry.key}" to "${entry.value}"'));
+    }
+  });
 }

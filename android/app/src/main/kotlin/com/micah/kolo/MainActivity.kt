@@ -81,7 +81,9 @@ class MainActivity : FlutterActivity() {
             "com.palmpay.android" to "Palmpay",
             "com.gtbank.gtworldv1" to "GTBank",
             "com.accessbank.accessmore" to "Access Bank",
-            "com.moniepoint.personal" to "Moniepoint"
+            "com.moniepoint.personal" to "Moniepoint",
+            "com.lenddo.mobile.paylater" to "Carbon",
+            "ng.com.fairmoney.fairmoney" to "FairMoney"
         )
 
         return knownApps.map { (packageName, displayName) ->
