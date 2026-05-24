@@ -1,4 +1,5 @@
 import 'package:kolo/data/services/android_capability_service.dart';
+import 'package:kolo/data/services/overlay_bubble_service.dart';
 import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/repositories/kolo_repository.dart';
 import 'package:kolo/domain/services/money_formatter.dart';
@@ -8,11 +9,14 @@ class NativeEventIngestor {
   const NativeEventIngestor({
     required AndroidCapabilityService capabilities,
     required KoloRepository repository,
+    OverlayBubbleService? overlayBubble,
   }) : _capabilities = capabilities,
-       _repository = repository;
+       _repository = repository,
+       _overlayBubble = overlayBubble;
 
   final AndroidCapabilityService _capabilities;
   final KoloRepository _repository;
+  final OverlayBubbleService? _overlayBubble;
 
   Future<int> drainAndProcess() async {
     final events = await _capabilities.drainNativeEvents();
@@ -31,6 +35,7 @@ class NativeEventIngestor {
       if (draft == null) continue;
 
       await _repository.logTransaction(_transactionFromDraft(event, draft));
+      await _overlayBubble?.showKoloBubble();
       processed += 1;
     }
 
@@ -61,6 +66,7 @@ class NativeEventIngestor {
         context: 'intervention',
       ),
     );
+    await _overlayBubble?.showKoloBubble();
     return true;
   }
 

@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kolo/data/repositories/fake_kolo_repository.dart';
 import 'package:kolo/data/services/android_capability_service.dart';
 import 'package:kolo/data/services/native_event_ingestor.dart';
+import 'package:kolo/data/services/overlay_bubble_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -32,9 +33,11 @@ void main() {
         });
 
     final repository = FakeKoloRepository.seeded();
+    final overlayBubble = _FakeOverlayBubbleService();
     final ingestor = NativeEventIngestor(
       capabilities: AndroidCapabilityService(channel: channel),
       repository: repository,
+      overlayBubble: overlayBubble,
     );
 
     final processed = await ingestor.drainAndProcess();
@@ -45,6 +48,7 @@ void main() {
     expect(dashboard.transactions.first.merchantName, 'Chicken Republic');
     expect(dashboard.transactions.first.amountKobo, 250000);
     expect(dashboard.balanceKobo, 5080000 - 250000);
+    expect(overlayBubble.showCalls, 1);
   });
 
   test(
@@ -83,4 +87,42 @@ void main() {
       );
     },
   );
+
+  test('triggers the floating bubble for watched app interventions', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          expect(call.method, 'drainNativeEvents');
+          return [
+            {
+              'id': 'app-2',
+              'type': 'foreground_app',
+              'createdAt': DateTime(2026, 5, 24, 10).millisecondsSinceEpoch,
+              'payload': {'packageName': 'com.kuda.android'},
+            },
+          ];
+        });
+
+    final repository = FakeKoloRepository.seeded();
+    final overlayBubble = _FakeOverlayBubbleService();
+    final ingestor = NativeEventIngestor(
+      capabilities: AndroidCapabilityService(channel: channel),
+      repository: repository,
+      overlayBubble: overlayBubble,
+    );
+
+    final processed = await ingestor.drainAndProcess();
+
+    expect(processed, 1);
+    expect(overlayBubble.showCalls, 1);
+  });
+}
+
+class _FakeOverlayBubbleService implements OverlayBubbleService {
+  int showCalls = 0;
+
+  @override
+  Future<bool> showKoloBubble() async {
+    showCalls += 1;
+    return true;
+  }
 }

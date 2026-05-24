@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kolo/app/providers.dart';
@@ -15,5 +17,15 @@ void main() {
     addTearDown(container.dispose);
 
     expect(await container.read(nativeEventDrainProvider.future), 0);
+  });
+
+  test('native event ingestor is wired to the overlay bubble service', () {
+    final providersSource = File('lib/app/providers.dart').readAsStringSync();
+
+    expect(providersSource, contains('overlayBubbleServiceProvider'));
+    expect(
+      providersSource,
+      contains('overlayBubble: ref.watch(overlayBubbleServiceProvider)'),
+    );
   });
 }

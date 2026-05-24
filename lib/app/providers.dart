@@ -8,6 +8,7 @@ import 'package:kolo/data/services/android_capability_service.dart';
 import 'package:kolo/data/services/firebase_bootstrap.dart';
 import 'package:kolo/data/services/android_permission_requester.dart';
 import 'package:kolo/data/services/native_event_ingestor.dart';
+import 'package:kolo/data/services/overlay_bubble_service.dart';
 import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/repositories/auth_repository.dart';
 import 'package:kolo/domain/repositories/kolo_repository.dart';
@@ -27,6 +28,10 @@ final androidCapabilityServiceProvider = Provider<AndroidCapabilityService>((
   ref,
 ) {
   return AndroidCapabilityService();
+});
+
+final overlayBubbleServiceProvider = Provider<OverlayBubbleService>((ref) {
+  return OverlayBubbleService();
 });
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
@@ -63,6 +68,7 @@ final nativeEventIngestorProvider = Provider<NativeEventIngestor>((ref) {
   return NativeEventIngestor(
     capabilities: ref.watch(androidCapabilityServiceProvider),
     repository: ref.watch(koloRepositoryProvider),
+    overlayBubble: ref.watch(overlayBubbleServiceProvider),
   );
 });
 
