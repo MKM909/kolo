@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kolo/app/kolo_app.dart';
 import 'package:kolo/app/providers.dart';
 import 'package:kolo/data/repositories/fake_kolo_repository.dart';
 import 'package:kolo/domain/repositories/auth_repository.dart';
@@ -32,6 +33,43 @@ void main() {
 
     expect(auth.signedOut, isTrue);
     expect(find.text('Signed out of Kolo.'), findsOneWidget);
+  });
+
+  testWidgets('profile notification preferences toggle weekly insights', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.person_outline));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('open_notification_preferences')),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    await tester.tap(find.byKey(const Key('open_notification_preferences')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('notification_preferences_sheet')),
+      findsOneWidget,
+    );
+    final initial = tester.widget<SwitchListTile>(
+      find.byKey(const Key('toggle_preference_weeklyInsights')),
+    );
+    expect(initial.value, isTrue);
+
+    await tester.tap(find.byKey(const Key('toggle_preference_weeklyInsights')));
+    await tester.pumpAndSettle();
+
+    final updated = tester.widget<SwitchListTile>(
+      find.byKey(const Key('toggle_preference_weeklyInsights')),
+    );
+    expect(updated.value, isFalse);
+    expect(find.text('Weekly insights'), findsWidgets);
+    expect(find.text('Off'), findsWidgets);
   });
 }
 

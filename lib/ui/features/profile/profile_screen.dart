@@ -159,6 +159,27 @@ class ProfileScreen extends ConsumerWidget {
               ],
             ),
             _ProfileSection(
+              title: 'Notification Preferences',
+              action: TextButton(
+                onPressed: () => _openNotificationPreferencesSheet(context),
+                child: const Text('Manage'),
+              ),
+              children: [
+                InkWell(
+                  key: const Key('open_notification_preferences'),
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () => _openNotificationPreferencesSheet(context),
+                  child: _SimpleRow(
+                    icon: Icons.notifications_none,
+                    label: 'Active nudges',
+                    value:
+                        '${_enabledNotificationPreferenceCount(state.profile.notificationPreferences)} / 5',
+                    color: KoloColors.primary,
+                  ),
+                ),
+              ],
+            ),
+            _ProfileSection(
               title: 'Kolo AI Model',
               action: TextButton(
                 onPressed: () => _openAiModelSettingsSheet(context),
@@ -284,6 +305,16 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
+  Future<void> _openNotificationPreferencesSheet(BuildContext context) {
+    return showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const _NotificationPreferencesSheet(),
+    );
+  }
+
   Future<void> _openAiModelSettingsSheet(BuildContext context) {
     return showModalBottomSheet<void>(
       context: context,
@@ -291,6 +322,181 @@ class ProfileScreen extends ConsumerWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => const _AiModelSettingsSheet(),
+    );
+  }
+}
+
+class _NotificationPreferencesSheet extends ConsumerWidget {
+  const _NotificationPreferencesSheet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dashboard = ref.watch(dashboardProvider);
+
+    return Container(
+      key: const Key('notification_preferences_sheet'),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.78,
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+      decoration: const BoxDecoration(
+        color: Color(0xF0FFFFFF),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x20000000),
+            blurRadius: 40,
+            offset: Offset(0, -8),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: dashboard.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, _) => Text('Could not load preferences: $error'),
+          data: (state) {
+            final preferences = state.profile.notificationPreferences;
+            return SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      height: 4,
+                      width: 42,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE5E7EB),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Notification Preferences',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 18),
+                  _NotificationPreferenceTile(
+                    id: 'transactionAlerts',
+                    icon: Icons.receipt_long,
+                    label: 'Transaction alerts',
+                    value: preferences.transactionAlerts,
+                    onChanged: (value) => ref
+                        .read(koloRepositoryProvider)
+                        .updateNotificationPreferences(
+                          preferences.copyWith(transactionAlerts: value),
+                        ),
+                  ),
+                  _NotificationPreferenceTile(
+                    id: 'budgetWarnings',
+                    icon: Icons.warning_amber_outlined,
+                    label: 'Budget warnings',
+                    value: preferences.budgetWarnings,
+                    onChanged: (value) => ref
+                        .read(koloRepositoryProvider)
+                        .updateNotificationPreferences(
+                          preferences.copyWith(budgetWarnings: value),
+                        ),
+                  ),
+                  _NotificationPreferenceTile(
+                    id: 'billReminders',
+                    icon: Icons.event_note_outlined,
+                    label: 'Bill reminders',
+                    value: preferences.billReminders,
+                    onChanged: (value) => ref
+                        .read(koloRepositoryProvider)
+                        .updateNotificationPreferences(
+                          preferences.copyWith(billReminders: value),
+                        ),
+                  ),
+                  _NotificationPreferenceTile(
+                    id: 'weeklyInsights',
+                    icon: Icons.insights_outlined,
+                    label: 'Weekly insights',
+                    value: preferences.weeklyInsights,
+                    onChanged: (value) => ref
+                        .read(koloRepositoryProvider)
+                        .updateNotificationPreferences(
+                          preferences.copyWith(weeklyInsights: value),
+                        ),
+                  ),
+                  _NotificationPreferenceTile(
+                    id: 'bubbleInterventions',
+                    icon: Icons.auto_awesome,
+                    label: 'Bubble interventions',
+                    value: preferences.bubbleInterventions,
+                    onChanged: (value) => ref
+                        .read(koloRepositoryProvider)
+                        .updateNotificationPreferences(
+                          preferences.copyWith(bubbleInterventions: value),
+                        ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _NotificationPreferenceTile extends StatelessWidget {
+  const _NotificationPreferenceTile({
+    required this.id,
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String id;
+  final IconData icon;
+  final String label;
+  final bool value;
+  final Future<void> Function(bool value) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x14000000),
+              blurRadius: 20,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        child: SwitchListTile(
+          key: Key('toggle_preference_$id'),
+          value: value,
+          activeThumbColor: KoloColors.primary,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 4,
+          ),
+          secondary: CircleAvatar(
+            backgroundColor: KoloColors.primaryPastel,
+            child: Icon(
+              icon,
+              color: value ? KoloColors.primary : KoloColors.textMuted,
+            ),
+          ),
+          title: Text(
+            label,
+            style: const TextStyle(fontWeight: FontWeight.w800),
+          ),
+          subtitle: Text(value ? 'On' : 'Off'),
+          onChanged: onChanged,
+        ),
+      ),
     );
   }
 }
@@ -1573,6 +1779,16 @@ String _dateInput(DateTime date) {
   final month = date.month.toString().padLeft(2, '0');
   final day = date.day.toString().padLeft(2, '0');
   return '${date.year}-$month-$day';
+}
+
+int _enabledNotificationPreferenceCount(NotificationPreferences preferences) {
+  return [
+    preferences.transactionAlerts,
+    preferences.budgetWarnings,
+    preferences.billReminders,
+    preferences.weeklyInsights,
+    preferences.bubbleInterventions,
+  ].where((enabled) => enabled).length;
 }
 
 const _partnerPermissionLabels = {
