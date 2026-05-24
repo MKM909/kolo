@@ -349,6 +349,33 @@ void main() {
     expect(find.text('Paused'), findsWidgets);
   });
 
+  testWidgets('bill reminder detail marks a bill as paid', (tester) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.person_outline));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Bill Reminders'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const Key('open_bill_reminders')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('bill_card_bill-data')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('bill_detail_sheet')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('mark_bill_paid_bill-data')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('2026-06-27'), findsWidgets);
+    expect(find.textContaining('Balance is now'), findsWidgets);
+  });
+
   testWidgets('profile partner sharing invites and revokes a partner', (
     tester,
   ) async {

@@ -851,6 +851,13 @@ class _BillDetailSheet extends ConsumerWidget {
               value: bill.active ? 'Active' : 'Paused',
             ),
             const SizedBox(height: 18),
+            ElevatedButton.icon(
+              key: Key('mark_bill_paid_${bill.id}'),
+              onPressed: () => _markPaid(context, ref),
+              icon: const Icon(Icons.check_circle_outline),
+              label: const Text('Mark paid'),
+            ),
+            const SizedBox(height: 12),
             OutlinedButton.icon(
               key: Key('pause_bill_${bill.id}'),
               onPressed: bill.active
@@ -874,6 +881,51 @@ class _BillDetailSheet extends ConsumerWidget {
               label: const Text('Pause reminder'),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _markPaid(BuildContext context, WidgetRef ref) async {
+    final dashboard = ref
+        .read(dashboardProvider)
+        .maybeWhen(data: (state) => state, orElse: () => null);
+    final nextDue = _nextBillDue(bill.nextDue, bill.frequency);
+    final now = DateTime.now();
+    final repository = ref.read(koloRepositoryProvider);
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
+    await repository.logTransaction(
+      TransactionRecord.expense(
+        id: 'bill-paid-${bill.id}-${now.microsecondsSinceEpoch}',
+        amountKobo: bill.amountKobo,
+        category: 'Utilities & Bills',
+        description: '${bill.name} paid',
+        date: now,
+        source: TransactionSource.manual,
+        merchantName: bill.name,
+        aiApproved: true,
+        aiNote: 'Bill marked paid from reminders.',
+      ),
+    );
+    await repository.upsertBill(
+      BillReminder(
+        id: bill.id,
+        name: bill.name,
+        amountKobo: bill.amountKobo,
+        frequency: bill.frequency,
+        nextDue: nextDue,
+        active: bill.active,
+      ),
+    );
+
+    final balanceAfter = (dashboard?.balanceKobo ?? 0) - bill.amountKobo;
+    navigator.pop();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          '${bill.name} paid. Balance is now ${MoneyFormatter.formatKobo(balanceAfter)}.',
         ),
       ),
     );
@@ -911,6 +963,20 @@ String _dateInput(DateTime date) {
   final month = date.month.toString().padLeft(2, '0');
   final day = date.day.toString().padLeft(2, '0');
   return '${date.year}-$month-$day';
+}
+
+DateTime _nextBillDue(DateTime currentDue, String frequency) {
+  final normalized = frequency.toLowerCase();
+  if (normalized.contains('week')) {
+    return currentDue.add(const Duration(days: 7));
+  }
+  if (normalized.contains('year') || normalized.contains('annual')) {
+    return DateTime(currentDue.year + 1, currentDue.month, currentDue.day);
+  }
+  if (normalized.contains('day')) {
+    return currentDue.add(const Duration(days: 1));
+  }
+  return DateTime(currentDue.year, currentDue.month + 1, currentDue.day);
 }
 
 class _PartnerSharingSheet extends ConsumerStatefulWidget {
