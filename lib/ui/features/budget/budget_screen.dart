@@ -9,23 +9,35 @@ import 'package:kolo/ui/core/theme/kolo_theme.dart';
 import 'package:kolo/ui/core/widgets/domain_widgets.dart';
 import 'package:kolo/ui/core/widgets/kolo_scaffold.dart';
 
-class BudgetScreen extends ConsumerWidget {
+class BudgetScreen extends ConsumerStatefulWidget {
   const BudgetScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<BudgetScreen> createState() => _BudgetScreenState();
+}
+
+class _BudgetScreenState extends ConsumerState<BudgetScreen> {
+  _BudgetPeriod _period = _BudgetPeriod.week;
+
+  @override
+  Widget build(BuildContext context) {
     final dashboard = ref.watch(dashboardProvider);
 
     return dashboard.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stackTrace) => Center(child: Text('$error')),
       data: (state) {
+        final periodTransactions = _transactionsForPeriod(
+          state.transactions,
+          _period,
+        );
         final summary = FinancialCalculator.summarize(
           balanceKobo: state.balanceKobo,
           budget: state.budgetPlan,
-          transactions: state.transactions,
+          transactions: periodTransactions,
           vaults: state.vaults,
         );
+        final weeklyExpenses = _weeklyExpenseTotals(state.transactions);
 
         return KoloGradientScaffold(
           title: 'Budget',
@@ -36,9 +48,23 @@ class BudgetScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'This month',
-                      style: TextStyle(fontWeight: FontWeight.w800),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _period.label,
+                            key: const Key('budget_period_label'),
+                            style: const TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                        _BudgetPeriodToggle(
+                          period: _period,
+                          onChanged: (period) {
+                            setState(() => _period = period);
+                          },
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 10),
                     Text(
@@ -100,11 +126,145 @@ class BudgetScreen extends ConsumerWidget {
                     ),
                 ],
               ),
+              const SizedBox(height: 16),
+              KoloCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Weekly rhythm',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      key: const Key('budget_weekly_bar_chart'),
+                      height: 160,
+                      child: BarChart(_weeklyBarData(weeklyExpenses)),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         );
       },
     );
+  }
+
+  List<TransactionRecord> _transactionsForPeriod(
+    List<TransactionRecord> transactions,
+    _BudgetPeriod period,
+  ) {
+    if (transactions.isEmpty) return const [];
+
+    final anchor = _anchorDate(transactions);
+    final start = period == _BudgetPeriod.week
+        ? _dateOnly(anchor).subtract(const Duration(days: 6))
+        : DateTime(anchor.year, anchor.month);
+    final end = _dateOnly(anchor).add(const Duration(days: 1));
+
+    return transactions
+        .where(
+          (transaction) =>
+              !transaction.date.isBefore(start) &&
+              transaction.date.isBefore(end),
+        )
+        .toList(growable: false);
+  }
+
+  List<int> _weeklyExpenseTotals(List<TransactionRecord> transactions) {
+    if (transactions.isEmpty) return List<int>.filled(7, 0);
+
+    final anchor = _anchorDate(transactions);
+    final start = _dateOnly(anchor).subtract(const Duration(days: 6));
+    final totals = List<int>.filled(7, 0);
+
+    for (final transaction in transactions) {
+      if (transaction.type != TransactionType.expense) continue;
+      final date = _dateOnly(transaction.date);
+      final index = date.difference(start).inDays;
+      if (index < 0 || index >= totals.length) continue;
+      totals[index] += transaction.amountKobo;
+    }
+
+    return totals;
+  }
+
+  BarChartData _weeklyBarData(List<int> expenses) {
+    final maxExpenseKobo = expenses.fold<int>(
+      0,
+      (max, value) => value > max ? value : max,
+    );
+    final maxY = maxExpenseKobo == 0 ? 1.0 : maxExpenseKobo * 1.2;
+
+    return BarChartData(
+      maxY: maxY,
+      borderData: FlBorderData(show: false),
+      gridData: FlGridData(
+        show: true,
+        drawVerticalLine: false,
+        getDrawingHorizontalLine: (_) =>
+            const FlLine(color: Color(0x20000000), strokeWidth: 1),
+      ),
+      titlesData: FlTitlesData(
+        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        rightTitles: const AxisTitles(
+          sideTitles: SideTitles(showTitles: false),
+        ),
+        leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        bottomTitles: AxisTitles(
+          sideTitles: SideTitles(
+            showTitles: true,
+            reservedSize: 28,
+            getTitlesWidget: (value, meta) {
+              const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+              final index = value.toInt();
+              if (index < 0 || index >= labels.length) {
+                return const SizedBox.shrink();
+              }
+              return Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  labels[index],
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelSmall?.copyWith(color: KoloColors.textMuted),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+      barTouchData: BarTouchData(enabled: false),
+      barGroups: [
+        for (var index = 0; index < expenses.length; index++)
+          BarChartGroupData(
+            x: index,
+            barRods: [
+              BarChartRodData(
+                toY: expenses[index].toDouble(),
+                width: 20,
+                color: index == expenses.length - 1
+                    ? KoloColors.primary
+                    : KoloColors.primaryPastel,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(4),
+                ),
+              ),
+            ],
+          ),
+      ],
+    );
+  }
+
+  DateTime _anchorDate(List<TransactionRecord> transactions) {
+    return transactions
+        .map((transaction) => transaction.date)
+        .reduce((latest, date) => date.isAfter(latest) ? date : latest);
+  }
+
+  DateTime _dateOnly(DateTime value) {
+    return DateTime(value.year, value.month, value.day);
   }
 
   Future<void> _openCategorySheet(
@@ -120,6 +280,91 @@ class BudgetScreen extends ConsumerWidget {
       backgroundColor: Colors.transparent,
       builder: (context) =>
           _BudgetCategorySheet(budget: budget, category: category, ref: ref),
+    );
+  }
+}
+
+enum _BudgetPeriod {
+  week('This Week'),
+  month('This Month');
+
+  const _BudgetPeriod(this.label);
+
+  final String label;
+}
+
+class _BudgetPeriodToggle extends StatelessWidget {
+  const _BudgetPeriodToggle({required this.period, required this.onChanged});
+
+  final _BudgetPeriod period;
+  final ValueChanged<_BudgetPeriod> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 36,
+      width: 168,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: KoloColors.surfaceWhite,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: KoloColors.primaryPastel),
+      ),
+      child: Row(
+        children: [
+          _BudgetPeriodOption(
+            key: const Key('budget_period_week'),
+            label: 'Week',
+            selected: period == _BudgetPeriod.week,
+            onTap: () => onChanged(_BudgetPeriod.week),
+          ),
+          _BudgetPeriodOption(
+            key: const Key('budget_period_month'),
+            label: 'Month',
+            selected: period == _BudgetPeriod.month,
+            onTap: () => onChanged(_BudgetPeriod.month),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BudgetPeriodOption extends StatelessWidget {
+  const _BudgetPeriodOption({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    super.key,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? KoloColors.primary : Colors.transparent,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? Colors.white : KoloColors.textSecondary,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

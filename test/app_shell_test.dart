@@ -202,6 +202,33 @@ void main() {
     );
   });
 
+  testWidgets('budget analytics switches between weekly and monthly periods', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.pie_chart_outline));
+    await tester.pumpAndSettle();
+
+    final periodLabel = find.byKey(const Key('budget_period_label'));
+    expect(find.byKey(const Key('budget_period_week')), findsOneWidget);
+    expect(find.byKey(const Key('budget_period_month')), findsOneWidget);
+    expect(tester.widget<Text>(periodLabel).data, 'This Week');
+
+    await tester.tap(find.byKey(const Key('budget_period_month')));
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<Text>(periodLabel).data, 'This Month');
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('budget_weekly_bar_chart')),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.byKey(const Key('budget_weekly_bar_chart')), findsOneWidget);
+  });
+
   testWidgets('home vaults quick action creates a savings vault', (
     tester,
   ) async {
