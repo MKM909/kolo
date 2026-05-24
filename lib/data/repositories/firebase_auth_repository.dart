@@ -14,6 +14,21 @@ class FirebaseAuthRepository implements AuthRepository {
   final FirebaseFirestore _firestore;
   static Future<void>? _googleInit;
 
+  static Map<String, Object?> googleProfileMergeData({
+    required String? firebaseDisplayName,
+    required String? googleDisplayName,
+    required String? firebaseEmail,
+    required String? googleEmail,
+  }) {
+    final displayName = (firebaseDisplayName ?? googleDisplayName ?? '').trim();
+    final email = (firebaseEmail ?? googleEmail ?? '').trim();
+
+    return {
+      'name': displayName.isEmpty ? 'Kolo User' : displayName,
+      if (email.isNotEmpty) 'email': email,
+    };
+  }
+
   @override
   Stream<AuthUser?> watchAuthState() {
     return _auth.authStateChanges().map(_fromFirebaseUser);
@@ -92,13 +107,18 @@ class FirebaseAuthRepository implements AuthRepository {
       throw StateError('Firebase did not return a user for Google sign in.');
     }
 
-    await _firestore.collection('users').doc(user.uid).set({
-      'name': user.displayName ?? googleUser.displayName ?? 'Kolo User',
-      'email': user.email ?? googleUser.email,
-      'createdAt': FieldValue.serverTimestamp(),
-      'onboardingComplete': false,
-      'balanceKobo': 0,
-    }, SetOptions(merge: true));
+    await _firestore
+        .collection('users')
+        .doc(user.uid)
+        .set(
+          googleProfileMergeData(
+            firebaseDisplayName: user.displayName,
+            googleDisplayName: googleUser.displayName,
+            firebaseEmail: user.email,
+            googleEmail: googleUser.email,
+          ),
+          SetOptions(merge: true),
+        );
 
     return _fromFirebaseUser(user) ??
         AuthUser(
