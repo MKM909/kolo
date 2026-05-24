@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kolo/app/kolo_app.dart';
 import 'package:kolo/ui/core/theme/kolo_theme.dart';
@@ -39,7 +40,12 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      MaterialApp(theme: KoloTheme.light, home: const PermissionSetupScreen()),
+      ProviderScope(
+        child: MaterialApp(
+          theme: KoloTheme.light,
+          home: const PermissionSetupScreen(),
+        ),
+      ),
     );
 
     for (final key in [

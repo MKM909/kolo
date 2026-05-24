@@ -1538,10 +1538,15 @@ class _PermissionSetupPanel extends ConsumerStatefulWidget {
 }
 
 class _PermissionSetupPanelState extends ConsumerState<_PermissionSetupPanel> {
-  final Set<KoloPermission> _granted = {};
+  final Map<KoloPermission, PermissionGrantState> _localStates = {};
 
   @override
   Widget build(BuildContext context) {
+    final dashboard = ref.watch(dashboardProvider);
+    final persistedStates = dashboard.maybeWhen(
+      data: (state) => state.permissions,
+      orElse: () => const <KoloPermission, PermissionGrantState>{},
+    );
     final permissions = const [
       _PermissionSpec(
         permission: KoloPermission.sms,
@@ -1611,7 +1616,10 @@ class _PermissionSetupPanelState extends ConsumerState<_PermissionSetupPanel> {
                 padding: const EdgeInsets.only(bottom: 12),
                 child: _PermissionSetupTile(
                   spec: permission,
-                  granted: _granted.contains(permission.permission),
+                  state:
+                      _localStates[permission.permission] ??
+                      persistedStates[permission.permission] ??
+                      PermissionGrantState.notRequested,
                   onGrant: () async {
                     final state = await ref
                         .read(permissionRequesterProvider)
@@ -1620,9 +1628,9 @@ class _PermissionSetupPanelState extends ConsumerState<_PermissionSetupPanel> {
                         .read(koloRepositoryProvider)
                         .updatePermission(permission.permission, state);
                     if (!mounted) return;
-                    if (state == PermissionGrantState.granted) {
-                      setState(() => _granted.add(permission.permission));
-                    }
+                    setState(() {
+                      _localStates[permission.permission] = state;
+                    });
                   },
                 ),
               ),
@@ -1657,16 +1665,29 @@ class _PermissionSpec {
 class _PermissionSetupTile extends StatelessWidget {
   const _PermissionSetupTile({
     required this.spec,
-    required this.granted,
+    required this.state,
     required this.onGrant,
   });
 
   final _PermissionSpec spec;
-  final bool granted;
+  final PermissionGrantState state;
   final Future<void> Function() onGrant;
 
   @override
   Widget build(BuildContext context) {
+    final granted = state == PermissionGrantState.granted;
+    final locked = state == PermissionGrantState.denied;
+    final chipColor = granted
+        ? KoloColors.income.withValues(alpha: 0.12)
+        : locked
+        ? KoloColors.expense.withValues(alpha: 0.1)
+        : KoloColors.primaryPastel;
+    final chipTextColor = granted
+        ? KoloColors.income
+        : locked
+        ? KoloColors.expense
+        : KoloColors.primary;
+
     return KoloCard(
       padding: const EdgeInsets.all(16),
       child: Row(
@@ -1695,6 +1716,18 @@ class _PermissionSetupTile extends StatelessWidget {
                   spec.body,
                   style: const TextStyle(color: KoloColors.textSecondary),
                 ),
+                if (locked) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    'Locked until permission is enabled in Android settings.',
+                    key: Key('permission_locked_${spec.permission.name}'),
+                    style: const TextStyle(
+                      color: KoloColors.expense,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -1706,18 +1739,20 @@ class _PermissionSetupTile extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: granted
-                    ? KoloColors.income.withValues(alpha: 0.12)
-                    : KoloColors.primaryPastel,
+                color: chipColor,
                 borderRadius: BorderRadius.circular(999),
               ),
               child: Text(
-                granted ? 'Granted' : 'Setup',
+                granted
+                    ? 'Granted'
+                    : locked
+                    ? 'Enable'
+                    : 'Setup',
                 key: granted
                     ? Key('permission_granted_${spec.permission.name}')
                     : null,
                 style: TextStyle(
-                  color: granted ? KoloColors.income : KoloColors.primary,
+                  color: chipTextColor,
                   fontWeight: FontWeight.w700,
                   fontSize: 12,
                 ),
