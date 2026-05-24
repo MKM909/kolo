@@ -127,6 +127,33 @@ void main() {
     );
   });
 
+  testWidgets('home vaults quick action creates a savings vault', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Vaults'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('vaults_sheet')), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('new_vault_name')),
+      'Trip fund',
+    );
+    await tester.enterText(find.byKey(const Key('new_vault_target')), '250000');
+    await tester.ensureVisible(find.byKey(const Key('save_new_vault')));
+    await tester.tap(find.byKey(const Key('save_new_vault')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Trip fund'), findsOneWidget);
+    expect(
+      find.textContaining(MoneyFormatter.formatKobo(25000000)),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('profile can grant a permission from locked state', (
     tester,
   ) async {
