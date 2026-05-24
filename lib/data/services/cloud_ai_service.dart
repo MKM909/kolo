@@ -1,9 +1,11 @@
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/services/ai_failure_message.dart';
+import 'package:kolo/domain/services/spending_intervention_advisor.dart';
 import 'package:kolo/domain/services/transaction_categorizer.dart';
 
-class CloudAiService implements TransactionCategorizer {
+class CloudAiService
+    implements TransactionCategorizer, SpendingInterventionAdvisor {
   CloudAiService({FirebaseFunctions? functions})
     : _functions = functions ?? FirebaseFunctions.instance;
 
@@ -39,6 +41,7 @@ class CloudAiService implements TransactionCategorizer {
     return _budgetFromPayload(response.data);
   }
 
+  @override
   Future<String> interventionMessage({required DashboardState context}) async {
     final callable = _functions.httpsCallable('interventionMessage');
     final response = await callable.call<Map<String, dynamic>>({

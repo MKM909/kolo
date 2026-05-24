@@ -5,6 +5,7 @@ import 'package:kolo/data/services/android_capability_service.dart';
 import 'package:kolo/data/services/native_event_ingestor.dart';
 import 'package:kolo/data/services/overlay_bubble_service.dart';
 import 'package:kolo/domain/models/models.dart';
+import 'package:kolo/domain/services/spending_intervention_advisor.dart';
 import 'package:kolo/domain/services/transaction_categorizer.dart';
 
 void main() {
@@ -135,6 +136,40 @@ void main() {
       );
     },
   );
+
+  test('uses Gemini intervention copy for watched foreground apps', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          expect(call.method, 'drainNativeEvents');
+          return [
+            {
+              'id': 'app-gemini-1',
+              'type': 'foreground_app',
+              'createdAt': DateTime(2026, 5, 24, 10).millisecondsSinceEpoch,
+              'payload': {'packageName': 'com.kuda.android'},
+            },
+          ];
+        });
+
+    final repository = FakeKoloRepository.seeded();
+    final advisor = _FakeSpendingInterventionAdvisor(
+      message: 'Kolo from Gemini: pause before sending money.',
+    );
+    final ingestor = NativeEventIngestor(
+      capabilities: AndroidCapabilityService(channel: channel),
+      repository: repository,
+      interventionAdvisor: advisor,
+    );
+
+    final processed = await ingestor.drainAndProcess();
+    final dashboard = await repository.watchDashboard().first;
+
+    expect(processed, 1);
+    expect(advisor.calls, 1);
+    expect(advisor.lastContext?.balanceKobo, 5080000);
+    expect(dashboard.aiMessages.first.content, advisor.message);
+    expect(dashboard.aiMessages.first.context, 'intervention');
+  });
 
   test('triggers the floating bubble for watched app interventions', () async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -275,6 +310,21 @@ class _FakeTransactionCategorizer implements TransactionCategorizer {
     lastSource = source;
     lastContext = context;
     return draft;
+  }
+}
+
+class _FakeSpendingInterventionAdvisor implements SpendingInterventionAdvisor {
+  _FakeSpendingInterventionAdvisor({required this.message});
+
+  final String message;
+  int calls = 0;
+  DashboardState? lastContext;
+
+  @override
+  Future<String> interventionMessage({required DashboardState context}) async {
+    calls += 1;
+    lastContext = context;
+    return message;
   }
 }
 

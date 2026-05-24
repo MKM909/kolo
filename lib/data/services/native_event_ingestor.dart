@@ -3,6 +3,7 @@ import 'package:kolo/data/services/overlay_bubble_service.dart';
 import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/repositories/kolo_repository.dart';
 import 'package:kolo/domain/services/money_formatter.dart';
+import 'package:kolo/domain/services/spending_intervention_advisor.dart';
 import 'package:kolo/domain/services/transaction_categorizer.dart';
 import 'package:kolo/domain/services/transaction_parser.dart';
 
@@ -12,15 +13,18 @@ class NativeEventIngestor {
     required KoloRepository repository,
     OverlayBubbleService? overlayBubble,
     TransactionCategorizer? categorizer,
+    SpendingInterventionAdvisor? interventionAdvisor,
   }) : _capabilities = capabilities,
        _repository = repository,
        _overlayBubble = overlayBubble,
-       _categorizer = categorizer;
+       _categorizer = categorizer,
+       _interventionAdvisor = interventionAdvisor;
 
   final AndroidCapabilityService _capabilities;
   final KoloRepository _repository;
   final OverlayBubbleService? _overlayBubble;
   final TransactionCategorizer? _categorizer;
+  final SpendingInterventionAdvisor? _interventionAdvisor;
 
   Future<int> drainAndProcess() async {
     final events = await _capabilities.drainNativeEvents();
@@ -94,18 +98,42 @@ class NativeEventIngestor {
     }
     if (watchedApp == null || !watchedApp.enabled) return false;
 
+    final content = await _interventionMessage(
+      dashboard: dashboard,
+      watchedApp: watchedApp,
+    );
+
     await _repository.recordAiMessage(
       AiMessage(
         id: 'native-${event.id}',
         role: AiRole.assistant,
-        content:
-            'You just opened ${watchedApp.displayName}. Your balance is ${MoneyFormatter.formatKobo(dashboard.balanceKobo)}. What are you about to do?',
+        content: content,
         timestamp: event.createdAt,
         context: 'intervention',
       ),
     );
     await _overlayBubble?.showKoloBubble();
     return true;
+  }
+
+  Future<String> _interventionMessage({
+    required DashboardState dashboard,
+    required WatchedApp watchedApp,
+  }) async {
+    final advisor = _interventionAdvisor;
+    if (advisor == null) return _fallbackIntervention(dashboard, watchedApp);
+
+    try {
+      final message = await advisor.interventionMessage(context: dashboard);
+      if (message.trim().isNotEmpty) return message;
+    } on Object {
+      // Keep native interventions useful if Functions or Gemini is unavailable.
+    }
+    return _fallbackIntervention(dashboard, watchedApp);
+  }
+
+  String _fallbackIntervention(DashboardState dashboard, WatchedApp watchedApp) {
+    return 'You just opened ${watchedApp.displayName}. Your balance is ${MoneyFormatter.formatKobo(dashboard.balanceKobo)}. What are you about to do?';
   }
 
   TransactionSource _sourceFor(NativeAndroidEvent event) {
