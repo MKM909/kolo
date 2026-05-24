@@ -4,6 +4,7 @@ import 'package:kolo/app/providers.dart';
 import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/ui/core/theme/kolo_theme.dart';
 import 'package:kolo/ui/core/widgets/kolo_scaffold.dart';
+import 'package:kolo/ui/core/widgets/kolo_liquid_aether_orb.dart';
 
 class AiChatScreen extends ConsumerStatefulWidget {
   const AiChatScreen({super.key});
@@ -13,9 +14,7 @@ class AiChatScreen extends ConsumerStatefulWidget {
 }
 
 class _AiChatScreenState extends ConsumerState<AiChatScreen> {
-  final TextEditingController _controller = TextEditingController(
-    text: 'Should I buy suya tonight?',
-  );
+  final TextEditingController _controller = TextEditingController();
 
   @override
   void dispose() {
@@ -53,8 +52,11 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                 children: [
                   Expanded(
                     child: TextField(
+                      key: const Key('kolo_ai_chat_input'),
                       controller: _controller,
-                      decoration: const InputDecoration(labelText: 'Ask Kolo'),
+                      decoration: const InputDecoration(
+                        hintText: 'Ask Kolo...',
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -89,27 +91,49 @@ class _ChatBubble extends StatelessWidget {
     final isUser = message.role == AiRole.user;
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 310),
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: isUser ? KoloColors.primary : Colors.white,
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(16),
-            topRight: const Radius.circular(16),
-            bottomLeft: Radius.circular(isUser ? 16 : 4),
-            bottomRight: Radius.circular(isUser ? 4 : 16),
-          ),
-          boxShadow: const [
-            BoxShadow(color: Color(0x10000000), blurRadius: 12),
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Row(
+          mainAxisAlignment: isUser
+              ? MainAxisAlignment.end
+              : MainAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            if (!isUser) ...[
+              const KoloLiquidAetherOrb(
+                key: Key('kolo_ai_chat_avatar'),
+                size: 28,
+              ),
+              const SizedBox(width: 8),
+            ],
+            Flexible(
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 310),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: isUser ? KoloColors.primary : Colors.white,
+                  borderRadius: BorderRadius.only(
+                    topLeft: const Radius.circular(16),
+                    topRight: const Radius.circular(16),
+                    bottomLeft: Radius.circular(isUser ? 16 : 4),
+                    bottomRight: Radius.circular(isUser ? 4 : 16),
+                  ),
+                  boxShadow: const [
+                    BoxShadow(color: Color(0x10000000), blurRadius: 12),
+                  ],
+                ),
+                child: Text(
+                  message.content,
+                  style: TextStyle(
+                    color: isUser ? Colors.white : KoloColors.textPrimary,
+                  ),
+                ),
+              ),
+            ),
           ],
-        ),
-        child: Text(
-          message.content,
-          style: TextStyle(
-            color: isUser ? Colors.white : KoloColors.textPrimary,
-          ),
         ),
       ),
     );

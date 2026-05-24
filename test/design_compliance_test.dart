@@ -5,20 +5,21 @@ import 'package:kolo/ui/core/theme/kolo_theme.dart';
 import 'package:kolo/ui/features/auth/auth_screens.dart';
 
 void main() {
-  testWidgets('bottom navigation uses the raised Kolo AI bubble from design spec', (
-    tester,
-  ) async {
-    await tester.pumpWidget(const KoloApp());
-    await tester.pumpAndSettle();
+  testWidgets(
+    'bottom navigation uses the raised Kolo AI bubble from design spec',
+    (tester) async {
+      await tester.pumpWidget(const KoloApp());
+      await tester.pumpAndSettle();
 
-    final bubbleFinder = find.byKey(const Key('kolo_ai_nav_bubble'));
-    expect(bubbleFinder, findsOneWidget);
+      final bubbleFinder = find.byKey(const Key('kolo_ai_nav_bubble'));
+      expect(bubbleFinder, findsOneWidget);
 
-    final bubble = tester.widget<Container>(bubbleFinder);
-    final decoration = bubble.decoration as BoxDecoration;
-    expect(decoration.color, KoloColors.primary);
-    expect(decoration.shape, BoxShape.circle);
-  });
+      final bubble = tester.widget<Container>(bubbleFinder);
+      final decoration = bubble.decoration as BoxDecoration;
+      expect(decoration.color, KoloColors.primary);
+      expect(decoration.shape, BoxShape.circle);
+    },
+  );
 
   testWidgets('onboarding starts as chat-style setup with progress dots', (
     tester,
@@ -49,5 +50,25 @@ void main() {
     ]) {
       expect(find.byKey(Key(key)), findsOneWidget);
     }
+  });
+
+  testWidgets('AI chat uses the liquid Kolo avatar and a clean input', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('AI'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('kolo_ai_chat_avatar')),
+      findsAtLeastNWidgets(1),
+    );
+
+    final input = tester.widget<TextField>(
+      find.byKey(const Key('kolo_ai_chat_input')),
+    );
+    expect(input.controller?.text, isEmpty);
   });
 }
