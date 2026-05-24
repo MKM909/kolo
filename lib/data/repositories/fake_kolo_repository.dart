@@ -285,8 +285,30 @@ class FakeKoloRepository implements KoloRepository {
     final otherGigs = _state.gigs
         .where((existing) => existing.id != gig.id)
         .toList(growable: false);
+    final transactionId = 'gig-income-${gig.id}';
+    final existingTransaction = _state.transactions
+        .where((transaction) => transaction.id == transactionId)
+        .firstOrNull;
+    final gigTransaction = TransactionRecord.income(
+      id: transactionId,
+      amountKobo: gig.amountKobo,
+      category: 'Gig Income',
+      description: '${gig.client} gig',
+      date: gig.date,
+      source: TransactionSource.manual,
+      merchantName: gig.client,
+      aiNote: 'Logged from Gig Tracker.',
+    );
+    final otherTransactions = _state.transactions
+        .where((transaction) => transaction.id != transactionId)
+        .toList(growable: false);
+    final balanceDelta =
+        gigTransaction.amountKobo - (existingTransaction?.amountKobo ?? 0);
+
     _state = _state.copyWith(
+      balanceKobo: _state.balanceKobo + balanceDelta,
       gigs: [gig, ...otherGigs],
+      transactions: [gigTransaction, ...otherTransactions],
       aiMessages: [
         AiMessage(
           id: 'ai-${gig.id}-${DateTime.now().microsecondsSinceEpoch}',

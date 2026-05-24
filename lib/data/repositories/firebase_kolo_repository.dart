@@ -106,10 +106,42 @@ class FirebaseKoloRepository implements KoloRepository {
 
   @override
   Future<void> upsertGig(GigRecord gig) async {
-    await _userDoc.collection('gigs').doc(gig.id).set({
+    final transactionId = 'gig-income-${gig.id}';
+    final transaction = TransactionRecord.income(
+      id: transactionId,
+      amountKobo: gig.amountKobo,
+      category: 'Gig Income',
+      description: '${gig.client} gig',
+      date: gig.date,
+      source: TransactionSource.manual,
+      merchantName: gig.client,
+      aiNote: 'Logged from Gig Tracker.',
+    );
+
+    final transactionRef = _userDoc
+        .collection('transactions')
+        .doc(transactionId);
+    final existing = await transactionRef.get();
+    final existingAmountKobo = existing.exists
+        ? ((existing.data()?['amountKobo'] as num?)?.toInt() ?? 0)
+        : 0;
+    final balanceDelta = transaction.amountKobo - existingAmountKobo;
+
+    final batch = _firestore.batch();
+    batch.set(_userDoc.collection('gigs').doc(gig.id), {
       ...FirebaseKoloMapper.gigToJson(gig),
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+    batch.set(transactionRef, {
+      ...FirebaseKoloMapper.transactionToJson(transaction),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+    if (balanceDelta != 0) {
+      batch.set(_userDoc, {
+        'balanceKobo': FieldValue.increment(balanceDelta),
+      }, SetOptions(merge: true));
+    }
+    await batch.commit();
   }
 
   @override

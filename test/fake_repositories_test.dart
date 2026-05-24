@@ -146,6 +146,7 @@ void main() {
 
   test('fake repository creates and updates gig records', () async {
     final repository = FakeKoloRepository.seeded();
+    final initial = await repository.watchDashboard().first;
 
     await repository.upsertGig(
       GigRecord(
@@ -161,6 +162,12 @@ void main() {
     var dashboard = await repository.watchDashboard().first;
     expect(dashboard.gigs.first.client, 'Muna Foods');
     expect(dashboard.gigs.first.projectType, 'Brand kit');
+    expect(dashboard.balanceKobo, initial.balanceKobo + 8500000);
+    expect(
+      dashboard.transactions.where((tx) => tx.id == 'gig-income-gig-brand'),
+      hasLength(1),
+    );
+    expect(dashboard.transactions.first.category, 'Gig Income');
 
     await repository.upsertGig(
       GigRecord(
@@ -176,6 +183,11 @@ void main() {
     dashboard = await repository.watchDashboard().first;
     expect(dashboard.gigs.first.amountKobo, 9000000);
     expect(dashboard.gigs.where((gig) => gig.id == 'gig-brand'), hasLength(1));
+    expect(dashboard.balanceKobo, initial.balanceKobo + 9000000);
+    expect(
+      dashboard.transactions.where((tx) => tx.id == 'gig-income-gig-brand'),
+      hasLength(1),
+    );
     expect(dashboard.aiMessages.first.context, 'gig');
   });
 
