@@ -30,6 +30,7 @@ class _KoloMaterialApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(nativeEventDrainProvider);
     final router = ref.watch(koloRouterProvider);
 
     return MaterialApp.router(
@@ -50,11 +51,13 @@ final koloRouterProvider = Provider<GoRouter>((ref) {
     loading: () => false,
   );
   final onboardingComplete = bootstrap.initialized && signedIn
-      ? ref.watch(dashboardProvider).when(
-          data: (state) => state.profile.onboardingComplete,
-          error: (_, _) => true,
-          loading: () => true,
-        )
+      ? ref
+            .watch(dashboardProvider)
+            .when(
+              data: (state) => state.profile.onboardingComplete,
+              error: (_, _) => true,
+              loading: () => true,
+            )
       : true;
 
   return buildKoloRouter(
