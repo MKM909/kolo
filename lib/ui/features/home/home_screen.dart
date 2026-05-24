@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:kolo/app/providers.dart';
 import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/services/ai_override_tone.dart';
+import 'package:kolo/domain/services/bill_reminder_schedule.dart';
 import 'package:kolo/domain/services/financial_calculator.dart';
 import 'package:kolo/domain/services/money_formatter.dart';
 import 'package:kolo/ui/core/theme/kolo_theme.dart';
@@ -29,6 +30,7 @@ class HomeScreen extends ConsumerWidget {
           transactions: state.transactions,
           vaults: state.vaults,
         );
+        final dueSoonBill = _nearestDueSoonBill(state.bills);
 
         return KoloGradientScaffold(
           title: 'Kolo',
@@ -69,7 +71,7 @@ class HomeScreen extends ConsumerWidget {
                 onOpenOwings: () => _openOwingsSheet(context),
               ),
               const SizedBox(height: 24),
-              if (state.bills.isNotEmpty)
+              if (dueSoonBill != null)
                 KoloCard(
                   color: KoloColors.surfaceElevated,
                   child: Row(
@@ -78,7 +80,7 @@ class HomeScreen extends ConsumerWidget {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          '${state.bills.first.name} is due soon: ${MoneyFormatter.formatKobo(state.bills.first.amountKobo)}',
+                          '${dueSoonBill.name} is due soon: ${MoneyFormatter.formatKobo(dueSoonBill.amountKobo)}',
                           style: const TextStyle(fontWeight: FontWeight.w700),
                         ),
                       ),
@@ -208,6 +210,12 @@ class HomeScreen extends ConsumerWidget {
       builder: (context) => const _OwingsSheet(),
     );
   }
+}
+
+BillReminder? _nearestDueSoonBill(List<BillReminder> bills) {
+  final dueSoonBills = BillReminderSchedule.dueSoon(bills).toList()
+    ..sort((a, b) => a.nextDue.compareTo(b.nextDue));
+  return dueSoonBills.isEmpty ? null : dueSoonBills.first;
 }
 
 class _HomeOfflineState extends StatelessWidget {
