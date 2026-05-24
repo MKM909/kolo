@@ -211,12 +211,14 @@ class BudgetCategoryCard extends StatelessWidget {
   const BudgetCategoryCard({
     required this.category,
     required this.spentKobo,
+    required this.itemCount,
     this.onTap,
     super.key,
   });
 
   final BudgetCategory category;
   final int spentKobo;
+  final int itemCount;
   final VoidCallback? onTap;
 
   @override
@@ -260,8 +262,10 @@ class BudgetCategoryCard extends StatelessWidget {
                 ),
                 const Spacer(),
                 Text(
-                  '${(progress * 100).round()}%',
-                  style: Theme.of(context).textTheme.labelMedium,
+                  itemCount == 1 ? '1 item' : '$itemCount items',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelMedium?.copyWith(color: KoloColors.textMuted),
                 ),
               ],
             ),

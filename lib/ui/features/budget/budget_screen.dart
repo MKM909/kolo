@@ -39,6 +39,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
           vaults: state.vaults,
         );
         final weeklyExpenses = _weeklyExpenseTotals(state.transactions);
+        final categoryItemCounts = _categoryExpenseCounts(periodTransactions);
 
         return KoloGradientScaffold(
           title: 'Budget',
@@ -118,6 +119,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                     BudgetCategoryCard(
                       category: category,
                       spentKobo: summary.categorySpendKobo[category.name] ?? 0,
+                      itemCount: categoryItemCounts[category.name] ?? 0,
                       onTap: () => _openCategorySheet(
                         context,
                         ref,
@@ -200,6 +202,21 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
     }
 
     return totals;
+  }
+
+  Map<String, int> _categoryExpenseCounts(
+    List<TransactionRecord> transactions,
+  ) {
+    final counts = <String, int>{};
+    for (final transaction in transactions) {
+      if (transaction.type != TransactionType.expense) continue;
+      counts.update(
+        transaction.category,
+        (count) => count + 1,
+        ifAbsent: () => 1,
+      );
+    }
+    return counts;
   }
 
   BarChartData _weeklyBarData(List<int> expenses) {
