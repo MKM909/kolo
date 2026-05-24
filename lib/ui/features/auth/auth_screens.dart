@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kolo/app/providers.dart';
+import 'package:kolo/domain/models/models.dart';
+import 'package:kolo/domain/services/money_formatter.dart';
 import 'package:kolo/ui/core/theme/kolo_theme.dart';
 import 'package:kolo/ui/core/widgets/kolo_scaffold.dart';
 
@@ -250,17 +252,22 @@ class _AuthPanelState extends ConsumerState<_AuthPanel> {
   }
 }
 
-class _OnboardingSetupScreen extends StatefulWidget {
+class _OnboardingSetupScreen extends ConsumerStatefulWidget {
   const _OnboardingSetupScreen();
 
   @override
-  State<_OnboardingSetupScreen> createState() => _OnboardingSetupScreenState();
+  ConsumerState<_OnboardingSetupScreen> createState() =>
+      _OnboardingSetupScreenState();
 }
 
-class _OnboardingSetupScreenState extends State<_OnboardingSetupScreen> {
+class _OnboardingSetupScreenState extends ConsumerState<_OnboardingSetupScreen> {
   final _incomeController = TextEditingController();
   final _balanceController = TextEditingController();
   int _step = 0;
+  String _incomeFrequency = 'Irregular gigs';
+  String _biggestProblem = 'Impulse buys';
+  bool _submitting = false;
+  String? _error;
 
   @override
   void dispose() {
@@ -349,16 +356,23 @@ class _OnboardingSetupScreenState extends State<_OnboardingSetupScreen> {
                   ),
                   const SizedBox(height: 20),
                   Expanded(child: _stepContent()),
+                  if (_error != null) ...[
+                    Text(
+                      _error!,
+                      style: const TextStyle(color: KoloColors.expense),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
                   ElevatedButton(
                     key: const Key('onboarding_next'),
-                    onPressed: () {
-                      if (_step < 3) {
-                        setState(() => _step += 1);
-                      } else {
-                        GoRouter.maybeOf(context)?.go('/permissions');
-                      }
-                    },
-                    child: Text(_step < 3 ? 'Next' : 'Build my Kolo'),
+                    onPressed: _submitting ? null : _advance,
+                    child: Text(
+                      _submitting
+                          ? 'Building'
+                          : _step < 3
+                          ? 'Next'
+                          : 'Build my Kolo',
+                    ),
                   ),
                 ],
               ),
@@ -372,6 +386,7 @@ class _OnboardingSetupScreenState extends State<_OnboardingSetupScreen> {
   Widget _stepContent() {
     if (_step == 0) {
       return TextField(
+        key: const Key('onboarding_income_source'),
         controller: _incomeController,
         decoration: const InputDecoration(
           labelText: 'Example: freelance design, allowance, salary',
@@ -380,19 +395,28 @@ class _OnboardingSetupScreenState extends State<_OnboardingSetupScreen> {
       );
     }
     if (_step == 1) {
-      return const Wrap(
+      return Wrap(
         spacing: 10,
         runSpacing: 10,
         children: [
-          _ChoicePill(label: 'Weekly'),
-          _ChoicePill(label: 'Monthly'),
-          _ChoicePill(label: 'Irregular gigs'),
-          _ChoicePill(label: 'Family support'),
+          for (final label in const [
+            'Weekly',
+            'Monthly',
+            'Irregular gigs',
+            'Family support',
+          ])
+            _ChoicePill(
+              key: Key('onboarding_income_frequency_${_keySlug(label)}'),
+              label: label,
+              selected: _incomeFrequency == label,
+              onTap: () => setState(() => _incomeFrequency = label),
+            ),
         ],
       );
     }
     if (_step == 2) {
       return TextField(
+        key: const Key('onboarding_balance'),
         controller: _balanceController,
         keyboardType: TextInputType.number,
         decoration: const InputDecoration(
@@ -401,15 +425,70 @@ class _OnboardingSetupScreenState extends State<_OnboardingSetupScreen> {
         ),
       );
     }
-    return const Wrap(
+    return Wrap(
       spacing: 10,
       runSpacing: 10,
       children: [
-        _ChoicePill(label: 'Food spending'),
-        _ChoicePill(label: 'Transport leaks'),
-        _ChoicePill(label: 'Impulse buys'),
-        _ChoicePill(label: 'Irregular income'),
+        for (final label in const [
+          'Food spending',
+          'Transport leaks',
+          'Impulse buys',
+          'Irregular income',
+        ])
+          _ChoicePill(
+            key: Key('onboarding_problem_${_keySlug(label)}'),
+            label: label,
+            selected: _biggestProblem == label,
+            onTap: () => setState(() => _biggestProblem = label),
+          ),
       ],
+    );
+  }
+
+  Future<void> _advance() async {
+    setState(() => _error = null);
+    if (_step < 3) {
+      setState(() => _step += 1);
+      return;
+    }
+
+    final amountKobo = MoneyFormatter.parseNairaToKobo(
+      _balanceController.text.trim(),
+    );
+    final incomeSource = _incomeController.text.trim();
+    if (incomeSource.isEmpty || amountKobo == null || amountKobo <= 0) {
+      setState(() {
+        _error = 'Add your income source and current balance.';
+      });
+      return;
+    }
+
+    setState(() => _submitting = true);
+    try {
+      await ref
+          .read(koloRepositoryProvider)
+          .completeOnboarding(
+            OnboardingAnswers(
+              incomeSource: incomeSource,
+              incomeFrequency: _incomeFrequency,
+              currentBalanceKobo: amountKobo,
+              biggestProblem: _biggestProblem,
+            ),
+          );
+      if (!mounted) return;
+      GoRouter.maybeOf(context)?.go('/permissions');
+    } on Object catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  String _keySlug(String value) {
+    return value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_').replaceAll(
+      RegExp(r'(^_|_$)'),
+      '',
     );
   }
 }
@@ -481,23 +560,35 @@ class _AssistantBubble extends StatelessWidget {
 }
 
 class _ChoicePill extends StatelessWidget {
-  const _ChoicePill({required this.label});
+  const _ChoicePill({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    super.key,
+  });
 
   final String label;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: KoloColors.primaryPastel,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: KoloColors.primary,
-          fontWeight: FontWeight.w700,
+    return InkWell(
+      borderRadius: BorderRadius.circular(999),
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? KoloColors.primary : KoloColors.primaryPastel,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? Colors.white : KoloColors.primary,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
     );
