@@ -610,7 +610,10 @@ class _BillRemindersSheetState extends ConsumerState<_BillRemindersSheet> {
                       for (final bill in state.bills)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 12),
-                          child: _BillCard(bill: bill),
+                          child: _BillCard(
+                            bill: bill,
+                            onTap: () => _openBillDetail(context, bill),
+                          ),
                         ),
                     ],
                   ),
@@ -706,61 +709,197 @@ class _BillRemindersSheetState extends ConsumerState<_BillRemindersSheet> {
     _amountController.clear();
     if (mounted) setState(() => _error = null);
   }
+
+  Future<void> _openBillDetail(BuildContext context, BillReminder bill) {
+    return showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _BillDetailSheet(bill: bill),
+    );
+  }
 }
 
 class _BillCard extends StatelessWidget {
-  const _BillCard({required this.bill});
+  const _BillCard({required this.bill, required this.onTap});
 
   final BillReminder bill;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final statusColor = bill.active ? KoloColors.warning : KoloColors.textMuted;
+    return InkWell(
+      key: Key('bill_card_${bill.id}'),
+      borderRadius: BorderRadius.circular(20),
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x14000000),
+              blurRadius: 20,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              height: 40,
+              width: 40,
+              decoration: BoxDecoration(
+                color: KoloColors.primaryPastel,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(Icons.receipt_long, color: statusColor),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    bill.name,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${bill.frequency} - ${_dateInput(bill.nextDue)}',
+                    style: Theme.of(context).textTheme.labelMedium,
+                  ),
+                  if (!bill.active) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Paused',
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: KoloColors.textMuted,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            Text(
+              MoneyFormatter.formatKobo(bill.amountKobo),
+              style: TextStyle(color: statusColor, fontWeight: FontWeight.w800),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BillDetailSheet extends ConsumerWidget {
+  const _BillDetailSheet({required this.bill});
+
+  final BillReminder bill;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: const [
+      key: const Key('bill_detail_sheet'),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+      decoration: const BoxDecoration(
+        color: Color(0xF0FFFFFF),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [
           BoxShadow(
-            color: Color(0x14000000),
-            blurRadius: 20,
-            offset: Offset(0, 4),
+            color: Color(0x20000000),
+            blurRadius: 40,
+            offset: Offset(0, -8),
           ),
         ],
       ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                height: 4,
+                width: 42,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE5E7EB),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(bill.name, style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 12),
+            _ProfileMetricRow(
+              label: 'Amount',
+              value: MoneyFormatter.formatKobo(bill.amountKobo),
+            ),
+            _ProfileMetricRow(label: 'Frequency', value: bill.frequency),
+            _ProfileMetricRow(
+              label: 'Next due',
+              value: _dateInput(bill.nextDue),
+            ),
+            _ProfileMetricRow(
+              label: 'Status',
+              value: bill.active ? 'Active' : 'Paused',
+            ),
+            const SizedBox(height: 18),
+            OutlinedButton.icon(
+              key: Key('pause_bill_${bill.id}'),
+              onPressed: bill.active
+                  ? () async {
+                      await ref
+                          .read(koloRepositoryProvider)
+                          .upsertBill(
+                            BillReminder(
+                              id: bill.id,
+                              name: bill.name,
+                              amountKobo: bill.amountKobo,
+                              frequency: bill.frequency,
+                              nextDue: bill.nextDue,
+                              active: false,
+                            ),
+                          );
+                      if (context.mounted) Navigator.of(context).pop();
+                    }
+                  : null,
+              icon: const Icon(Icons.pause_circle_outline),
+              label: const Text('Pause reminder'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileMetricRow extends StatelessWidget {
+  const _ProfileMetricRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         children: [
-          Container(
-            height: 40,
-            width: 40,
-            decoration: BoxDecoration(
-              color: KoloColors.primaryPastel,
-              borderRadius: BorderRadius.circular(12),
+          Text(label, style: Theme.of(context).textTheme.labelMedium),
+          const Spacer(),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: const TextStyle(fontWeight: FontWeight.w800),
             ),
-            child: Icon(Icons.receipt_long, color: statusColor),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  bill.name,
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '${bill.frequency} - ${_dateInput(bill.nextDue)}',
-                  style: Theme.of(context).textTheme.labelMedium,
-                ),
-              ],
-            ),
-          ),
-          Text(
-            MoneyFormatter.formatKobo(bill.amountKobo),
-            style: TextStyle(color: statusColor, fontWeight: FontWeight.w800),
           ),
         ],
       ),
