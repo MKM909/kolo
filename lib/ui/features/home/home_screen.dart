@@ -1415,7 +1415,9 @@ class _OwingsSheetState extends ConsumerState<_OwingsSheet> {
     final amountKobo = MoneyFormatter.parseNairaToKobo(
       _amountController.text.trim(),
     );
-    final dueDate = _parseOptionalDateInput(_dueDateController.text.trim());
+    final dueDate = _parseOwingOptionalDateInput(
+      _dueDateController.text.trim(),
+    );
     if (person.isEmpty || amountKobo == null || amountKobo <= 0) {
       setState(() => _error = 'Enter a person and amount.');
       return;
@@ -1448,22 +1450,6 @@ class _OwingsSheetState extends ConsumerState<_OwingsSheet> {
     if (mounted) setState(() => _error = null);
   }
 
-  DateTime? _parseOptionalDateInput(String value) {
-    if (value.isEmpty) return null;
-    final parts = value.split('-');
-    if (parts.length != 3) return null;
-    final year = int.tryParse(parts[0]);
-    final month = int.tryParse(parts[1]);
-    final day = int.tryParse(parts[2]);
-    if (year == null || month == null || day == null) return null;
-
-    final parsed = DateTime(year, month, day);
-    if (parsed.year != year || parsed.month != month || parsed.day != day) {
-      return null;
-    }
-    return parsed;
-  }
-
   Future<void> _openOwingDetail(BuildContext context, Owing owing) {
     return showModalBottomSheet<void>(
       context: context,
@@ -1473,6 +1459,22 @@ class _OwingsSheetState extends ConsumerState<_OwingsSheet> {
       builder: (context) => _OwingDetailSheet(owing: owing),
     );
   }
+}
+
+DateTime? _parseOwingOptionalDateInput(String value) {
+  if (value.isEmpty) return null;
+  final parts = value.split('-');
+  if (parts.length != 3) return null;
+  final year = int.tryParse(parts[0]);
+  final month = int.tryParse(parts[1]);
+  final day = int.tryParse(parts[2]);
+  if (year == null || month == null || day == null) return null;
+
+  final parsed = DateTime(year, month, day);
+  if (parsed.year != year || parsed.month != month || parsed.day != day) {
+    return null;
+  }
+  return parsed;
 }
 
 class _OwingCard extends StatelessWidget {
@@ -1624,150 +1626,280 @@ class _OwingDetailSheet extends ConsumerStatefulWidget {
 }
 
 class _OwingDetailSheetState extends ConsumerState<_OwingDetailSheet> {
+  late final TextEditingController _personController;
+  late final TextEditingController _amountController;
+  late final TextEditingController _dueDateController;
+  late final TextEditingController _noteController;
   String? _draft;
   bool _drafting = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    final owing = widget.owing;
+    _personController = TextEditingController(text: owing.person);
+    _amountController = TextEditingController(
+      text: (owing.amountKobo ~/ 100).toString(),
+    );
+    _dueDateController = TextEditingController(
+      text: owing.dueDate == null ? '' : _owingDateInput(owing.dueDate!),
+    );
+    _noteController = TextEditingController(text: owing.note ?? '');
+  }
+
+  @override
+  void dispose() {
+    _personController.dispose();
+    _amountController.dispose();
+    _dueDateController.dispose();
+    _noteController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final owing = widget.owing;
     final theyOweMe = owing.type == OwingType.theyOweMe;
-    return Container(
-      key: const Key('owing_detail_sheet'),
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-      decoration: const BoxDecoration(
-        color: Color(0xF0FFFFFF),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        boxShadow: [
-          BoxShadow(
-            color: Color(0x20000000),
-            blurRadius: 40,
-            offset: Offset(0, -8),
-          ),
-        ],
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                height: 4,
-                width: 42,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE5E7EB),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(owing.person, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 8),
-            _OwingDetailRow(
-              label: theyOweMe ? 'They owe you' : 'You owe them',
-              value: MoneyFormatter.formatKobo(owing.amountKobo),
-              color: theyOweMe ? KoloColors.income : KoloColors.expense,
-            ),
-            if (owing.note != null)
-              _OwingDetailRow(label: 'Note', value: owing.note!),
-            if (owing.dueDate != null)
-              _OwingDetailRow(
-                label: 'Due date',
-                value: _owingDateInput(owing.dueDate!),
-              ),
-            _OwingDetailRow(
-              label: 'Status',
-              value: owing.settled ? 'Settled' : 'Open',
-            ),
-            if (theyOweMe && !owing.settled) ...[
-              const SizedBox(height: 18),
-              OutlinedButton.icon(
-                key: const Key('draft_owing_reminder'),
-                onPressed: _drafting ? null : _draftReminder,
-                icon: _drafting
-                    ? const SizedBox.square(
-                        dimension: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.auto_awesome),
-                label: Text(_drafting ? 'Drafting...' : 'Draft reminder'),
-              ),
-            ],
-            if (_draft != null) ...[
-              const SizedBox(height: 12),
-              Container(
-                key: const Key('owing_reminder_draft'),
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: const [
-                    BoxShadow(color: Color(0x14000000), blurRadius: 20),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _draft!,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 10),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton.icon(
-                        key: const Key('copy_owing_reminder'),
-                        onPressed: _copyDraft,
-                        icon: const Icon(Icons.copy_outlined, size: 18),
-                        label: const Text('Copy reminder'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-            const SizedBox(height: 18),
-            ElevatedButton(
-              key: const Key('settle_owing'),
-              onPressed: owing.settled
-                  ? null
-                  : () async {
-                      await ref
-                          .read(koloRepositoryProvider)
-                          .upsertOwing(
-                            Owing(
-                              id: owing.id,
-                              type: owing.type,
-                              person: owing.person,
-                              amountKobo: owing.amountKobo,
-                              date: owing.date,
-                              settled: true,
-                              note: owing.note,
-                              dueDate: owing.dueDate,
-                            ),
-                          );
-                      if (context.mounted) Navigator.of(context).pop();
-                    },
-              child: const Text('Mark settled'),
-            ),
-            const SizedBox(height: 8),
-            Center(
-              child: TextButton.icon(
-                key: const Key('delete_owing'),
-                onPressed: _delete,
-                icon: const Icon(Icons.delete_outline, size: 18),
-                label: const Text('Delete owing'),
-                style: TextButton.styleFrom(
-                  foregroundColor: KoloColors.expense,
-                ),
-              ),
+      child: Container(
+        key: const Key('owing_detail_sheet'),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.86,
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+        decoration: const BoxDecoration(
+          color: Color(0xF0FFFFFF),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          boxShadow: [
+            BoxShadow(
+              color: Color(0x20000000),
+              blurRadius: 40,
+              offset: Offset(0, -8),
             ),
           ],
         ),
+        child: SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    height: 4,
+                    width: 42,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE5E7EB),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  owing.person,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 8),
+                _OwingDetailRow(
+                  label: theyOweMe ? 'They owe you' : 'You owe them',
+                  value: MoneyFormatter.formatKobo(owing.amountKobo),
+                  color: theyOweMe ? KoloColors.income : KoloColors.expense,
+                ),
+                if (owing.note != null)
+                  _OwingDetailRow(label: 'Note', value: owing.note!),
+                if (owing.dueDate != null)
+                  _OwingDetailRow(
+                    label: 'Due date',
+                    value: _owingDateInput(owing.dueDate!),
+                  ),
+                _OwingDetailRow(
+                  label: 'Status',
+                  value: owing.settled ? 'Settled' : 'Open',
+                ),
+                if (theyOweMe && !owing.settled) ...[
+                  const SizedBox(height: 18),
+                  OutlinedButton.icon(
+                    key: const Key('draft_owing_reminder'),
+                    onPressed: _drafting ? null : _draftReminder,
+                    icon: _drafting
+                        ? const SizedBox.square(
+                            dimension: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.auto_awesome),
+                    label: Text(_drafting ? 'Drafting...' : 'Draft reminder'),
+                  ),
+                ],
+                if (_draft != null) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    key: const Key('owing_reminder_draft'),
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: const [
+                        BoxShadow(color: Color(0x14000000), blurRadius: 20),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _draft!,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        const SizedBox(height: 10),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton.icon(
+                            key: const Key('copy_owing_reminder'),
+                            onPressed: _copyDraft,
+                            icon: const Icon(Icons.copy_outlined, size: 18),
+                            label: const Text('Copy reminder'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 18),
+                ElevatedButton(
+                  key: const Key('settle_owing'),
+                  onPressed: owing.settled ? null : _settle,
+                  child: const Text('Mark settled'),
+                ),
+                const SizedBox(height: 8),
+                Center(
+                  child: TextButton.icon(
+                    key: const Key('delete_owing'),
+                    onPressed: _delete,
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                    label: const Text('Delete owing'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: KoloColors.expense,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  'Edit owing',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const Key('edit_owing_person'),
+                  controller: _personController,
+                  decoration: const InputDecoration(labelText: 'Person'),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  key: const Key('edit_owing_amount'),
+                  controller: _amountController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Amount',
+                    prefixText: '\u20A6 ',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  key: const Key('edit_owing_due_date'),
+                  controller: _dueDateController,
+                  keyboardType: TextInputType.datetime,
+                  decoration: const InputDecoration(
+                    labelText: 'Due date',
+                    hintText: 'YYYY-MM-DD (optional)',
+                    prefixIcon: Icon(Icons.event_available_outlined),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  key: const Key('edit_owing_note'),
+                  controller: _noteController,
+                  decoration: const InputDecoration(labelText: 'Note'),
+                ),
+                if (_error != null) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    _error!,
+                    style: const TextStyle(color: KoloColors.expense),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  key: const Key('save_owing_edits'),
+                  onPressed: _saveEdits,
+                  icon: const Icon(Icons.edit_note_outlined),
+                  label: const Text('Save owing edits'),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
+  }
+
+  Future<void> _settle() async {
+    final owing = widget.owing;
+    await ref
+        .read(koloRepositoryProvider)
+        .upsertOwing(
+          Owing(
+            id: owing.id,
+            type: owing.type,
+            person: owing.person,
+            amountKobo: owing.amountKobo,
+            date: owing.date,
+            settled: true,
+            note: owing.note,
+            dueDate: owing.dueDate,
+          ),
+        );
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _saveEdits() async {
+    final owing = widget.owing;
+    final person = _personController.text.trim();
+    final amountKobo = MoneyFormatter.parseNairaToKobo(
+      _amountController.text.trim(),
+    );
+    final dueDateText = _dueDateController.text.trim();
+    final dueDate = _parseOwingOptionalDateInput(dueDateText);
+    if (person.isEmpty || amountKobo == null || amountKobo <= 0) {
+      setState(() => _error = 'Enter a person and amount.');
+      return;
+    }
+    if (dueDateText.isNotEmpty && dueDate == null) {
+      setState(() => _error = 'Enter the due date as YYYY-MM-DD.');
+      return;
+    }
+
+    await ref
+        .read(koloRepositoryProvider)
+        .upsertOwing(
+          Owing(
+            id: owing.id,
+            type: owing.type,
+            person: person,
+            amountKobo: amountKobo,
+            date: owing.date,
+            settled: owing.settled,
+            note: _noteController.text.trim().isEmpty
+                ? null
+                : _noteController.text.trim(),
+            dueDate: dueDate,
+          ),
+        );
+    if (mounted) Navigator.of(context).pop();
   }
 
   Future<void> _draftReminder() async {

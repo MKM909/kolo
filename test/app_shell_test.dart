@@ -589,7 +589,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('owing_detail_sheet')), findsOneWidget);
-    expect(find.text('2026-05-28'), findsOneWidget);
+    expect(find.text('2026-05-28'), findsWidgets);
   });
 
   testWidgets('owing detail sheet marks an owing as settled', (tester) async {
@@ -649,6 +649,54 @@ void main() {
     expect(find.byKey(const Key('owing_detail_sheet')), findsNothing);
     expect(find.text('Owing removed'), findsOneWidget);
     expect(find.text('Timi'), findsNothing);
+  });
+
+  testWidgets('owing detail sheet edits amount due date and note', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Owings'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Timi'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('owing_detail_sheet')), findsOneWidget);
+
+    expect(find.byKey(const Key('edit_owing_person')), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const Key('edit_owing_person')));
+    await tester.enterText(
+      find.byKey(const Key('edit_owing_person')),
+      'Timi A.',
+    );
+    await tester.enterText(find.byKey(const Key('edit_owing_amount')), '5600');
+    await tester.enterText(
+      find.byKey(const Key('edit_owing_due_date')),
+      '2026-06-01',
+    );
+    await tester.enterText(
+      find.byKey(const Key('edit_owing_note')),
+      'Updated lunch balance',
+    );
+    await tester.ensureVisible(find.byKey(const Key('save_owing_edits')));
+    await tester.tap(find.byKey(const Key('save_owing_edits')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('owing_detail_sheet')), findsNothing);
+    expect(find.text('Timi A.'), findsOneWidget);
+    expect(
+      find.textContaining(MoneyFormatter.formatKobo(560000)),
+      findsOneWidget,
+    );
+    expect(find.text('Due 2026-06-01'), findsOneWidget);
+
+    await tester.tap(find.text('Timi A.'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Updated lunch balance'), findsWidgets);
+    expect(find.text('2026-06-01'), findsWidgets);
   });
 
   testWidgets('owing reminder draft can be copied', (tester) async {
