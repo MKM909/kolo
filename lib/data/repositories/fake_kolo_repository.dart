@@ -19,6 +19,7 @@ class FakeKoloRepository implements KoloRepository {
           onboardingComplete: true,
         ),
         balanceKobo: 5080000,
+        balanceAdjustments: const [],
         budgetPlan: const BudgetPlan(
           monthlyIncomeKobo: 12000000,
           incomeType: 'irregular',
@@ -211,6 +212,26 @@ class FakeKoloRepository implements KoloRepository {
   Stream<DashboardState> watchDashboard() async* {
     yield _state;
     yield* _controller.stream;
+  }
+
+  @override
+  Future<void> adjustBalance(BalanceAdjustment adjustment) async {
+    _state = _state.copyWith(
+      balanceKobo: adjustment.newBalanceKobo,
+      balanceAdjustments: [adjustment, ..._state.balanceAdjustments],
+      aiMessages: [
+        AiMessage(
+          id: 'ai-${adjustment.id}',
+          role: AiRole.assistant,
+          content:
+              'Balance updated to ${MoneyFormatter.formatKobo(adjustment.newBalanceKobo)}. I will use this for future checks.',
+          timestamp: adjustment.createdAt,
+          context: 'balance_adjustment',
+        ),
+        ..._state.aiMessages,
+      ],
+    );
+    _controller.add(_state);
   }
 
   @override

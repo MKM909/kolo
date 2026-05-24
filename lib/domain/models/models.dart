@@ -52,6 +52,24 @@ class OnboardingAnswers {
   final String? savingsGoal;
 }
 
+class BalanceAdjustment {
+  const BalanceAdjustment({
+    required this.id,
+    required this.previousBalanceKobo,
+    required this.newBalanceKobo,
+    required this.note,
+    required this.createdAt,
+  });
+
+  final String id;
+  final int previousBalanceKobo;
+  final int newBalanceKobo;
+  final String note;
+  final DateTime createdAt;
+
+  int get deltaKobo => newBalanceKobo - previousBalanceKobo;
+}
+
 class BudgetPlan {
   const BudgetPlan({
     required this.monthlyIncomeKobo,
@@ -353,6 +371,7 @@ class DashboardState {
   const DashboardState({
     required this.profile,
     required this.balanceKobo,
+    required this.balanceAdjustments,
     required this.budgetPlan,
     required this.transactions,
     required this.aiMessages,
@@ -368,6 +387,7 @@ class DashboardState {
 
   final UserProfile profile;
   final int balanceKobo;
+  final List<BalanceAdjustment> balanceAdjustments;
   final BudgetPlan budgetPlan;
   final List<TransactionRecord> transactions;
   final List<AiMessage> aiMessages;
@@ -383,6 +403,7 @@ class DashboardState {
   DashboardState copyWith({
     UserProfile? profile,
     int? balanceKobo,
+    List<BalanceAdjustment>? balanceAdjustments,
     BudgetPlan? budgetPlan,
     List<TransactionRecord>? transactions,
     List<AiMessage>? aiMessages,
@@ -398,6 +419,7 @@ class DashboardState {
     return DashboardState(
       profile: profile ?? this.profile,
       balanceKobo: balanceKobo ?? this.balanceKobo,
+      balanceAdjustments: balanceAdjustments ?? this.balanceAdjustments,
       budgetPlan: budgetPlan ?? this.budgetPlan,
       transactions: transactions ?? this.transactions,
       aiMessages: aiMessages ?? this.aiMessages,

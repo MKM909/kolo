@@ -48,7 +48,10 @@ void main() {
     await tester.tap(find.byKey(const Key('onboarding_next')));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byKey(const Key('onboarding_balance')), '42000');
+    await tester.enterText(
+      find.byKey(const Key('onboarding_balance')),
+      '42000',
+    );
     await tester.tap(find.byKey(const Key('onboarding_next')));
     await tester.pumpAndSettle();
 
@@ -66,6 +69,11 @@ void main() {
 
 class _RecordingKoloRepository implements KoloRepository {
   OnboardingAnswers? answers;
+
+  @override
+  Future<void> adjustBalance(BalanceAdjustment adjustment) {
+    throw UnimplementedError();
+  }
 
   @override
   Future<BudgetPlan> completeOnboarding(OnboardingAnswers answers) async {

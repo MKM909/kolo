@@ -33,6 +33,15 @@ void main() {
         },
         'permissions': {'sms': 'granted', 'overlay': 'denied'},
       },
+      balanceAdjustments: [
+        {
+          'id': 'adjust-1',
+          'previousBalanceKobo': 1000000,
+          'newBalanceKobo': 1234500,
+          'note': 'Corrected from bank app',
+          'createdAt': Timestamp.fromDate(txDate),
+        },
+      ],
       transactions: [
         {
           'id': 'tx-food',
@@ -77,6 +86,7 @@ void main() {
     expect(state.profile.name, 'Micah');
     expect(state.profile.createdAt, createdAt);
     expect(state.balanceKobo, 1234500);
+    expect(state.balanceAdjustments.single.deltaKobo, 234500);
     expect(state.budgetPlan.savingsGoal, 'Laptop');
     expect(state.budgetPlan.categories.single.name, 'Food & Snacks');
     expect(state.transactions.single.type, TransactionType.expense);
@@ -85,7 +95,10 @@ void main() {
     expect(state.aiMessages.single.role, AiRole.assistant);
     expect(state.vaults.single.progress, closeTo(0.023, 0.001));
     expect(state.permissions[KoloPermission.sms], PermissionGrantState.granted);
-    expect(state.permissions[KoloPermission.overlay], PermissionGrantState.denied);
+    expect(
+      state.permissions[KoloPermission.overlay],
+      PermissionGrantState.denied,
+    );
     expect(
       state.permissions[KoloPermission.notifications],
       PermissionGrantState.notRequested,
@@ -96,6 +109,7 @@ void main() {
     final state = FirebaseKoloMapper.dashboardFromPayload(
       uid: 'new-user',
       user: const {},
+      balanceAdjustments: const [],
       transactions: const [],
       aiMessages: const [],
       vaults: const [],

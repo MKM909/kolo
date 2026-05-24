@@ -7,6 +7,7 @@ class FirebaseKoloMapper {
   static DashboardState dashboardFromPayload({
     required String uid,
     required Map<String, dynamic> user,
+    required List<Map<String, dynamic>> balanceAdjustments,
     required List<Map<String, dynamic>> transactions,
     required List<Map<String, dynamic>> aiMessages,
     required List<Map<String, dynamic>> vaults,
@@ -21,6 +22,7 @@ class FirebaseKoloMapper {
     return DashboardState(
       profile: _profile(uid, user, now),
       balanceKobo: _int(user['balanceKobo']),
+      balanceAdjustments: balanceAdjustments.map(_balanceAdjustment).toList(),
       budgetPlan: _budget(user['budgetPlan']),
       transactions: transactions.map(_transaction).toList(),
       aiMessages: aiMessages.map(_aiMessage).toList(),
@@ -46,6 +48,17 @@ class FirebaseKoloMapper {
       'merchantName': transaction.merchantName,
       'aiApproved': transaction.aiApproved,
       'aiNote': transaction.aiNote,
+    };
+  }
+
+  static Map<String, Object?> balanceAdjustmentToJson(
+    BalanceAdjustment adjustment,
+  ) {
+    return {
+      'previousBalanceKobo': adjustment.previousBalanceKobo,
+      'newBalanceKobo': adjustment.newBalanceKobo,
+      'note': adjustment.note,
+      'createdAt': Timestamp.fromDate(adjustment.createdAt),
     };
   }
 
@@ -147,6 +160,16 @@ class FirebaseKoloMapper {
     );
   }
 
+  static BalanceAdjustment _balanceAdjustment(Map<String, dynamic> map) {
+    return BalanceAdjustment(
+      id: _string(map['id'], fallback: 'adjustment'),
+      previousBalanceKobo: _int(map['previousBalanceKobo']),
+      newBalanceKobo: _int(map['newBalanceKobo']),
+      note: _string(map['note'], fallback: 'Balance correction'),
+      createdAt: _date(map['createdAt']),
+    );
+  }
+
   static AiMessage _aiMessage(Map<String, dynamic> map) {
     return AiMessage(
       id: _string(map['id'], fallback: 'message'),
@@ -215,7 +238,11 @@ class FirebaseKoloMapper {
     return PartnerShare(
       id: _string(map['id'], fallback: 'share'),
       partnerEmail: _string(map['partnerEmail']),
-      status: _enumByName(ShareStatus.values, map['status'], ShareStatus.pending),
+      status: _enumByName(
+        ShareStatus.values,
+        map['status'],
+        ShareStatus.pending,
+      ),
       permissions: rawPermissions is Iterable
           ? rawPermissions.map((item) => item.toString()).toSet()
           : const {},
@@ -271,7 +298,9 @@ class FirebaseKoloMapper {
     if (value is Timestamp) return value.toDate();
     if (value is DateTime) return value;
     if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
-    if (value is String) return DateTime.tryParse(value) ?? fallback ?? DateTime(1970);
+    if (value is String) {
+      return DateTime.tryParse(value) ?? fallback ?? DateTime(1970);
+    }
     return fallback ?? DateTime(1970);
   }
 

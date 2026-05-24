@@ -9,33 +9,34 @@ import 'package:kolo/ui/core/theme/kolo_theme.dart';
 import 'package:kolo/ui/features/auth/auth_screens.dart';
 
 void main() {
-  testWidgets('permission setup grants selected capability through repository', (
-    tester,
-  ) async {
-    final repository = _RecordingKoloRepository();
-    final requester = _RecordingPermissionRequester();
+  testWidgets(
+    'permission setup grants selected capability through repository',
+    (tester) async {
+      final repository = _RecordingKoloRepository();
+      final requester = _RecordingPermissionRequester();
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          koloRepositoryProvider.overrideWithValue(repository),
-          permissionRequesterProvider.overrideWithValue(requester),
-        ],
-        child: MaterialApp(
-          theme: KoloTheme.light,
-          home: const PermissionSetupScreen(),
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            koloRepositoryProvider.overrideWithValue(repository),
+            permissionRequesterProvider.overrideWithValue(requester),
+          ],
+          child: MaterialApp(
+            theme: KoloTheme.light,
+            home: const PermissionSetupScreen(),
+          ),
         ),
-      ),
-    );
+      );
 
-    await tester.tap(find.byKey(const Key('permission_setup_sms')));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('permission_setup_sms')));
+      await tester.pumpAndSettle();
 
-    expect(requester.permission, KoloPermission.sms);
-    expect(repository.permission, KoloPermission.sms);
-    expect(repository.state, PermissionGrantState.granted);
-    expect(find.byKey(const Key('permission_granted_sms')), findsOneWidget);
-  });
+      expect(requester.permission, KoloPermission.sms);
+      expect(repository.permission, KoloPermission.sms);
+      expect(repository.state, PermissionGrantState.granted);
+      expect(find.byKey(const Key('permission_granted_sms')), findsOneWidget);
+    },
+  );
 }
 
 class _RecordingPermissionRequester implements PermissionRequester {
@@ -51,6 +52,11 @@ class _RecordingPermissionRequester implements PermissionRequester {
 class _RecordingKoloRepository implements KoloRepository {
   KoloPermission? permission;
   PermissionGrantState? state;
+
+  @override
+  Future<void> adjustBalance(BalanceAdjustment adjustment) {
+    throw UnimplementedError();
+  }
 
   @override
   Future<BudgetPlan> completeOnboarding(OnboardingAnswers answers) {

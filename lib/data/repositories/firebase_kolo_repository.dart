@@ -55,10 +55,7 @@ class FirebaseKoloRepository implements KoloRepository {
         emitDashboard();
         for (final stream in _dashboardStreams()) {
           subscriptions.add(
-            stream.listen(
-              (_) => emitDashboard(),
-              onError: controller.addError,
-            ),
+            stream.listen((_) => emitDashboard(), onError: controller.addError),
           );
         }
       },
@@ -71,6 +68,23 @@ class FirebaseKoloRepository implements KoloRepository {
     );
 
     return controller.stream;
+  }
+
+  @override
+  Future<void> adjustBalance(BalanceAdjustment adjustment) async {
+    final adjustmentDoc = _userDoc
+        .collection('balanceAdjustments')
+        .doc(adjustment.id);
+    await _firestore.runTransaction((dbTransaction) async {
+      dbTransaction.set(adjustmentDoc, {
+        ...FirebaseKoloMapper.balanceAdjustmentToJson(adjustment),
+        'serverCreatedAt': FieldValue.serverTimestamp(),
+      });
+      dbTransaction.set(_userDoc, {
+        'balanceKobo': adjustment.newBalanceKobo,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    });
   }
 
   @override
@@ -172,6 +186,7 @@ class FirebaseKoloRepository implements KoloRepository {
   List<Stream<void>> _dashboardStreams() {
     return [
       _userDoc.snapshots().map((_) {}),
+      _collection('balanceAdjustments').snapshots().map((_) {}),
       _collection('transactions').snapshots().map((_) {}),
       _collection('aiMessages').snapshots().map((_) {}),
       _collection('vaults').snapshots().map((_) {}),
@@ -191,6 +206,7 @@ class FirebaseKoloRepository implements KoloRepository {
   Future<DashboardState> _loadDashboard() async {
     final userSnapshot = await _userDoc.get();
     final results = await Future.wait([
+      _orderedCollection('balanceAdjustments', 'createdAt'),
       _orderedCollection('transactions', 'date'),
       _orderedCollection('aiMessages', 'timestamp'),
       _orderedCollection('vaults', 'name', descending: false),
@@ -205,15 +221,16 @@ class FirebaseKoloRepository implements KoloRepository {
     return FirebaseKoloMapper.dashboardFromPayload(
       uid: _uid,
       user: userSnapshot.data() ?? const {},
-      transactions: results[0],
-      aiMessages: results[1],
-      vaults: results[2],
-      owings: results[3],
-      gigs: results[4],
-      bills: results[5],
-      watchedApps: results[6],
-      partnerShares: results[7],
-      insights: results[8],
+      balanceAdjustments: results[0],
+      transactions: results[1],
+      aiMessages: results[2],
+      vaults: results[3],
+      owings: results[4],
+      gigs: results[5],
+      bills: results[6],
+      watchedApps: results[7],
+      partnerShares: results[8],
+      insights: results[9],
       now: DateTime.now(),
     );
   }

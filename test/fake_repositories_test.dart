@@ -24,6 +24,27 @@ void main() {
     expect(updated.transactions.first.description, 'Dinner');
   });
 
+  test('fake repository records balance adjustments', () async {
+    final repository = FakeKoloRepository.seeded();
+    final initial = await repository.watchDashboard().first;
+
+    await repository.adjustBalance(
+      BalanceAdjustment(
+        id: 'adjust-balance',
+        previousBalanceKobo: initial.balanceKobo,
+        newBalanceKobo: 6000000,
+        note: 'Matched bank app',
+        createdAt: DateTime(2026, 5, 24),
+      ),
+    );
+
+    final updated = await repository.watchDashboard().first;
+
+    expect(updated.balanceKobo, 6000000);
+    expect(updated.balanceAdjustments.single.note, 'Matched bank app');
+    expect(updated.aiMessages.first.context, 'balance_adjustment');
+  });
+
   test('fake AI returns an onboarding budget and stores messages', () async {
     final repository = FakeKoloRepository.seeded();
 
@@ -45,24 +66,27 @@ void main() {
     expect(dashboard.aiMessages.length, greaterThanOrEqualTo(2));
   });
 
-  test('fake repository completes onboarding with balance and budget', () async {
-    final repository = FakeKoloRepository.seeded();
+  test(
+    'fake repository completes onboarding with balance and budget',
+    () async {
+      final repository = FakeKoloRepository.seeded();
 
-    final budget = await repository.completeOnboarding(
-      const OnboardingAnswers(
-        incomeSource: 'Freelance design',
-        incomeFrequency: 'Irregular gigs',
-        currentBalanceKobo: 4200000,
-        biggestProblem: 'Impulse snacks',
-        savingsGoal: 'Laptop',
-      ),
-    );
-    final dashboard = await repository.watchDashboard().first;
+      final budget = await repository.completeOnboarding(
+        const OnboardingAnswers(
+          incomeSource: 'Freelance design',
+          incomeFrequency: 'Irregular gigs',
+          currentBalanceKobo: 4200000,
+          biggestProblem: 'Impulse snacks',
+          savingsGoal: 'Laptop',
+        ),
+      );
+      final dashboard = await repository.watchDashboard().first;
 
-    expect(budget.savingsGoal, 'Laptop');
-    expect(dashboard.balanceKobo, 4200000);
-    expect(dashboard.budgetPlan.aiNotes, contains('Freelance design'));
-    expect(dashboard.profile.onboardingComplete, isTrue);
-    expect(dashboard.aiMessages.first.context, 'onboarding');
-  });
+      expect(budget.savingsGoal, 'Laptop');
+      expect(dashboard.balanceKobo, 4200000);
+      expect(dashboard.budgetPlan.aiNotes, contains('Freelance design'));
+      expect(dashboard.profile.onboardingComplete, isTrue);
+      expect(dashboard.aiMessages.first.context, 'onboarding');
+    },
+  );
 }
