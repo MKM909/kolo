@@ -212,4 +212,26 @@ void main() {
     expect(payload['active'], isFalse);
     expect((payload['nextDue'] as Timestamp).toDate(), dueDate);
   });
+
+  test('serializes partner shares for Firebase persistence', () {
+    final createdAt = DateTime(2026, 5, 24);
+    final revokedAt = DateTime(2026, 5, 25);
+
+    final payload = FirebaseKoloMapper.partnerShareToJson(
+      PartnerShare(
+        id: 'share-ade',
+        partnerEmail: 'ade@example.com',
+        status: ShareStatus.revoked,
+        permissions: const {'balance_summary', 'budget_summary'},
+        createdAt: createdAt,
+        revokedAt: revokedAt,
+      ),
+    );
+
+    expect(payload['partnerEmail'], 'ade@example.com');
+    expect(payload['status'], 'revoked');
+    expect(payload['permissions'], contains('budget_summary'));
+    expect((payload['createdAt'] as Timestamp).toDate(), createdAt);
+    expect((payload['revokedAt'] as Timestamp).toDate(), revokedAt);
+  });
 }

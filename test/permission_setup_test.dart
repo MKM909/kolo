@@ -79,6 +79,11 @@ class _RecordingKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<void> upsertPartnerShare(PartnerShare share) {
+    throw UnimplementedError();
+  }
+
+  @override
   Future<BudgetPlan> completeOnboarding(OnboardingAnswers answers) {
     throw UnimplementedError();
   }

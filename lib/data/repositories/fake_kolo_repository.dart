@@ -325,6 +325,29 @@ class FakeKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<void> upsertPartnerShare(PartnerShare share) async {
+    final otherShares = _state.partnerShares
+        .where((existing) => existing.id != share.id)
+        .toList(growable: false);
+    _state = _state.copyWith(
+      partnerShares: [share, ...otherShares],
+      aiMessages: [
+        AiMessage(
+          id: 'ai-${share.id}-${DateTime.now().microsecondsSinceEpoch}',
+          role: AiRole.assistant,
+          content: share.status == ShareStatus.revoked
+              ? '${share.partnerEmail} no longer has partner visibility.'
+              : '${share.partnerEmail} can see the selected summaries.',
+          timestamp: DateTime.now(),
+          context: 'partner_share',
+        ),
+        ..._state.aiMessages,
+      ],
+    );
+    _controller.add(_state);
+  }
+
+  @override
   Future<void> logTransaction(TransactionRecord transaction) async {
     final updatedTransactions = [transaction, ..._state.transactions];
     _state = _state.copyWith(

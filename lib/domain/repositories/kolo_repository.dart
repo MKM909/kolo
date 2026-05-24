@@ -7,6 +7,7 @@ abstract class KoloRepository {
   Future<void> upsertOwing(Owing owing);
   Future<void> upsertGig(GigRecord gig);
   Future<void> upsertBill(BillReminder bill);
+  Future<void> upsertPartnerShare(PartnerShare share);
   Future<void> logTransaction(TransactionRecord transaction);
   Future<BudgetPlan> completeOnboarding(OnboardingAnswers answers);
   Future<BudgetPlan> generateBudget(OnboardingAnswers answers);

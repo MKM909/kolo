@@ -193,6 +193,47 @@ void main() {
     expect(dashboard.aiMessages.first.context, 'bill');
   });
 
+  test('fake repository creates and revokes partner shares', () async {
+    final repository = FakeKoloRepository.seeded();
+    final createdAt = DateTime(2026, 5, 24);
+
+    await repository.upsertPartnerShare(
+      PartnerShare(
+        id: 'share-ade',
+        partnerEmail: 'ade@example.com',
+        status: ShareStatus.pending,
+        permissions: const {'balance_summary', 'budget_summary'},
+        createdAt: createdAt,
+      ),
+    );
+
+    var dashboard = await repository.watchDashboard().first;
+    expect(dashboard.partnerShares.first.partnerEmail, 'ade@example.com');
+    expect(
+      dashboard.partnerShares.first.permissions,
+      contains('budget_summary'),
+    );
+
+    await repository.upsertPartnerShare(
+      PartnerShare(
+        id: 'share-ade',
+        partnerEmail: 'ade@example.com',
+        status: ShareStatus.revoked,
+        permissions: const {'balance_summary'},
+        createdAt: createdAt,
+        revokedAt: DateTime(2026, 5, 25),
+      ),
+    );
+
+    dashboard = await repository.watchDashboard().first;
+    expect(dashboard.partnerShares.first.status, ShareStatus.revoked);
+    expect(
+      dashboard.partnerShares.where((share) => share.id == 'share-ade'),
+      hasLength(1),
+    );
+    expect(dashboard.aiMessages.first.context, 'partner_share');
+  });
+
   test('fake AI returns an onboarding budget and stores messages', () async {
     final repository = FakeKoloRepository.seeded();
 

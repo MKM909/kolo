@@ -107,6 +107,18 @@ class FirebaseKoloMapper {
     };
   }
 
+  static Map<String, Object?> partnerShareToJson(PartnerShare share) {
+    return {
+      'partnerEmail': share.partnerEmail,
+      'status': share.status.name,
+      'permissions': share.permissions.toList()..sort(),
+      'createdAt': Timestamp.fromDate(share.createdAt),
+      'revokedAt': share.revokedAt == null
+          ? null
+          : Timestamp.fromDate(share.revokedAt!),
+    };
+  }
+
   static Map<String, Object?> aiMessageToJson(AiMessage message) {
     return {
       'role': message.role.name,

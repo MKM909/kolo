@@ -75,6 +75,11 @@ class _StubRepository implements KoloRepository {
   }
 
   @override
+  Future<void> upsertPartnerShare(PartnerShare share) {
+    throw UnimplementedError();
+  }
+
+  @override
   Future<BudgetPlan> completeOnboarding(OnboardingAnswers answers) {
     throw UnimplementedError();
   }

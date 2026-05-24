@@ -120,6 +120,14 @@ class FirebaseKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<void> upsertPartnerShare(PartnerShare share) async {
+    await _userDoc.collection('partnerShares').doc(share.id).set({
+      ...FirebaseKoloMapper.partnerShareToJson(share),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  @override
   Future<void> logTransaction(TransactionRecord transaction) async {
     await _userDoc.collection('transactions').doc(transaction.id).set({
       ...FirebaseKoloMapper.transactionToJson(transaction),
