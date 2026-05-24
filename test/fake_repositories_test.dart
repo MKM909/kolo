@@ -243,6 +243,17 @@ void main() {
     expect(dashboard.aiMessages.first.context, 'bill');
   });
 
+  test('fake repository deletes bill reminders', () async {
+    final repository = FakeKoloRepository.seeded();
+
+    await repository.deleteBill('bill-data');
+
+    final dashboard = await repository.watchDashboard().first;
+    expect(dashboard.bills.where((bill) => bill.id == 'bill-data'), isEmpty);
+    expect(dashboard.aiMessages.first.context, 'bill');
+    expect(dashboard.aiMessages.first.content, contains('removed'));
+  });
+
   test('fake repository creates and revokes partner shares', () async {
     final repository = FakeKoloRepository.seeded();
     final createdAt = DateTime(2026, 5, 24);

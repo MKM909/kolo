@@ -128,6 +128,9 @@ class _FailingChatRepository implements KoloRepository {
   Future<void> upsertBill(BillReminder bill) async {}
 
   @override
+  Future<void> deleteBill(String billId) async {}
+
+  @override
   Future<void> upsertGig(GigRecord gig) async {}
 
   @override

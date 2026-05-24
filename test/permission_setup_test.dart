@@ -145,6 +145,11 @@ class _RecordingKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<void> deleteBill(String billId) {
+    throw UnimplementedError();
+  }
+
+  @override
   Future<void> upsertPartnerShare(PartnerShare share) {
     throw UnimplementedError();
   }

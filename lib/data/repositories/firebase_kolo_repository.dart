@@ -159,6 +159,11 @@ class FirebaseKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<void> deleteBill(String billId) async {
+    await _userDoc.collection('bills').doc(billId).delete();
+  }
+
+  @override
   Future<void> upsertPartnerShare(PartnerShare share) async {
     await _userDoc.collection('partnerShares').doc(share.id).set({
       ...FirebaseKoloMapper.partnerShareToJson(share),
