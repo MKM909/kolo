@@ -7,6 +7,7 @@ abstract class KoloRepository {
   Future<void> upsertVault(SavingsVault vault);
   Future<void> deleteVault(String vaultId);
   Future<void> upsertOwing(Owing owing);
+  Future<void> deleteOwing(String owingId);
   Future<void> upsertGig(GigRecord gig);
   Future<void> upsertBill(BillReminder bill);
   Future<void> deleteBill(String billId);

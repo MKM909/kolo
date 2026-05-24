@@ -71,6 +71,11 @@ class _StubRepository implements KoloRepository {
   }
 
   @override
+  Future<void> deleteOwing(String owingId) {
+    throw UnimplementedError();
+  }
+
+  @override
   Future<void> upsertGig(GigRecord gig) {
     throw UnimplementedError();
   }

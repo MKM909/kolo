@@ -158,6 +158,20 @@ void main() {
     expect(dashboard.aiMessages.first.context, 'owing');
   });
 
+  test('fake repository deletes owing records', () async {
+    final repository = FakeKoloRepository.seeded();
+
+    await repository.deleteOwing('owing-timi');
+
+    final dashboard = await repository.watchDashboard().first;
+    expect(
+      dashboard.owings.where((owing) => owing.id == 'owing-timi'),
+      isEmpty,
+    );
+    expect(dashboard.aiMessages.first.context, 'owing');
+    expect(dashboard.aiMessages.first.content, contains('removed'));
+  });
+
   test('fake repository creates and updates gig records', () async {
     final repository = FakeKoloRepository.seeded();
     final initial = await repository.watchDashboard().first;

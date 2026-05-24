@@ -111,6 +111,11 @@ class FirebaseKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<void> deleteOwing(String owingId) async {
+    await _userDoc.collection('owings').doc(owingId).delete();
+  }
+
+  @override
   Future<void> upsertGig(GigRecord gig) async {
     final transactionId = 'gig-income-${gig.id}';
     final transaction = TransactionRecord.income(

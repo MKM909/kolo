@@ -304,6 +304,28 @@ class FakeKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<void> deleteOwing(String owingId) async {
+    final owing = _state.owings.where((item) => item.id == owingId).firstOrNull;
+    _state = _state.copyWith(
+      owings: _state.owings
+          .where((existing) => existing.id != owingId)
+          .toList(growable: false),
+      aiMessages: [
+        if (owing != null)
+          AiMessage(
+            id: 'ai-$owingId-${DateTime.now().microsecondsSinceEpoch}',
+            role: AiRole.assistant,
+            content: '${owing.person} was removed from owings.',
+            timestamp: DateTime.now(),
+            context: 'owing',
+          ),
+        ..._state.aiMessages,
+      ],
+    );
+    _controller.add(_state);
+  }
+
+  @override
   Future<void> upsertGig(GigRecord gig) async {
     final otherGigs = _state.gigs
         .where((existing) => existing.id != gig.id)

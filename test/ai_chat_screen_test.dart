@@ -137,6 +137,9 @@ class _FailingChatRepository implements KoloRepository {
   Future<void> upsertOwing(Owing owing) async {}
 
   @override
+  Future<void> deleteOwing(String owingId) async {}
+
+  @override
   Future<void> upsertPartnerShare(PartnerShare share) async {}
 
   @override
