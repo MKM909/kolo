@@ -1030,7 +1030,10 @@ class _OwingsSheetState extends ConsumerState<_OwingsSheet> {
                       for (final owing in state.owings)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 12),
-                          child: _OwingCard(owing: owing),
+                          child: _OwingCard(
+                            owing: owing,
+                            onTap: () => _openOwingDetail(context, owing),
+                          ),
                         ),
                     ],
                   ),
@@ -1130,62 +1133,191 @@ class _OwingsSheetState extends ConsumerState<_OwingsSheet> {
     _noteController.clear();
     if (mounted) setState(() => _error = null);
   }
+
+  Future<void> _openOwingDetail(BuildContext context, Owing owing) {
+    return showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _OwingDetailSheet(owing: owing),
+    );
+  }
 }
 
 class _OwingCard extends StatelessWidget {
-  const _OwingCard({required this.owing});
+  const _OwingCard({required this.owing, required this.onTap});
 
   final Owing owing;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theyOweMe = owing.type == OwingType.theyOweMe;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 20)],
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            backgroundColor: KoloColors.primaryPastel,
-            child: Text(
-              owing.person.isEmpty ? '?' : owing.person.characters.first,
-              style: const TextStyle(
-                color: KoloColors.primary,
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: const [
+            BoxShadow(color: Color(0x14000000), blurRadius: 20),
+          ],
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: KoloColors.primaryPastel,
+              child: Text(
+                owing.person.isEmpty ? '?' : owing.person.characters.first,
+                style: const TextStyle(
+                  color: KoloColors.primary,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    owing.person,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  Text(
+                    owing.settled
+                        ? 'Settled'
+                        : theyOweMe
+                        ? 'They owe you'
+                        : 'You owe them',
+                    style: Theme.of(context).textTheme.labelMedium,
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              MoneyFormatter.formatKobo(owing.amountKobo),
+              style: TextStyle(
+                color: theyOweMe ? KoloColors.income : KoloColors.expense,
                 fontWeight: FontWeight.w800,
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OwingDetailSheet extends ConsumerWidget {
+  const _OwingDetailSheet({required this.owing});
+
+  final Owing owing;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theyOweMe = owing.type == OwingType.theyOweMe;
+    return Container(
+      key: const Key('owing_detail_sheet'),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+      decoration: const BoxDecoration(
+        color: Color(0xF0FFFFFF),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x20000000),
+            blurRadius: 40,
+            offset: Offset(0, -8),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  owing.person,
-                  style: const TextStyle(fontWeight: FontWeight.w800),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                height: 4,
+                width: 42,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE5E7EB),
+                  borderRadius: BorderRadius.circular(999),
                 ),
-                Text(
-                  owing.settled
-                      ? 'Settled'
-                      : theyOweMe
-                      ? 'They owe you'
-                      : 'You owe them',
-                  style: Theme.of(context).textTheme.labelMedium,
-                ),
-              ],
+              ),
             ),
-          ),
-          Text(
-            MoneyFormatter.formatKobo(owing.amountKobo),
-            style: TextStyle(
+            const SizedBox(height: 20),
+            Text(owing.person, style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 8),
+            _OwingDetailRow(
+              label: theyOweMe ? 'They owe you' : 'You owe them',
+              value: MoneyFormatter.formatKobo(owing.amountKobo),
               color: theyOweMe ? KoloColors.income : KoloColors.expense,
-              fontWeight: FontWeight.w800,
             ),
+            if (owing.note != null)
+              _OwingDetailRow(label: 'Note', value: owing.note!),
+            _OwingDetailRow(
+              label: 'Status',
+              value: owing.settled ? 'Settled' : 'Open',
+            ),
+            const SizedBox(height: 18),
+            ElevatedButton(
+              key: const Key('settle_owing'),
+              onPressed: owing.settled
+                  ? null
+                  : () async {
+                      await ref
+                          .read(koloRepositoryProvider)
+                          .upsertOwing(
+                            Owing(
+                              id: owing.id,
+                              type: owing.type,
+                              person: owing.person,
+                              amountKobo: owing.amountKobo,
+                              date: owing.date,
+                              settled: true,
+                              note: owing.note,
+                              dueDate: owing.dueDate,
+                            ),
+                          );
+                      if (context.mounted) Navigator.of(context).pop();
+                    },
+              child: const Text('Mark settled'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OwingDetailRow extends StatelessWidget {
+  const _OwingDetailRow({
+    required this.label,
+    required this.value,
+    this.color = KoloColors.textPrimary,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          Text(label, style: Theme.of(context).textTheme.labelMedium),
+          const Spacer(),
+          Text(
+            value,
+            style: TextStyle(color: color, fontWeight: FontWeight.w800),
           ),
         ],
       ),

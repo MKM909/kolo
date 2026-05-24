@@ -205,6 +205,24 @@ void main() {
     );
   });
 
+  testWidgets('owing detail sheet marks an owing as settled', (tester) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Owings'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Timi'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('owing_detail_sheet')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('settle_owing')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Settled'), findsOneWidget);
+  });
+
   testWidgets('profile can grant a permission from locked state', (
     tester,
   ) async {
