@@ -1,5 +1,6 @@
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:kolo/domain/models/models.dart';
+import 'package:kolo/domain/services/ai_context_builder.dart';
 import 'package:kolo/domain/services/ai_failure_message.dart';
 import 'package:kolo/domain/services/spending_intervention_advisor.dart';
 import 'package:kolo/domain/services/transaction_categorizer.dart';
@@ -117,48 +118,7 @@ class CloudAiService
   }
 
   Map<String, Object?> _contextPayload(DashboardState state) {
-    return {
-      'balanceKobo': state.balanceKobo,
-      'budgetCategories': [
-        for (final category in state.budgetPlan.categories)
-          {'name': category.name, 'allocatedKobo': category.allocatedKobo},
-      ],
-      'recentTransactions': [
-        for (final tx in state.transactions.take(20))
-          {
-            'amountKobo': tx.amountKobo,
-            'type': tx.type.name,
-            'category': tx.category,
-            'description': tx.description,
-          },
-      ],
-      'vaults': [
-        for (final vault in state.vaults)
-          {
-            'name': vault.name,
-            'targetKobo': vault.targetKobo,
-            'currentKobo': vault.currentKobo,
-          },
-      ],
-      'owings': [
-        for (final owing in state.owings)
-          {
-            'person': owing.person,
-            'amountKobo': owing.amountKobo,
-            'type': owing.type.name,
-            'settled': owing.settled,
-          },
-      ],
-      'bills': [
-        for (final bill in state.bills)
-          {
-            'name': bill.name,
-            'amountKobo': bill.amountKobo,
-            'frequency': bill.frequency,
-            'nextDue': bill.nextDue.toIso8601String(),
-          },
-      ],
-    };
+    return AiContextBuilder.build(state);
   }
 
   BudgetPlan _budgetFromPayload(Map<String, dynamic> payload) {
