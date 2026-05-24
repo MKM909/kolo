@@ -43,7 +43,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
 
     return dashboard.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stackTrace) => Center(child: Text('$error')),
+      error: (error, stackTrace) => const _AiOfflineState(),
       data: (state) => KoloGradientScaffold(
         title: 'Kolo AI',
         child: Column(
@@ -108,6 +108,51 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     if (prompt == null || prompt.isEmpty || prompt == _seededPrompt) return;
     _controller.text = prompt;
     _seededPrompt = prompt;
+  }
+}
+
+class _AiOfflineState extends StatelessWidget {
+  const _AiOfflineState();
+
+  @override
+  Widget build(BuildContext context) {
+    return KoloGradientScaffold(
+      title: 'Kolo AI',
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: KoloCard(
+            key: const Key('kolo_ai_offline_state'),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                KoloLiquidAetherOrb(size: 64),
+                SizedBox(height: 18),
+                Text(
+                  'Kolo is offline',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Sora',
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: KoloColors.textPrimary,
+                  ),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'I can still show saved chats and balance once local data is available. Gemini replies will resume when the connection returns.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: KoloColors.textSecondary,
+                    height: 1.45,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
