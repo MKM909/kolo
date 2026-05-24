@@ -96,6 +96,25 @@ class FirebaseKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<BudgetPlan> completeOnboarding(OnboardingAnswers answers) async {
+    final budget = await _aiService.generateBudget(answers);
+    await _userDoc.set({
+      'balanceKobo': answers.currentBalanceKobo,
+      'onboardingAnswers': {
+        'incomeSource': answers.incomeSource,
+        'incomeFrequency': answers.incomeFrequency,
+        'currentBalanceKobo': answers.currentBalanceKobo,
+        'biggestProblem': answers.biggestProblem,
+        'savingsGoal': answers.savingsGoal,
+      },
+      'budgetPlan': FirebaseKoloMapper.budgetToJson(budget),
+      'onboardingComplete': true,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+    return budget;
+  }
+
+  @override
   Future<AiMessage> sendAiMessage(String message) async {
     final messages = _userDoc.collection('aiMessages');
     final now = DateTime.now();

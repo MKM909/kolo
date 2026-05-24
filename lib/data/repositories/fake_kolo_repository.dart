@@ -235,6 +235,34 @@ class FakeKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<BudgetPlan> completeOnboarding(OnboardingAnswers answers) async {
+    final budget = await generateBudget(answers);
+    _state = _state.copyWith(
+      profile: UserProfile(
+        uid: _state.profile.uid,
+        name: _state.profile.name,
+        email: _state.profile.email,
+        createdAt: _state.profile.createdAt,
+        onboardingComplete: true,
+        avatarUrl: _state.profile.avatarUrl,
+      ),
+      aiMessages: [
+        AiMessage(
+          id: 'ai-onboarding-${DateTime.now().microsecondsSinceEpoch}',
+          role: AiRole.assistant,
+          content:
+              'Your first Kolo budget is ready. I kept ${answers.biggestProblem.toLowerCase()} in view and protected ${budget.savingsGoal}.',
+          timestamp: DateTime.now(),
+          context: 'onboarding',
+        ),
+        ..._state.aiMessages,
+      ],
+    );
+    _controller.add(_state);
+    return budget;
+  }
+
+  @override
   Future<BudgetPlan> generateBudget(OnboardingAnswers answers) async {
     final balance = answers.currentBalanceKobo;
     final budget = BudgetPlan(

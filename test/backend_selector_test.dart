@@ -44,6 +44,11 @@ void main() {
 
 class _StubRepository implements KoloRepository {
   @override
+  Future<BudgetPlan> completeOnboarding(OnboardingAnswers answers) {
+    throw UnimplementedError();
+  }
+
+  @override
   Future<BudgetPlan> generateBudget(OnboardingAnswers answers) {
     throw UnimplementedError();
   }

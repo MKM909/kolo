@@ -44,4 +44,25 @@ void main() {
     expect(response.content, contains('₦'));
     expect(dashboard.aiMessages.length, greaterThanOrEqualTo(2));
   });
+
+  test('fake repository completes onboarding with balance and budget', () async {
+    final repository = FakeKoloRepository.seeded();
+
+    final budget = await repository.completeOnboarding(
+      const OnboardingAnswers(
+        incomeSource: 'Freelance design',
+        incomeFrequency: 'Irregular gigs',
+        currentBalanceKobo: 4200000,
+        biggestProblem: 'Impulse snacks',
+        savingsGoal: 'Laptop',
+      ),
+    );
+    final dashboard = await repository.watchDashboard().first;
+
+    expect(budget.savingsGoal, 'Laptop');
+    expect(dashboard.balanceKobo, 4200000);
+    expect(dashboard.budgetPlan.aiNotes, contains('Freelance design'));
+    expect(dashboard.profile.onboardingComplete, isTrue);
+    expect(dashboard.aiMessages.first.context, 'onboarding');
+  });
 }
