@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kolo/app/providers.dart';
 import 'package:kolo/domain/models/models.dart';
+import 'package:kolo/domain/services/bill_reminder_schedule.dart';
 import 'package:kolo/domain/services/money_formatter.dart';
 import 'package:kolo/ui/core/theme/kolo_theme.dart';
 import 'package:kolo/ui/core/widgets/kolo_scaffold.dart';
@@ -876,7 +877,14 @@ class _BillCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = bill.active ? KoloColors.warning : KoloColors.textMuted;
+    final status = BillReminderSchedule.statusFor(bill);
+    final statusColor = switch (status.urgency) {
+      BillReminderUrgency.overdue => KoloColors.expense,
+      BillReminderUrgency.dueToday ||
+      BillReminderUrgency.dueSoon => KoloColors.warning,
+      BillReminderUrgency.paused => KoloColors.textMuted,
+      BillReminderUrgency.upcoming => KoloColors.primary,
+    };
     return InkWell(
       key: Key('bill_card_${bill.id}'),
       borderRadius: BorderRadius.circular(20),
@@ -920,16 +928,14 @@ class _BillCard extends StatelessWidget {
                     '${bill.frequency} - ${_dateInput(bill.nextDue)}',
                     style: Theme.of(context).textTheme.labelMedium,
                   ),
-                  if (!bill.active) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      'Paused',
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: KoloColors.textMuted,
-                        fontWeight: FontWeight.w700,
-                      ),
+                  const SizedBox(height: 4),
+                  Text(
+                    status.label,
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: statusColor,
+                      fontWeight: FontWeight.w700,
                     ),
-                  ],
+                  ),
                 ],
               ),
             ),
@@ -995,7 +1001,7 @@ class _BillDetailSheet extends ConsumerWidget {
             ),
             _ProfileMetricRow(
               label: 'Status',
-              value: bill.active ? 'Active' : 'Paused',
+              value: BillReminderSchedule.statusFor(bill).label,
             ),
             const SizedBox(height: 18),
             ElevatedButton.icon(
@@ -1037,7 +1043,10 @@ class _BillDetailSheet extends ConsumerWidget {
     final dashboard = ref
         .read(dashboardProvider)
         .maybeWhen(data: (state) => state, orElse: () => null);
-    final nextDue = _nextBillDue(bill.nextDue, bill.frequency);
+    final nextDue = BillReminderSchedule.nextDueAfter(
+      bill.nextDue,
+      bill.frequency,
+    );
     final now = DateTime.now();
     final repository = ref.read(koloRepositoryProvider);
     final messenger = ScaffoldMessenger.of(context);
@@ -1110,20 +1119,6 @@ String _dateInput(DateTime date) {
   final month = date.month.toString().padLeft(2, '0');
   final day = date.day.toString().padLeft(2, '0');
   return '${date.year}-$month-$day';
-}
-
-DateTime _nextBillDue(DateTime currentDue, String frequency) {
-  final normalized = frequency.toLowerCase();
-  if (normalized.contains('week')) {
-    return currentDue.add(const Duration(days: 7));
-  }
-  if (normalized.contains('year') || normalized.contains('annual')) {
-    return DateTime(currentDue.year + 1, currentDue.month, currentDue.day);
-  }
-  if (normalized.contains('day')) {
-    return currentDue.add(const Duration(days: 1));
-  }
-  return DateTime(currentDue.year, currentDue.month + 1, currentDue.day);
 }
 
 class _PartnerSharingSheet extends ConsumerStatefulWidget {
