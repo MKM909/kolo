@@ -128,6 +128,14 @@ class FirebaseKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<void> upsertWatchedApp(WatchedApp app) async {
+    await _userDoc.collection('watchedApps').doc(app.packageName).set({
+      ...FirebaseKoloMapper.watchedAppToJson(app),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  @override
   Future<void> logTransaction(TransactionRecord transaction) async {
     await _userDoc.collection('transactions').doc(transaction.id).set({
       ...FirebaseKoloMapper.transactionToJson(transaction),

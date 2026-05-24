@@ -234,6 +234,40 @@ void main() {
     expect(dashboard.aiMessages.first.context, 'partner_share');
   });
 
+  test('fake repository enables and disables watched apps', () async {
+    final repository = FakeKoloRepository.seeded();
+
+    await repository.upsertWatchedApp(
+      const WatchedApp(
+        packageName: 'com.moniebank.personal',
+        displayName: 'Moniepoint',
+        enabled: true,
+      ),
+    );
+
+    var dashboard = await repository.watchDashboard().first;
+    expect(dashboard.watchedApps.first.displayName, 'Moniepoint');
+    expect(dashboard.watchedApps.first.enabled, isTrue);
+
+    await repository.upsertWatchedApp(
+      const WatchedApp(
+        packageName: 'com.moniebank.personal',
+        displayName: 'Moniepoint',
+        enabled: false,
+      ),
+    );
+
+    dashboard = await repository.watchDashboard().first;
+    expect(dashboard.watchedApps.first.enabled, isFalse);
+    expect(
+      dashboard.watchedApps.where(
+        (app) => app.packageName == 'com.moniebank.personal',
+      ),
+      hasLength(1),
+    );
+    expect(dashboard.aiMessages.first.context, 'watched_app');
+  });
+
   test('fake AI returns an onboarding budget and stores messages', () async {
     final repository = FakeKoloRepository.seeded();
 

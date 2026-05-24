@@ -348,6 +348,29 @@ class FakeKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<void> upsertWatchedApp(WatchedApp app) async {
+    final otherApps = _state.watchedApps
+        .where((existing) => existing.packageName != app.packageName)
+        .toList(growable: false);
+    _state = _state.copyWith(
+      watchedApps: [app, ...otherApps],
+      aiMessages: [
+        AiMessage(
+          id: 'ai-${app.packageName}-${DateTime.now().microsecondsSinceEpoch}',
+          role: AiRole.assistant,
+          content: app.enabled
+              ? '${app.displayName} is now watched.'
+              : '${app.displayName} is no longer watched.',
+          timestamp: DateTime.now(),
+          context: 'watched_app',
+        ),
+        ..._state.aiMessages,
+      ],
+    );
+    _controller.add(_state);
+  }
+
+  @override
   Future<void> logTransaction(TransactionRecord transaction) async {
     final updatedTransactions = [transaction, ..._state.transactions];
     _state = _state.copyWith(

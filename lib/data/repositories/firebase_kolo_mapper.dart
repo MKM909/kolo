@@ -119,6 +119,14 @@ class FirebaseKoloMapper {
     };
   }
 
+  static Map<String, Object?> watchedAppToJson(WatchedApp app) {
+    return {
+      'packageName': app.packageName,
+      'displayName': app.displayName,
+      'enabled': app.enabled,
+    };
+  }
+
   static Map<String, Object?> aiMessageToJson(AiMessage message) {
     return {
       'role': message.role.name,

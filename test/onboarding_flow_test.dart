@@ -101,6 +101,11 @@ class _RecordingKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<void> upsertWatchedApp(WatchedApp app) {
+    throw UnimplementedError();
+  }
+
+  @override
   Future<BudgetPlan> completeOnboarding(OnboardingAnswers answers) async {
     this.answers = answers;
     return const BudgetPlan(

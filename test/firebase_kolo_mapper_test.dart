@@ -234,4 +234,18 @@ void main() {
     expect((payload['createdAt'] as Timestamp).toDate(), createdAt);
     expect((payload['revokedAt'] as Timestamp).toDate(), revokedAt);
   });
+
+  test('serializes watched apps for Firebase persistence', () {
+    final payload = FirebaseKoloMapper.watchedAppToJson(
+      const WatchedApp(
+        packageName: 'com.moniebank.personal',
+        displayName: 'Moniepoint',
+        enabled: true,
+      ),
+    );
+
+    expect(payload['packageName'], 'com.moniebank.personal');
+    expect(payload['displayName'], 'Moniepoint');
+    expect(payload['enabled'], isTrue);
+  });
 }
