@@ -385,6 +385,16 @@ class FirebaseKoloRepository implements KoloRepository {
     }, SetOptions(merge: true));
   }
 
+  @override
+  Future<void> updateNotificationPreferences(
+    NotificationPreferences preferences,
+  ) async {
+    await _userDoc.set({
+      'notificationPreferences': preferences.toJson(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
   List<Stream<void>> _dashboardStreams() {
     return [
       _userDoc.snapshots().map((_) {}),

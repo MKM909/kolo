@@ -250,6 +250,13 @@ class _RecordingKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<void> updateNotificationPreferences(
+    NotificationPreferences preferences,
+  ) {
+    throw UnimplementedError();
+  }
+
+  @override
   Stream<DashboardState> watchDashboard() {
     throw UnimplementedError();
   }

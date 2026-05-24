@@ -316,6 +316,36 @@ void main() {
     },
   );
 
+  test(
+    'fake repository stores notification preferences on the profile',
+    () async {
+      final repository = FakeKoloRepository.seeded();
+
+      await repository.updateNotificationPreferences(
+        const NotificationPreferences(
+          transactionAlerts: true,
+          budgetWarnings: false,
+          billReminders: true,
+          weeklyInsights: false,
+          bubbleInterventions: true,
+        ),
+      );
+      final dashboard = await repository.watchDashboard().first;
+
+      expect(
+        dashboard.profile.notificationPreferences.transactionAlerts,
+        isTrue,
+      );
+      expect(dashboard.profile.notificationPreferences.budgetWarnings, isFalse);
+      expect(dashboard.profile.notificationPreferences.billReminders, isTrue);
+      expect(dashboard.profile.notificationPreferences.weeklyInsights, isFalse);
+      expect(
+        dashboard.profile.notificationPreferences.bubbleInterventions,
+        isTrue,
+      );
+    },
+  );
+
   test('fake AI returns an onboarding budget and stores messages', () async {
     final repository = FakeKoloRepository.seeded();
 

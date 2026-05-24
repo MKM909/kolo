@@ -16,6 +16,13 @@ void main() {
         'createdAt': Timestamp.fromDate(createdAt),
         'onboardingComplete': true,
         'preferredAiModel': 'gemini-3.1-flash',
+        'notificationPreferences': {
+          'transactionAlerts': true,
+          'budgetWarnings': false,
+          'billReminders': true,
+          'weeklyInsights': false,
+          'bubbleInterventions': true,
+        },
         'balanceKobo': 1234500,
         'budgetPlan': {
           'monthlyIncomeKobo': 5000000,
@@ -87,6 +94,9 @@ void main() {
     expect(state.profile.name, 'Micah');
     expect(state.profile.createdAt, createdAt);
     expect(state.profile.preferredAiModel, 'gemini-3.1-flash');
+    expect(state.profile.notificationPreferences.budgetWarnings, isFalse);
+    expect(state.profile.notificationPreferences.weeklyInsights, isFalse);
+    expect(state.profile.notificationPreferences.bubbleInterventions, isTrue);
     expect(state.balanceKobo, 1234500);
     expect(state.balanceAdjustments.single.deltaKobo, 234500);
     expect(state.budgetPlan.savingsGoal, 'Laptop');
@@ -128,6 +138,11 @@ void main() {
     expect(state.profile.name, 'Kolo User');
     expect(state.profile.onboardingComplete, isFalse);
     expect(state.profile.preferredAiModel, 'gemini-3.1-flash-lite');
+    expect(state.profile.notificationPreferences.transactionAlerts, isTrue);
+    expect(state.profile.notificationPreferences.budgetWarnings, isTrue);
+    expect(state.profile.notificationPreferences.billReminders, isTrue);
+    expect(state.profile.notificationPreferences.weeklyInsights, isTrue);
+    expect(state.profile.notificationPreferences.bubbleInterventions, isTrue);
     expect(state.balanceKobo, 0);
     expect(state.budgetPlan.categories, isNotEmpty);
     expect(state.permissions.length, KoloPermission.values.length);

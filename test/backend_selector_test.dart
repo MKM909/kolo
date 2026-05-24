@@ -152,6 +152,13 @@ class _StubRepository implements KoloRepository {
   }
 
   @override
+  Future<void> updateNotificationPreferences(
+    NotificationPreferences preferences,
+  ) {
+    throw UnimplementedError();
+  }
+
+  @override
   Stream<DashboardState> watchDashboard() {
     throw UnimplementedError();
   }

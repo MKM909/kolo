@@ -179,6 +179,9 @@ class FirebaseKoloMapper {
       preferredAiModel: koloAiModelNameOrDefault(
         user['preferredAiModel'] as String?,
       ),
+      notificationPreferences: NotificationPreferences.fromJson(
+        _map(user['notificationPreferences']),
+      ),
     );
   }
 

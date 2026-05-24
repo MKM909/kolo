@@ -43,9 +43,7 @@ void main() {
     tester,
   ) async {
     final repository = _RecordingKoloRepository(
-      permissionStates: const {
-        KoloPermission.sms: PermissionGrantState.denied,
-      },
+      permissionStates: const {KoloPermission.sms: PermissionGrantState.denied},
     );
 
     await tester.pumpWidget(
@@ -218,6 +216,13 @@ class _RecordingKoloRepository implements KoloRepository {
 
   @override
   Future<void> updatePreferredAiModel(String modelName) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> updateNotificationPreferences(
+    NotificationPreferences preferences,
+  ) {
     throw UnimplementedError();
   }
 

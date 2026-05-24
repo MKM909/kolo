@@ -43,4 +43,15 @@ void main() {
       expect(source, contains('_aiService.generateBudget'));
     },
   );
+
+  test('Firebase profile persists notification preferences as one map', () {
+    final source = File(
+      'lib/data/repositories/firebase_kolo_repository.dart',
+    ).readAsStringSync();
+
+    expect(source, contains('Future<void> updateNotificationPreferences('));
+    expect(source, contains("'notificationPreferences'"));
+    expect(source, contains('preferences.toJson()'));
+    expect(source, contains('SetOptions(merge: true)'));
+  });
 }

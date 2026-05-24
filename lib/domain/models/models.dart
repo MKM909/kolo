@@ -20,6 +20,63 @@ enum KoloPermission {
 
 enum PermissionGrantState { granted, denied, notRequested }
 
+class NotificationPreferences {
+  const NotificationPreferences({
+    this.transactionAlerts = true,
+    this.budgetWarnings = true,
+    this.billReminders = true,
+    this.weeklyInsights = true,
+    this.bubbleInterventions = true,
+  });
+
+  factory NotificationPreferences.fromJson(Map<String, dynamic> json) {
+    return NotificationPreferences(
+      transactionAlerts: _boolOrDefault(json['transactionAlerts']),
+      budgetWarnings: _boolOrDefault(json['budgetWarnings']),
+      billReminders: _boolOrDefault(json['billReminders']),
+      weeklyInsights: _boolOrDefault(json['weeklyInsights']),
+      bubbleInterventions: _boolOrDefault(json['bubbleInterventions']),
+    );
+  }
+
+  final bool transactionAlerts;
+  final bool budgetWarnings;
+  final bool billReminders;
+  final bool weeklyInsights;
+  final bool bubbleInterventions;
+
+  NotificationPreferences copyWith({
+    bool? transactionAlerts,
+    bool? budgetWarnings,
+    bool? billReminders,
+    bool? weeklyInsights,
+    bool? bubbleInterventions,
+  }) {
+    return NotificationPreferences(
+      transactionAlerts: transactionAlerts ?? this.transactionAlerts,
+      budgetWarnings: budgetWarnings ?? this.budgetWarnings,
+      billReminders: billReminders ?? this.billReminders,
+      weeklyInsights: weeklyInsights ?? this.weeklyInsights,
+      bubbleInterventions: bubbleInterventions ?? this.bubbleInterventions,
+    );
+  }
+
+  Map<String, bool> toJson() {
+    return {
+      'transactionAlerts': transactionAlerts,
+      'budgetWarnings': budgetWarnings,
+      'billReminders': billReminders,
+      'weeklyInsights': weeklyInsights,
+      'bubbleInterventions': bubbleInterventions,
+    };
+  }
+
+  static bool _boolOrDefault(Object? value) {
+    if (value is bool) return value;
+    return true;
+  }
+}
+
 class UserProfile {
   const UserProfile({
     required this.uid,
@@ -29,6 +86,7 @@ class UserProfile {
     this.onboardingComplete = false,
     this.avatarUrl,
     this.preferredAiModel = defaultGeminiModelName,
+    this.notificationPreferences = const NotificationPreferences(),
   });
 
   final String uid;
@@ -38,6 +96,7 @@ class UserProfile {
   final bool onboardingComplete;
   final String? avatarUrl;
   final String preferredAiModel;
+  final NotificationPreferences notificationPreferences;
 
   UserProfile copyWith({
     String? uid,
@@ -47,6 +106,7 @@ class UserProfile {
     bool? onboardingComplete,
     String? avatarUrl,
     String? preferredAiModel,
+    NotificationPreferences? notificationPreferences,
   }) {
     return UserProfile(
       uid: uid ?? this.uid,
@@ -56,6 +116,8 @@ class UserProfile {
       onboardingComplete: onboardingComplete ?? this.onboardingComplete,
       avatarUrl: avatarUrl ?? this.avatarUrl,
       preferredAiModel: preferredAiModel ?? this.preferredAiModel,
+      notificationPreferences:
+          notificationPreferences ?? this.notificationPreferences,
     );
   }
 }

@@ -120,6 +120,11 @@ class _FailingChatRepository implements KoloRepository {
   Future<void> updatePreferredAiModel(String modelName) async {}
 
   @override
+  Future<void> updateNotificationPreferences(
+    NotificationPreferences preferences,
+  ) async {}
+
+  @override
   Future<void> upsertBill(BillReminder bill) async {}
 
   @override

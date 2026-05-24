@@ -603,4 +603,14 @@ class FakeKoloRepository implements KoloRepository {
     );
     _controller.add(_state);
   }
+
+  @override
+  Future<void> updateNotificationPreferences(
+    NotificationPreferences preferences,
+  ) async {
+    _state = _state.copyWith(
+      profile: _state.profile.copyWith(notificationPreferences: preferences),
+    );
+    _controller.add(_state);
+  }
 }
