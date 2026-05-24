@@ -73,7 +73,7 @@ class TransactionParser {
   static String _extractMerchant(String text, TransactionType type) {
     final patterns = type == TransactionType.income
         ? [
-            RegExp(r'from\s+(.+?)(?:\.|,|$)', caseSensitive: false),
+            RegExp(r'from\s+(.+?)(?:\s+for\s+|\.|,|$)', caseSensitive: false),
             RegExp(r'by\s+(.+?)(?:\s+on\s+|\.|,|$)', caseSensitive: false),
             RegExp(
               r'ref[:\s]+(.+?)(?:\.|,|Bal|Balance|$)',
@@ -86,10 +86,13 @@ class TransactionParser {
               caseSensitive: false,
             ),
             RegExp(
-              r'(?:pos/web\s+)?purchase\s+-\s+(.+?)(?:\.|,|Bal|Balance|$)',
+              r'(?:pos/web\s+)?purchase(?:\s+-|:)\s*(.+?)(?:\.|,|Bal|Balance|$)',
               caseSensitive: false,
             ),
-            RegExp(r'at\s+(.+?)(?:\.|,|Bal|Balance|$)', caseSensitive: false),
+            RegExp(
+              r'at\s+(.+?)(?:\s+was\s+successful|\.|,|Bal|Balance|$)',
+              caseSensitive: false,
+            ),
             RegExp(
               r'to\s+(.+?)(?:\s+successful|\.|,|Bal|Balance|$)',
               caseSensitive: false,

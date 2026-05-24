@@ -191,5 +191,74 @@ void main() {
       expect(draft.source, TransactionSource.notification);
       expect(draft.balanceAfterKobo, 1200000);
     });
+
+    test('parses First Bank purchase alerts', () {
+      const sms =
+          'FirstBank Alert: Account 1234567890 DR NGN12,750.00 POS/Web Purchase: BOLT TRIP. Avail Bal: NGN8,250.00';
+
+      final draft = TransactionParser.parse(sms);
+
+      expect(draft, isNotNull);
+      expect(draft!.type, TransactionType.expense);
+      expect(draft.amountKobo, 1275000);
+      expect(draft.merchantName, 'BOLT TRIP');
+      expect(draft.category, 'Transport');
+      expect(draft.balanceAfterKobo, 825000);
+    });
+
+    test('parses UBA credit alerts', () {
+      const sms =
+          'UBA Alert: CR Amt NGN25,000.00 From Okoh Michael. Avail Bal NGN40,000.00';
+
+      final draft = TransactionParser.parse(sms);
+
+      expect(draft, isNotNull);
+      expect(draft!.type, TransactionType.income);
+      expect(draft.amountKobo, 2500000);
+      expect(draft.merchantName, 'Okoh Michael');
+      expect(draft.balanceAfterKobo, 4000000);
+    });
+
+    test('parses OPay transfer notifications', () {
+      const notification =
+          'OPay: Transfer of N2,000 to Ade Store successful. Balance: N5,500';
+
+      final draft = TransactionParser.parse(notification);
+
+      expect(draft, isNotNull);
+      expect(draft!.type, TransactionType.expense);
+      expect(draft.amountKobo, 200000);
+      expect(draft.merchantName, 'Ade Store');
+      expect(draft.source, TransactionSource.notification);
+      expect(draft.balanceAfterKobo, 550000);
+    });
+
+    test('parses Moniepoint income sender without invoice note', () {
+      const notification =
+          'Moniepoint: You received NGN18,000 from Chika for invoice. Bal: NGN30,000';
+
+      final draft = TransactionParser.parse(notification);
+
+      expect(draft, isNotNull);
+      expect(draft!.type, TransactionType.income);
+      expect(draft.amountKobo, 1800000);
+      expect(draft.merchantName, 'Chika');
+      expect(draft.source, TransactionSource.notification);
+      expect(draft.balanceAfterKobo, 3000000);
+    });
+
+    test('parses Carbon card payment notifications', () {
+      const notification =
+          'Carbon: Card payment of N4,200 at Shoprite was successful. Balance N10,500';
+
+      final draft = TransactionParser.parse(notification);
+
+      expect(draft, isNotNull);
+      expect(draft!.type, TransactionType.expense);
+      expect(draft.amountKobo, 420000);
+      expect(draft.merchantName, 'Shoprite');
+      expect(draft.source, TransactionSource.notification);
+      expect(draft.balanceAfterKobo, 1050000);
+    });
   });
 }
