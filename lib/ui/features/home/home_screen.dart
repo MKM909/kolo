@@ -66,6 +66,7 @@ class HomeScreen extends ConsumerWidget {
                   type: TransactionType.expense,
                 ),
                 onOpenVaults: () => _openVaultsSheet(context),
+                onOpenOwings: () => _openOwingsSheet(context),
               ),
               const SizedBox(height: 24),
               if (state.bills.isNotEmpty)
@@ -190,6 +191,16 @@ class HomeScreen extends ConsumerWidget {
       builder: (context) => const _VaultsSheet(),
     );
   }
+
+  Future<void> _openOwingsSheet(BuildContext context) {
+    return showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const _OwingsSheet(),
+    );
+  }
 }
 
 class _QuickActions extends StatelessWidget {
@@ -197,11 +208,13 @@ class _QuickActions extends StatelessWidget {
     required this.onLogIncome,
     required this.onLogExpense,
     required this.onOpenVaults,
+    required this.onOpenOwings,
   });
 
   final VoidCallback onLogIncome;
   final VoidCallback onLogExpense;
   final VoidCallback onOpenVaults;
+  final VoidCallback onOpenOwings;
 
   @override
   Widget build(BuildContext context) {
@@ -209,7 +222,7 @@ class _QuickActions extends StatelessWidget {
       (Icons.add_circle_outline, 'Log Income', onLogIncome),
       (Icons.remove_circle_outline, 'Log Expense', onLogExpense),
       (Icons.lock_outline, 'Vaults', onOpenVaults),
-      (Icons.handshake_outlined, 'Owings', () {}),
+      (Icons.handshake_outlined, 'Owings', onOpenOwings),
     ];
 
     return Row(
@@ -932,5 +945,250 @@ class _VaultDetailSheetState extends ConsumerState<_VaultDetailSheet> {
           ),
         );
     if (mounted) Navigator.of(context).pop();
+  }
+}
+
+class _OwingsSheet extends ConsumerStatefulWidget {
+  const _OwingsSheet();
+
+  @override
+  ConsumerState<_OwingsSheet> createState() => _OwingsSheetState();
+}
+
+class _OwingsSheetState extends ConsumerState<_OwingsSheet> {
+  final TextEditingController _personController = TextEditingController();
+  final TextEditingController _amountController = TextEditingController();
+  final TextEditingController _noteController = TextEditingController();
+  OwingType _type = OwingType.theyOweMe;
+  String? _error;
+
+  @override
+  void dispose() {
+    _personController.dispose();
+    _amountController.dispose();
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dashboard = ref.watch(dashboardProvider);
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Container(
+        key: const Key('owings_sheet'),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.82,
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+        decoration: const BoxDecoration(
+          color: Color(0xF0FFFFFF),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          boxShadow: [
+            BoxShadow(
+              color: Color(0x20000000),
+              blurRadius: 40,
+              offset: Offset(0, -8),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    height: 4,
+                    width: 42,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE5E7EB),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text('Owings', style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 6),
+                Text(
+                  'Track who owes you and what you owe, without awkward memory math.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: KoloColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                dashboard.when(
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (error, _) => Text('Could not load owings: $error'),
+                  data: (state) => Column(
+                    children: [
+                      for (final owing in state.owings)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _OwingCard(owing: owing),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'New owing',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 12),
+                SegmentedButton<OwingType>(
+                  showSelectedIcon: false,
+                  segments: const [
+                    ButtonSegment(
+                      value: OwingType.theyOweMe,
+                      label: Text('They owe me'),
+                    ),
+                    ButtonSegment(
+                      value: OwingType.iOweThem,
+                      label: Text('I owe them'),
+                    ),
+                  ],
+                  selected: {_type},
+                  onSelectionChanged: (selected) {
+                    setState(() => _type = selected.single);
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const Key('new_owing_person'),
+                  controller: _personController,
+                  decoration: const InputDecoration(labelText: 'Person'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const Key('new_owing_amount'),
+                  controller: _amountController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Amount',
+                    prefixText: '\u20A6 ',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _noteController,
+                  decoration: const InputDecoration(labelText: 'Note'),
+                ),
+                if (_error != null) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    _error!,
+                    style: const TextStyle(color: KoloColors.expense),
+                  ),
+                ],
+                const SizedBox(height: 18),
+                ElevatedButton(
+                  key: const Key('save_new_owing'),
+                  onPressed: _save,
+                  child: const Text('Save owing'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _save() async {
+    final person = _personController.text.trim();
+    final amountKobo = MoneyFormatter.parseNairaToKobo(
+      _amountController.text.trim(),
+    );
+    if (person.isEmpty || amountKobo == null || amountKobo <= 0) {
+      setState(() => _error = 'Enter a person and amount.');
+      return;
+    }
+
+    final now = DateTime.now();
+    await ref
+        .read(koloRepositoryProvider)
+        .upsertOwing(
+          Owing(
+            id: 'owing-${now.microsecondsSinceEpoch}',
+            type: _type,
+            person: person,
+            amountKobo: amountKobo,
+            date: now,
+            note: _noteController.text.trim().isEmpty
+                ? null
+                : _noteController.text.trim(),
+          ),
+        );
+    _personController.clear();
+    _amountController.clear();
+    _noteController.clear();
+    if (mounted) setState(() => _error = null);
+  }
+}
+
+class _OwingCard extends StatelessWidget {
+  const _OwingCard({required this.owing});
+
+  final Owing owing;
+
+  @override
+  Widget build(BuildContext context) {
+    final theyOweMe = owing.type == OwingType.theyOweMe;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 20)],
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: KoloColors.primaryPastel,
+            child: Text(
+              owing.person.isEmpty ? '?' : owing.person.characters.first,
+              style: const TextStyle(
+                color: KoloColors.primary,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  owing.person,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                Text(
+                  owing.settled
+                      ? 'Settled'
+                      : theyOweMe
+                      ? 'They owe you'
+                      : 'You owe them',
+                  style: Theme.of(context).textTheme.labelMedium,
+                ),
+              ],
+            ),
+          ),
+          Text(
+            MoneyFormatter.formatKobo(owing.amountKobo),
+            style: TextStyle(
+              color: theyOweMe ? KoloColors.income : KoloColors.expense,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

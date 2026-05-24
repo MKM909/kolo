@@ -181,6 +181,30 @@ void main() {
     );
   });
 
+  testWidgets('home owings quick action creates an owing record', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Owings'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('owings_sheet')), findsOneWidget);
+
+    await tester.enterText(find.byKey(const Key('new_owing_person')), 'Sade');
+    await tester.enterText(find.byKey(const Key('new_owing_amount')), '12000');
+    await tester.ensureVisible(find.byKey(const Key('save_new_owing')));
+    await tester.tap(find.byKey(const Key('save_new_owing')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sade'), findsOneWidget);
+    expect(
+      find.textContaining(MoneyFormatter.formatKobo(1200000)),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('profile can grant a permission from locked state', (
     tester,
   ) async {
