@@ -471,6 +471,29 @@ void main() {
     );
   });
 
+  testWidgets('vault detail sheet edits target amount', (tester) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Vaults'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('New Phone'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('vault_target_amount')),
+      '240000',
+    );
+    await tester.tap(find.byKey(const Key('save_vault_target')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining(MoneyFormatter.formatKobo(24000000)),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('vault detail sheet deletes an existing vault', (tester) async {
     await tester.pumpWidget(const KoloApp());
     await tester.pumpAndSettle();

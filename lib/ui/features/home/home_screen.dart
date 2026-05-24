@@ -985,11 +985,21 @@ class _VaultDetailSheet extends ConsumerStatefulWidget {
 
 class _VaultDetailSheetState extends ConsumerState<_VaultDetailSheet> {
   final TextEditingController _amountController = TextEditingController();
+  late final TextEditingController _targetController;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _targetController = TextEditingController(
+      text: (widget.vault.targetKobo ~/ 100).toString(),
+    );
+  }
 
   @override
   void dispose() {
     _amountController.dispose();
+    _targetController.dispose();
     super.dispose();
   }
 
@@ -1064,6 +1074,23 @@ class _VaultDetailSheetState extends ConsumerState<_VaultDetailSheet> {
               ),
               const SizedBox(height: 16),
               TextField(
+                key: const Key('vault_target_amount'),
+                controller: _targetController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Target amount',
+                  prefixText: '\u20A6 ',
+                ),
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                key: const Key('save_vault_target'),
+                onPressed: _saveTarget,
+                icon: const Icon(Icons.flag_outlined),
+                label: const Text('Save target'),
+              ),
+              const SizedBox(height: 14),
+              TextField(
                 key: const Key('vault_contribution_amount'),
                 controller: _amountController,
                 keyboardType: TextInputType.number,
@@ -1120,6 +1147,29 @@ class _VaultDetailSheetState extends ConsumerState<_VaultDetailSheet> {
             name: widget.vault.name,
             targetKobo: widget.vault.targetKobo,
             currentKobo: widget.vault.currentKobo + amountKobo,
+            deadline: widget.vault.deadline,
+          ),
+        );
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _saveTarget() async {
+    final targetKobo = MoneyFormatter.parseNairaToKobo(
+      _targetController.text.trim(),
+    );
+    if (targetKobo == null || targetKobo <= 0) {
+      setState(() => _error = 'Enter a valid target.');
+      return;
+    }
+
+    await ref
+        .read(koloRepositoryProvider)
+        .upsertVault(
+          SavingsVault(
+            id: widget.vault.id,
+            name: widget.vault.name,
+            targetKobo: targetKobo,
+            currentKobo: widget.vault.currentKobo,
             deadline: widget.vault.deadline,
           ),
         );
