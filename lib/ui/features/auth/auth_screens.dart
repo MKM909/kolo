@@ -603,6 +603,8 @@ class _OnboardingSetupScreenState
   int _step = 0;
   bool _submitting = false;
   String? _error;
+  BudgetPlan? _previewBudget;
+  OnboardingAnswers? _previewAnswers;
 
   @override
   void dispose() {
@@ -663,51 +665,26 @@ class _OnboardingSetupScreenState
                   ),
                 ],
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _AssistantBubble(text: _assistantText),
-                  if (_step > 0) ...[
-                    const SizedBox(height: 12),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: _UserReplyPreview(text: _previousAnswer),
+              child: _previewBudget == null
+                  ? _QuestionPanel(
+                      assistantText: _assistantText,
+                      previousAnswer: _previousAnswer,
+                      showPreviousAnswer: _step > 0,
+                      title: _stepTitle,
+                      subtitle: _stepSubtitle,
+                      content: _stepContent(),
+                      error: _error,
+                      submitting: _submitting,
+                      buttonLabel: _buttonLabel,
+                      onNext: _advance,
+                    )
+                  : _OnboardingBudgetPreview(
+                      budget: _previewBudget!,
+                      saving: _submitting,
+                      error: _error,
+                      onAccept: _acceptBudget,
+                      onBack: _submitting ? null : _clearPreview,
                     ),
-                  ],
-                  const SizedBox(height: 20),
-                  Text(
-                    _stepTitle,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _stepSubtitle,
-                    style: const TextStyle(color: KoloColors.textSecondary),
-                  ),
-                  const SizedBox(height: 20),
-                  Expanded(child: _stepContent()),
-                  if (_error != null) ...[
-                    Text(
-                      _error!,
-                      style: const TextStyle(color: KoloColors.expense),
-                    ),
-                    const SizedBox(height: 10),
-                  ],
-                  ElevatedButton(
-                    key: const Key('onboarding_next'),
-                    onPressed: _submitting ? null : _advance,
-                    child: Text(
-                      _submitting
-                          ? 'Building'
-                          : _step == 0
-                          ? 'Start setup'
-                          : _step < _stepCount - 1
-                          ? 'Next'
-                          : 'Build my Kolo',
-                    ),
-                  ),
-                ],
-              ),
             ),
           ),
         ],
@@ -807,19 +784,41 @@ class _OnboardingSetupScreenState
       return;
     }
 
+    final answers = OnboardingAnswers(
+      incomeSource: incomeSource,
+      incomeFrequency: incomeFrequency,
+      currentBalanceKobo: amountKobo,
+      biggestProblem: biggestProblem,
+      savingsGoal: savingsGoal.isEmpty ? null : savingsGoal,
+    );
+
     setState(() => _submitting = true);
     try {
-      await ref
+      final budget = await ref
           .read(koloRepositoryProvider)
-          .completeOnboarding(
-            OnboardingAnswers(
-              incomeSource: incomeSource,
-              incomeFrequency: incomeFrequency,
-              currentBalanceKobo: amountKobo,
-              biggestProblem: biggestProblem,
-              savingsGoal: savingsGoal.isEmpty ? null : savingsGoal,
-            ),
-          );
+          .generateBudget(answers);
+      if (!mounted) return;
+      setState(() {
+        _previewAnswers = answers;
+        _previewBudget = budget;
+      });
+    } on Object catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Future<void> _acceptBudget() async {
+    final answers = _previewAnswers;
+    if (answers == null) return;
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+    try {
+      await ref.read(koloRepositoryProvider).completeOnboarding(answers);
       if (!mounted) return;
       GoRouter.maybeOf(context)?.go('/permissions');
     } on Object catch (error) {
@@ -828,6 +827,21 @@ class _OnboardingSetupScreenState
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  void _clearPreview() {
+    setState(() {
+      _previewBudget = null;
+      _previewAnswers = null;
+      _error = null;
+    });
+  }
+
+  String get _buttonLabel {
+    if (_submitting) return 'Building';
+    if (_step == 0) return 'Start setup';
+    if (_step < _stepCount - 1) return 'Next';
+    return 'Preview budget';
   }
 
   String get _assistantText {
@@ -907,6 +921,316 @@ class _ProgressDots extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _QuestionPanel extends StatelessWidget {
+  const _QuestionPanel({
+    required this.assistantText,
+    required this.previousAnswer,
+    required this.showPreviousAnswer,
+    required this.title,
+    required this.subtitle,
+    required this.content,
+    required this.error,
+    required this.submitting,
+    required this.buttonLabel,
+    required this.onNext,
+  });
+
+  final String assistantText;
+  final String previousAnswer;
+  final bool showPreviousAnswer;
+  final String title;
+  final String subtitle;
+  final Widget content;
+  final String? error;
+  final bool submitting;
+  final String buttonLabel;
+  final VoidCallback onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _AssistantBubble(text: assistantText),
+        if (showPreviousAnswer) ...[
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: _UserReplyPreview(text: previousAnswer),
+          ),
+        ],
+        const SizedBox(height: 20),
+        Text(title, style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 8),
+        Text(subtitle, style: const TextStyle(color: KoloColors.textSecondary)),
+        const SizedBox(height: 20),
+        Expanded(child: content),
+        if (error != null) ...[
+          Text(error!, style: const TextStyle(color: KoloColors.expense)),
+          const SizedBox(height: 10),
+        ],
+        ElevatedButton(
+          key: const Key('onboarding_next'),
+          onPressed: submitting ? null : onNext,
+          child: Text(buttonLabel),
+        ),
+      ],
+    );
+  }
+}
+
+class _OnboardingBudgetPreview extends StatelessWidget {
+  const _OnboardingBudgetPreview({
+    required this.budget,
+    required this.saving,
+    required this.error,
+    required this.onAccept,
+    required this.onBack,
+  });
+
+  final BudgetPlan budget;
+  final bool saving;
+  final String? error;
+  final VoidCallback onAccept;
+  final VoidCallback? onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      key: const Key('onboarding_budget_preview'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _AssistantBubble(
+          text:
+              "I've drafted your first budget. Check the split, then we can turn on the sensors that keep it updated.",
+        ),
+        const SizedBox(height: 18),
+        Text(
+          'Preview my first budget',
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Monthly income estimate: ${MoneyFormatter.formatKobo(budget.monthlyIncomeKobo)}',
+          style: const TextStyle(color: KoloColors.textSecondary),
+        ),
+        const SizedBox(height: 18),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                _BudgetPreviewSummary(budget: budget),
+                const SizedBox(height: 12),
+                for (final category in budget.categories) ...[
+                  _BudgetPreviewCategoryRow(category: category),
+                  const SizedBox(height: 10),
+                ],
+                if (budget.aiNotes.trim().isNotEmpty)
+                  _BudgetPreviewNote(note: budget.aiNotes),
+              ],
+            ),
+          ),
+        ),
+        if (error != null) ...[
+          const SizedBox(height: 8),
+          Text(error!, style: const TextStyle(color: KoloColors.expense)),
+        ],
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          key: const Key('onboarding_edit_budget_inputs'),
+          onPressed: onBack,
+          icon: const Icon(Icons.arrow_back_rounded),
+          label: const Text('Change answers'),
+        ),
+        const SizedBox(height: 10),
+        ElevatedButton.icon(
+          key: const Key('onboarding_accept_budget'),
+          onPressed: saving ? null : onAccept,
+          icon: saving
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Icon(Icons.check_circle_outline),
+          label: Text(saving ? 'Saving' : 'Use this budget'),
+        ),
+      ],
+    );
+  }
+}
+
+class _BudgetPreviewSummary extends StatelessWidget {
+  const _BudgetPreviewSummary({required this.budget});
+
+  final BudgetPlan budget;
+
+  @override
+  Widget build(BuildContext context) {
+    final unallocatedKobo =
+        budget.monthlyIncomeKobo - budget.totalAllocatedKobo;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: KoloColors.surfaceElevated,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _BudgetPreviewStat(
+              label: 'Allocated',
+              amount: MoneyFormatter.formatKobo(budget.totalAllocatedKobo),
+            ),
+          ),
+          Container(width: 1, height: 42, color: const Color(0xFFE9D5FF)),
+          Expanded(
+            child: _BudgetPreviewStat(
+              label: unallocatedKobo >= 0 ? 'Left loose' : 'Over plan',
+              amount: MoneyFormatter.formatKobo(unallocatedKobo),
+              color: unallocatedKobo >= 0
+                  ? KoloColors.income
+                  : KoloColors.expense,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BudgetPreviewStat extends StatelessWidget {
+  const _BudgetPreviewStat({
+    required this.label,
+    required this.amount,
+    this.color = KoloColors.textPrimary,
+  });
+
+  final String label;
+  final String amount;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: KoloColors.textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              amount,
+              style: TextStyle(
+                color: color,
+                fontFamily: 'DM Mono',
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BudgetPreviewCategoryRow extends StatelessWidget {
+  const _BudgetPreviewCategoryRow({required this.category});
+
+  final BudgetCategory category;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: KoloColors.surfaceWhite,
+        border: Border.all(color: const Color(0xFFEDE9FE)),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Container(
+            height: 38,
+            width: 38,
+            decoration: BoxDecoration(
+              color: KoloColors.primaryPastel,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(_categoryIcon, color: KoloColors.primary, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              category.name,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            MoneyFormatter.formatKobo(category.allocatedKobo),
+            style: const TextStyle(
+              color: KoloColors.textPrimary,
+              fontFamily: 'DM Mono',
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData get _categoryIcon {
+    final value = '${category.name} ${category.emoji}'.toLowerCase();
+    if (value.contains('food')) return Icons.restaurant_outlined;
+    if (value.contains('save') || value.contains('safe')) {
+      return Icons.lock_outline;
+    }
+    if (value.contains('transport')) return Icons.directions_bus_outlined;
+    if (value.contains('bill')) return Icons.receipt_long_outlined;
+    return Icons.pie_chart_outline;
+  }
+}
+
+class _BudgetPreviewNote extends StatelessWidget {
+  const _BudgetPreviewNote({required this.note});
+
+  final String note;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: KoloColors.primaryPastel,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Text(
+        note,
+        style: const TextStyle(
+          color: KoloColors.primary,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
     );
   }
 }

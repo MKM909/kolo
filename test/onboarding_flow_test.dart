@@ -77,6 +77,15 @@ void main() {
     await tester.tap(find.byKey(const Key('onboarding_next')));
     await tester.pumpAndSettle();
 
+    expect(repository.generatedAnswers?.savingsGoal, 'New laptop');
+    expect(repository.answers, isNull);
+    expect(find.byKey(const Key('onboarding_budget_preview')), findsOneWidget);
+    expect(find.text('Food & Snacks'), findsOneWidget);
+    expect(find.text('Preview my first budget'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('onboarding_accept_budget')));
+    await tester.pumpAndSettle();
+
     expect(repository.answers?.incomeSource, 'Freelance design');
     expect(repository.answers?.incomeFrequency, 'It comes when clients pay');
     expect(repository.answers?.currentBalanceKobo, 4200000);
@@ -88,6 +97,7 @@ void main() {
 
 class _RecordingKoloRepository implements KoloRepository {
   OnboardingAnswers? answers;
+  OnboardingAnswers? generatedAnswers;
 
   @override
   Future<void> adjustBalance(BalanceAdjustment adjustment) {
@@ -150,8 +160,29 @@ class _RecordingKoloRepository implements KoloRepository {
   }
 
   @override
-  Future<BudgetPlan> generateBudget(OnboardingAnswers answers) {
-    throw UnimplementedError();
+  Future<BudgetPlan> generateBudget(OnboardingAnswers answers) async {
+    generatedAnswers = answers;
+    return const BudgetPlan(
+      monthlyIncomeKobo: 8400000,
+      incomeType: 'irregular',
+      categories: [
+        BudgetCategory(
+          name: 'Food & Snacks',
+          emoji: 'food',
+          allocatedKobo: 1200000,
+          priority: 1,
+        ),
+        BudgetCategory(
+          name: 'Savings',
+          emoji: 'safe',
+          allocatedKobo: 1000000,
+          priority: 0,
+        ),
+      ],
+      savingsTargetKobo: 1000000,
+      savingsGoal: 'New laptop',
+      aiNotes: 'Test budget',
+    );
   }
 
   @override
