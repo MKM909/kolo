@@ -106,6 +106,11 @@ class ProfileScreen extends ConsumerWidget {
             ),
             _ProfileSection(
               title: 'Watched Apps',
+              action: TextButton(
+                key: const Key('open_watched_apps'),
+                onPressed: () => _openWatchedAppsSheet(context),
+                child: const Text('Manage'),
+              ),
               children: [
                 for (final app in state.watchedApps)
                   _SimpleRow(
@@ -184,6 +189,16 @@ class ProfileScreen extends ConsumerWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => const _PartnerSharingSheet(),
+    );
+  }
+
+  Future<void> _openWatchedAppsSheet(BuildContext context) {
+    return showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const _WatchedAppsSheet(),
     );
   }
 }
@@ -1001,6 +1016,125 @@ class _PartnerShareCard extends StatelessWidget {
             child: Text(revoked ? 'Revoked' : 'Revoke'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _WatchedAppsSheet extends ConsumerWidget {
+  const _WatchedAppsSheet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dashboard = ref.watch(dashboardProvider);
+    return Container(
+      key: const Key('watched_apps_sheet'),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.82,
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+      decoration: const BoxDecoration(
+        color: Color(0xF0FFFFFF),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x20000000),
+            blurRadius: 40,
+            offset: Offset(0, -8),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  height: 4,
+                  width: 42,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE5E7EB),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Watched Apps',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 18),
+              dashboard.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (error, _) => Text('Could not load apps: $error'),
+                data: (state) => Column(
+                  children: [
+                    for (final app in state.watchedApps)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _WatchedAppToggle(app: app),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WatchedAppToggle extends ConsumerWidget {
+  const _WatchedAppToggle({required this.app});
+
+  final WatchedApp app;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 20,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: SwitchListTile(
+        key: Key('toggle_watched_app_${app.packageName}'),
+        value: app.enabled,
+        activeThumbColor: KoloColors.primary,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        secondary: CircleAvatar(
+          backgroundColor: KoloColors.primaryPastel,
+          child: Icon(
+            Icons.visibility_outlined,
+            color: app.enabled ? KoloColors.primary : KoloColors.textMuted,
+          ),
+        ),
+        title: Text(
+          app.displayName,
+          style: const TextStyle(fontWeight: FontWeight.w800),
+        ),
+        subtitle: Text(app.enabled ? 'On' : 'Off'),
+        onChanged: (enabled) async {
+          await ref
+              .read(koloRepositoryProvider)
+              .upsertWatchedApp(
+                WatchedApp(
+                  packageName: app.packageName,
+                  displayName: app.displayName,
+                  enabled: enabled,
+                ),
+              );
+        },
       ),
     );
   }

@@ -336,6 +336,34 @@ void main() {
     expect(find.text('revoked'), findsWidgets);
   });
 
+  testWidgets('profile watched apps toggles an app', (tester) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.person_outline));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Watched Apps'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const Key('open_watched_apps')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('watched_apps_sheet')), findsOneWidget);
+
+    final opayToggle = find.byKey(
+      const Key('toggle_watched_app_team.opay.pay'),
+    );
+    expect(tester.widget<SwitchListTile>(opayToggle).value, isFalse);
+
+    await tester.tap(opayToggle);
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<SwitchListTile>(opayToggle).value, isTrue);
+  });
+
   testWidgets('profile can grant a permission from locked state', (
     tester,
   ) async {
