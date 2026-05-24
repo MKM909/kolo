@@ -250,45 +250,6 @@ class _AuthPanelState extends ConsumerState<_AuthPanel> {
   }
 }
 
-class _InfoPanel extends StatelessWidget {
-  const _InfoPanel({required this.title, required this.subtitle});
-
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return KoloGradientScaffold(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.end,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Kolo', style: Theme.of(context).textTheme.displayLarge),
-            const SizedBox(height: 24),
-            KoloCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(height: 8),
-                  Text(subtitle),
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: () => GoRouter.maybeOf(context)?.go('/home'),
-                    child: const Text('Continue'),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _OnboardingSetupScreen extends StatefulWidget {
   const _OnboardingSetupScreen();
 
