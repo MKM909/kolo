@@ -449,6 +449,30 @@ void main() {
     );
   });
 
+  testWidgets('owings sheet filters records by direction', (tester) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Owings'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('owings_sheet')), findsOneWidget);
+    expect(find.text('Timi'), findsOneWidget);
+    expect(find.text('Ada'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('owings_filter_i_owe_them')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ada'), findsOneWidget);
+    expect(find.text('Timi'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('owings_filter_they_owe_me')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Timi'), findsOneWidget);
+    expect(find.text('Ada'), findsNothing);
+  });
+
   testWidgets('home owings quick action creates an owing record', (
     tester,
   ) async {

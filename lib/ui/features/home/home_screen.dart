@@ -1263,6 +1263,7 @@ class _OwingsSheetState extends ConsumerState<_OwingsSheet> {
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _dueDateController = TextEditingController();
   final TextEditingController _noteController = TextEditingController();
+  OwingType _filter = OwingType.theyOweMe;
   OwingType _type = OwingType.theyOweMe;
   String? _error;
 
@@ -1326,22 +1327,71 @@ class _OwingsSheetState extends ConsumerState<_OwingsSheet> {
                   ),
                 ),
                 const SizedBox(height: 18),
+                SegmentedButton<OwingType>(
+                  showSelectedIcon: false,
+                  segments: const [
+                    ButtonSegment(
+                      value: OwingType.theyOweMe,
+                      label: Text(
+                        'They owe me',
+                        key: Key('owings_filter_they_owe_me'),
+                      ),
+                    ),
+                    ButtonSegment(
+                      value: OwingType.iOweThem,
+                      label: Text(
+                        'I owe them',
+                        key: Key('owings_filter_i_owe_them'),
+                      ),
+                    ),
+                  ],
+                  selected: {_filter},
+                  onSelectionChanged: (selected) {
+                    setState(() => _filter = selected.single);
+                  },
+                ),
+                const SizedBox(height: 14),
                 dashboard.when(
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
                   error: (error, _) => Text('Could not load owings: $error'),
-                  data: (state) => Column(
-                    children: [
-                      for (final owing in state.owings)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _OwingCard(
-                            owing: owing,
-                            onTap: () => _openOwingDetail(context, owing),
-                          ),
+                  data: (state) {
+                    final visibleOwings = state.owings
+                        .where((owing) => owing.type == _filter)
+                        .toList(growable: false);
+                    if (visibleOwings.isEmpty) {
+                      return Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: const [
+                            BoxShadow(color: Color(0x14000000), blurRadius: 20),
+                          ],
                         ),
-                    ],
-                  ),
+                        child: Text(
+                          _filter == OwingType.theyOweMe
+                              ? 'No one owes you right now.'
+                              : 'You do not owe anyone right now.',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: KoloColors.textSecondary),
+                        ),
+                      );
+                    }
+                    return Column(
+                      children: [
+                        for (final owing in visibleOwings)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: _OwingCard(
+                              owing: owing,
+                              onTap: () => _openOwingDetail(context, owing),
+                            ),
+                          ),
+                      ],
+                    );
+                  },
                 ),
                 const SizedBox(height: 8),
                 Text(
