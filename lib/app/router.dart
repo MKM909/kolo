@@ -70,6 +70,10 @@ GoRouter buildKoloRouter({
         builder: (context, state) => const OnboardingScreen(),
       ),
       GoRoute(
+        path: '/biometric-setup',
+        builder: (context, state) => const BiometricSetupScreen(),
+      ),
+      GoRoute(
         path: '/permissions',
         builder: (context, state) => const PermissionSetupScreen(),
       ),

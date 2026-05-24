@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:kolo/app/providers.dart';
+import 'package:kolo/data/services/biometric_session_lock.dart';
 import 'package:kolo/data/services/biometric_unlock_service.dart';
 import 'package:kolo/domain/repositories/auth_repository.dart';
 import 'package:kolo/ui/features/auth/auth_screens.dart';
@@ -113,15 +115,93 @@ void main() {
     expect(auth.reloadCurrentUserCalls, 1);
     expect(find.text('Still waiting for verification.'), findsOneWidget);
   });
+
+  testWidgets('biometric setup enables the session lock and continues', (
+    tester,
+  ) async {
+    final biometric = _RecordingBiometricUnlockService();
+    final sessionLock = BiometricSessionLock();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          biometricUnlockServiceProvider.overrideWithValue(biometric),
+          biometricSessionLockProvider.overrideWith((ref) => sessionLock),
+        ],
+        child: MaterialApp.router(
+          routerConfig: GoRouter(
+            routes: [
+              GoRoute(
+                path: '/',
+                builder: (context, state) => const BiometricSetupScreen(),
+              ),
+              GoRoute(
+                path: '/permissions',
+                builder: (context, state) => const Text('Permissions reached'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('biometric_setup_enable')));
+    await tester.pumpAndSettle();
+
+    expect(biometric.unlockCalls, 1);
+    expect(sessionLock.enabled, isTrue);
+    expect(find.text('Permissions reached'), findsOneWidget);
+  });
+
+  testWidgets('biometric setup stays optional when unavailable', (
+    tester,
+  ) async {
+    final biometric = _RecordingBiometricUnlockService(result: false);
+    final sessionLock = BiometricSessionLock();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          biometricUnlockServiceProvider.overrideWithValue(biometric),
+          biometricSessionLockProvider.overrideWith((ref) => sessionLock),
+        ],
+        child: MaterialApp.router(
+          routerConfig: GoRouter(
+            routes: [
+              GoRoute(
+                path: '/',
+                builder: (context, state) => const BiometricSetupScreen(),
+              ),
+              GoRoute(
+                path: '/permissions',
+                builder: (context, state) => const Text('Permissions reached'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('biometric_setup_enable')));
+    await tester.pumpAndSettle();
+
+    expect(biometric.unlockCalls, 1);
+    expect(sessionLock.enabled, isFalse);
+    expect(find.byKey(const Key('biometric_setup_screen')), findsOneWidget);
+    expect(find.text('Biometric setup was not available.'), findsOneWidget);
+  });
 }
 
 class _RecordingBiometricUnlockService implements BiometricUnlockService {
+  _RecordingBiometricUnlockService({this.result = true});
+
+  final bool result;
   int unlockCalls = 0;
 
   @override
   Future<bool> unlock() async {
     unlockCalls += 1;
-    return true;
+    return result;
   }
 }
 

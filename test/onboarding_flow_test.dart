@@ -27,6 +27,10 @@ void main() {
                 builder: (context, state) => const OnboardingScreen(),
               ),
               GoRoute(
+                path: '/biometric-setup',
+                builder: (context, state) => const BiometricSetupScreen(),
+              ),
+              GoRoute(
                 path: '/permissions',
                 builder: (context, state) => const Text('Permissions reached'),
               ),
@@ -93,6 +97,11 @@ void main() {
     expect(repository.answers?.savingsGoal, 'New laptop');
     expect(repository.acceptedBudget?.savingsGoal, 'New laptop');
     expect(repository.acceptedBudget?.categories, hasLength(2));
+    expect(find.byKey(const Key('biometric_setup_screen')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('biometric_setup_skip')));
+    await tester.pumpAndSettle();
+
     expect(find.text('Permissions reached'), findsOneWidget);
   });
 }

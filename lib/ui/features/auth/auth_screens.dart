@@ -214,6 +214,136 @@ class PermissionSetupScreen extends StatelessWidget {
   }
 }
 
+class BiometricSetupScreen extends ConsumerStatefulWidget {
+  const BiometricSetupScreen({super.key});
+
+  @override
+  ConsumerState<BiometricSetupScreen> createState() =>
+      _BiometricSetupScreenState();
+}
+
+class _BiometricSetupScreenState extends ConsumerState<BiometricSetupScreen> {
+  bool _loading = false;
+  String? _error;
+
+  @override
+  Widget build(BuildContext context) {
+    return KoloGradientScaffold(
+      key: const Key('biometric_setup_screen'),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              KoloCard(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      height: 72,
+                      width: 72,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: KoloColors.primaryPastel,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Color(0x337C3AED),
+                            blurRadius: 24,
+                            offset: Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.fingerprint_rounded,
+                        color: KoloColors.primary,
+                        size: 38,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      'Protect Kolo',
+                      style: Theme.of(context).textTheme.titleLarge,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Use your fingerprint to keep your balance, budget, and AI money context private when you return to the app.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: KoloColors.textSecondary,
+                        height: 1.45,
+                      ),
+                    ),
+                    if (_error != null) ...[
+                      const SizedBox(height: 14),
+                      Text(
+                        _error!,
+                        key: const Key('biometric_setup_error'),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: KoloColors.expense),
+                      ),
+                    ],
+                    const SizedBox(height: 24),
+                    ElevatedButton.icon(
+                      key: const Key('biometric_setup_enable'),
+                      onPressed: _loading ? null : _enableBiometrics,
+                      icon: _loading
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.lock_outline_rounded),
+                      label: Text(_loading ? 'Checking' : 'Enable fingerprint'),
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton(
+                      key: const Key('biometric_setup_skip'),
+                      onPressed: _loading ? null : _continueToPermissions,
+                      child: const Text('Skip for now'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _enableBiometrics() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final unlocked = await ref.read(biometricUnlockServiceProvider).unlock();
+      if (!mounted) return;
+      if (unlocked) {
+        ref.read(biometricSessionLockProvider).enable();
+        _continueToPermissions();
+      } else {
+        setState(() => _error = 'Biometric setup was not available.');
+      }
+    } on Object catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _continueToPermissions() {
+    GoRouter.maybeOf(context)?.go('/permissions');
+  }
+}
+
 class BiometricLockScreen extends ConsumerStatefulWidget {
   const BiometricLockScreen({super.key});
 
@@ -822,7 +952,7 @@ class _OnboardingSetupScreenState
           .read(koloRepositoryProvider)
           .completeOnboarding(answers, budget: _previewBudget);
       if (!mounted) return;
-      GoRouter.maybeOf(context)?.go('/permissions');
+      GoRouter.maybeOf(context)?.go('/biometric-setup');
     } on Object catch (error) {
       if (!mounted) return;
       setState(() => _error = error.toString());
