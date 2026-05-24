@@ -1,6 +1,20 @@
 import {genkit, z} from "genkit";
 import {googleAI, gemini20Flash} from "@genkit-ai/googleai";
 import {onCallGenkit} from "firebase-functions/https";
+import {
+  fallbackInterventionMessage,
+  fallbackReminderDraft,
+  fallbackTransactionCategorization,
+  fallbackWeeklyInsight,
+  interventionInputSchema,
+  interventionMessageSchema,
+  reminderDraftSchema,
+  reminderInputSchema,
+  transactionCategorizationInputSchema,
+  transactionCategorizationSchema,
+  weeklyInsightInputSchema,
+  weeklyInsightSchema,
+} from "./ai_contracts.js";
 import {requireCallableAuth} from "./callable_guards.js";
 import {buildChatPrompt, KoloAiContext} from "./prompts.js";
 
@@ -114,33 +128,93 @@ const generateBudgetFlow = ai.defineFlow(
   },
 );
 
-const simpleTextFlow = (name: string, purpose: string) =>
-  ai.defineFlow(
-    {
-      name,
-      inputSchema: z.object({context: z.record(z.string(), z.unknown()).optional()}),
-      outputSchema: z.object({content: z.string()}),
-    },
-    async ({context: inputContext}, {context: flowContext}) => {
-      requireCallableAuth(flowContext);
-      const response = await ai.generate({
-        prompt: `${purpose}\nContext JSON: ${JSON.stringify(inputContext ?? {})}`,
-      });
-      return {content: response.text};
-    },
-  );
+const interventionMessageFlow = ai.defineFlow(
+  {
+    name: "interventionMessageFlow",
+    inputSchema: interventionInputSchema,
+    outputSchema: interventionMessageSchema,
+  },
+  async ({context: inputContext}, {context: flowContext}) => {
+    requireCallableAuth(flowContext);
+    const response = await ai.generate({
+      prompt: [
+        "Write a short Kolo spending intervention.",
+        "Use Nigerian Naira context. Be warm, direct, and never shame the user.",
+        `Context JSON: ${JSON.stringify(inputContext ?? {})}`,
+      ].join("\n"),
+      output: {schema: interventionMessageSchema},
+    });
+    return response.output ?? fallbackInterventionMessage();
+  },
+);
+
+const categorizeTransactionFlow = ai.defineFlow(
+  {
+    name: "categorizeTransactionFlow",
+    inputSchema: transactionCategorizationInputSchema,
+    outputSchema: transactionCategorizationSchema,
+  },
+  async (input, {context: flowContext}) => {
+    requireCallableAuth(flowContext);
+    const response = await ai.generate({
+      prompt: [
+        "Categorize this Nigerian transaction for Kolo.",
+        "Return amount in kobo, type, category, description, merchant name, confidence, and reason.",
+        `Source: ${input.source ?? "unknown"}.`,
+        `Raw text: ${input.rawText}`,
+        `Context JSON: ${JSON.stringify(input.context ?? {})}`,
+      ].join("\n"),
+      output: {schema: transactionCategorizationSchema},
+    });
+    return response.output ?? fallbackTransactionCategorization(input);
+  },
+);
+
+const draftReminderFlow = ai.defineFlow(
+  {
+    name: "draftReminderFlow",
+    inputSchema: reminderInputSchema,
+    outputSchema: reminderDraftSchema,
+  },
+  async (input, {context: flowContext}) => {
+    requireCallableAuth(flowContext);
+    const response = await ai.generate({
+      prompt: [
+        "Draft a polite money reminder message for Kolo.",
+        `Person: ${input.owing.person}.`,
+        `Amount kobo: ${input.owing.amountKobo}.`,
+        `Note: ${input.owing.note ?? "none"}.`,
+        `Context JSON: ${JSON.stringify(input.context ?? {})}`,
+      ].join("\n"),
+      output: {schema: reminderDraftSchema},
+    });
+    return response.output ?? fallbackReminderDraft(input);
+  },
+);
+
+const analyzeSpendingFlow = ai.defineFlow(
+  {
+    name: "analyzeSpendingFlow",
+    inputSchema: weeklyInsightInputSchema,
+    outputSchema: weeklyInsightSchema,
+  },
+  async ({context: inputContext}, {context: flowContext}) => {
+    requireCallableAuth(flowContext);
+    const response = await ai.generate({
+      prompt: [
+        "Summarize one weekly Kolo spending insight.",
+        "Return a title, body, optional category, and severity.",
+        `Context JSON: ${JSON.stringify(inputContext ?? {})}`,
+      ].join("\n"),
+      output: {schema: weeklyInsightSchema},
+    });
+    return response.output ?? fallbackWeeklyInsight();
+  },
+);
 
 export const chatWithKolo = onCallGenkit(chatFlow);
 export const generateBudget = onCallGenkit(generateBudgetFlow);
-export const interventionMessage = onCallGenkit(
-  simpleTextFlow("interventionMessageFlow", "Write a short Kolo spending intervention."),
-);
-export const categorizeTransaction = onCallGenkit(
-  simpleTextFlow("categorizeTransactionFlow", "Categorize this Nigerian transaction."),
-);
-export const draftReminder = onCallGenkit(
-  simpleTextFlow("draftReminderFlow", "Draft a polite money reminder message."),
-);
-export const analyzeSpending = onCallGenkit(
-  simpleTextFlow("analyzeSpendingFlow", "Summarize one weekly Kolo spending insight."),
-);
+export const interventionMessage = onCallGenkit(interventionMessageFlow);
+export const categorizeTransaction = onCallGenkit(categorizeTransactionFlow);
+export const draftReminder = onCallGenkit(draftReminderFlow);
+export const analyzeSpending = onCallGenkit(analyzeSpendingFlow);
