@@ -283,8 +283,13 @@ class _TransactionEntrySheet extends StatefulWidget {
 class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
+  final TextEditingController _justificationController =
+      TextEditingController();
   String _category = 'Food & Snacks';
   String? _error;
+  bool _needsJustification = false;
+  int? _pendingAmountKobo;
+  String? _pendingDescription;
 
   bool get _isIncome => widget.type == TransactionType.income;
 
@@ -298,6 +303,7 @@ class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
   void dispose() {
     _amountController.dispose();
     _descriptionController.dispose();
+    _justificationController.dispose();
     super.dispose();
   }
 
@@ -375,15 +381,70 @@ class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
               },
               decoration: const InputDecoration(labelText: 'Category'),
             ),
+            if (_needsJustification) ...[
+              const SizedBox(height: 14),
+              Container(
+                key: const Key('spending_justification_prompt'),
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: KoloColors.primaryPastel,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const CircleAvatar(
+                      radius: 14,
+                      backgroundColor: KoloColors.primary,
+                      child: Icon(
+                        Icons.auto_awesome,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'This pushes past your $_category budget. What is this for?',
+                        style: const TextStyle(
+                          color: KoloColors.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                key: const Key('spending_justification_field'),
+                controller: _justificationController,
+                minLines: 2,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Reason',
+                  prefixIcon: Icon(Icons.chat_bubble_outline),
+                ),
+              ),
+            ],
             if (_error != null) ...[
               const SizedBox(height: 10),
               Text(_error!, style: const TextStyle(color: KoloColors.expense)),
             ],
             const SizedBox(height: 18),
             ElevatedButton(
-              key: const Key('save_transaction'),
-              onPressed: _save,
-              child: Text(_isIncome ? 'Save income' : 'Save expense'),
+              key: _needsJustification
+                  ? const Key('save_spending_justification')
+                  : const Key('save_transaction'),
+              onPressed: _needsJustification ? _saveJustifiedExpense : _save,
+              child: Text(
+                _needsJustification
+                    ? 'Save with Kolo note'
+                    : _isIncome
+                    ? 'Save income'
+                    : 'Save expense',
+              ),
             ),
           ],
         ),
@@ -401,7 +462,52 @@ class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
       return;
     }
 
+    if (!_isIncome && _requiresJustification(amountKobo)) {
+      setState(() {
+        _error = null;
+        _needsJustification = true;
+        _pendingAmountKobo = amountKobo;
+        _pendingDescription = description;
+      });
+      return;
+    }
+
+    await _logTransaction(amountKobo: amountKobo, description: description);
+  }
+
+  Future<void> _saveJustifiedExpense() async {
+    final amountKobo = _pendingAmountKobo;
+    final description = _pendingDescription;
+    final justification = _justificationController.text.trim();
+
+    if (amountKobo == null || description == null) {
+      setState(() => _error = 'Confirm the expense again.');
+      return;
+    }
+    if (justification.isEmpty) {
+      setState(() => _error = 'Tell Kolo why this spend still makes sense.');
+      return;
+    }
+
+    await _logTransaction(
+      amountKobo: amountKobo,
+      description: description,
+      justification: justification,
+    );
+  }
+
+  Future<void> _logTransaction({
+    required int amountKobo,
+    required String description,
+    String? justification,
+  }) async {
     final id = 'manual-${DateTime.now().microsecondsSinceEpoch}';
+    final aiNote = !_isIncome && justification != null
+        ? _spendingJustificationNote(
+            amountKobo: amountKobo,
+            justification: justification,
+          )
+        : null;
     final transaction = _isIncome
         ? TransactionRecord.income(
             id: id,
@@ -418,10 +524,67 @@ class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
             description: description,
             date: DateTime.now(),
             source: TransactionSource.manual,
+            aiApproved: aiNote == null || aiNote.startsWith('Approved'),
+            aiNote: aiNote,
           );
 
     await widget.ref.read(koloRepositoryProvider).logTransaction(transaction);
     if (mounted) Navigator.of(context).pop();
+  }
+
+  bool _requiresJustification(int amountKobo) {
+    final dashboard = _dashboard();
+    if (dashboard == null) return false;
+
+    final allocatedKobo = _categoryBudgetKobo(dashboard);
+    final spendAfter = _categorySpendKobo(dashboard) + amountKobo;
+    final overBudget = allocatedKobo > 0 && spendAfter > allocatedKobo;
+    final largeAgainstBalance =
+        dashboard.balanceKobo > 0 &&
+        amountKobo >= (dashboard.balanceKobo * 0.25).round();
+
+    return overBudget || largeAgainstBalance;
+  }
+
+  String _spendingJustificationNote({
+    required int amountKobo,
+    required String justification,
+  }) {
+    final dashboard = _dashboard();
+    if (dashboard == null) return 'Caution - $justification.';
+
+    final allocatedKobo = _categoryBudgetKobo(dashboard);
+    final spendAfter = _categorySpendKobo(dashboard) + amountKobo;
+    final overBy = spendAfter - allocatedKobo;
+
+    if (allocatedKobo > 0 && overBy > 0) {
+      return 'Caution - $justification. This leaves you ${MoneyFormatter.formatKobo(overBy)} over $_category.';
+    }
+
+    return 'Approved - $justification. Kolo reviewed it against your current balance.';
+  }
+
+  int _categoryBudgetKobo(DashboardState dashboard) {
+    for (final category in dashboard.budgetPlan.categories) {
+      if (category.name == _category) return category.allocatedKobo;
+    }
+    return 0;
+  }
+
+  int _categorySpendKobo(DashboardState dashboard) {
+    return dashboard.transactions
+        .where(
+          (transaction) =>
+              transaction.type == TransactionType.expense &&
+              transaction.category == _category,
+        )
+        .fold<int>(0, (total, transaction) => total + transaction.amountKobo);
+  }
+
+  DashboardState? _dashboard() {
+    return widget.ref
+        .read(dashboardProvider)
+        .maybeWhen(data: (state) => state, orElse: () => null);
   }
 }
 

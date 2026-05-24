@@ -75,6 +75,53 @@ void main() {
     expect(find.text('-₦2,500.00'), findsOneWidget);
   });
 
+  testWidgets('manual over-budget expense stores a Kolo justification note', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Log Expense'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('transaction_amount')),
+      '20000',
+    );
+    await tester.enterText(
+      find.byKey(const Key('transaction_description')),
+      'Birthday food',
+    );
+    await tester.ensureVisible(find.byKey(const Key('save_transaction')));
+    await tester.tap(find.byKey(const Key('save_transaction')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('spending_justification_field')),
+      findsOneWidget,
+    );
+
+    await tester.enterText(
+      find.byKey(const Key('spending_justification_field')),
+      'Birthday dinner for my sister',
+    );
+    await tester.tap(find.byKey(const Key('save_spending_justification')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.receipt_long_outlined));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Birthday food'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('transaction_detail_sheet')), findsOneWidget);
+    expect(
+      find.textContaining('Birthday dinner for my sister'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('over Food & Snacks'), findsOneWidget);
+  });
+
   testWidgets('transaction history opens a detail sheet with AI context', (
     tester,
   ) async {
