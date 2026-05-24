@@ -76,30 +76,106 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                     const SizedBox(height: 20),
                     SizedBox(
                       height: 170,
-                      child: PieChart(
-                        PieChartData(
-                          centerSpaceRadius: 48,
-                          sections: [
-                            PieChartSectionData(
-                              value: summary.totalIncomeKobo.toDouble(),
-                              color: KoloColors.primary,
-                              title: 'Earned',
-                              radius: 42,
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 148,
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                PieChart(
+                                  PieChartData(
+                                    centerSpaceRadius: 45,
+                                    sections: [
+                                      PieChartSectionData(
+                                        value: summary.totalIncomeKobo
+                                            .toDouble(),
+                                        color: KoloColors.primary,
+                                        title: '',
+                                        radius: 34,
+                                      ),
+                                      PieChartSectionData(
+                                        value: summary.totalExpenseKobo
+                                            .toDouble(),
+                                        color: KoloColors.expense,
+                                        title: '',
+                                        radius: 34,
+                                      ),
+                                      PieChartSectionData(
+                                        value: summary.balanceKobo <= 0
+                                            ? 0
+                                            : summary.balanceKobo.toDouble(),
+                                        color: KoloColors.income,
+                                        title: '',
+                                        radius: 34,
+                                      ),
+                                      PieChartSectionData(
+                                        value: summary.totalSavingsKobo
+                                            .toDouble(),
+                                        color: KoloColors.warning,
+                                        title: '',
+                                        radius: 34,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      'Total Balance',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .labelSmall
+                                          ?.copyWith(
+                                            color: KoloColors.textMuted,
+                                          ),
+                                    ),
+                                    Text(
+                                      MoneyFormatter.formatKobo(
+                                        summary.balanceKobo,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        fontFamily: 'DM Mono',
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
-                            PieChartSectionData(
-                              value: summary.totalExpenseKobo.toDouble(),
-                              color: KoloColors.expense,
-                              title: 'Spent',
-                              radius: 42,
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                _AnalyticsLegendItem(
+                                  label: 'Earned',
+                                  amountKobo: summary.totalIncomeKobo,
+                                  color: KoloColors.primary,
+                                ),
+                                _AnalyticsLegendItem(
+                                  label: 'Spent',
+                                  amountKobo: summary.totalExpenseKobo,
+                                  color: KoloColors.expense,
+                                ),
+                                _AnalyticsLegendItem(
+                                  label: 'Available',
+                                  amountKobo: summary.balanceKobo,
+                                  color: KoloColors.income,
+                                ),
+                                _AnalyticsLegendItem(
+                                  label: 'Savings',
+                                  amountKobo: summary.totalSavingsKobo,
+                                  color: KoloColors.warning,
+                                ),
+                              ],
                             ),
-                            PieChartSectionData(
-                              value: summary.balanceKobo.toDouble(),
-                              color: KoloColors.income,
-                              title: 'Balance',
-                              radius: 42,
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -309,6 +385,50 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) =>
           _BudgetCategorySheet(budget: budget, category: category, ref: ref),
+    );
+  }
+}
+
+class _AnalyticsLegendItem extends StatelessWidget {
+  const _AnalyticsLegendItem({
+    required this.label,
+    required this.amountKobo,
+    required this.color,
+  });
+
+  final String label;
+  final int amountKobo;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Container(
+            height: 8,
+            width: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(label, style: Theme.of(context).textTheme.labelMedium),
+          ),
+          Flexible(
+            child: Text(
+              MoneyFormatter.formatKobo(amountKobo),
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.end,
+              style: const TextStyle(
+                fontFamily: 'DM Mono',
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -10,20 +10,42 @@ void main() {
   testWidgets('budget category cards show period transaction counts', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          dashboardProvider.overrideWith((ref) => Stream.value(_dashboard)),
-        ],
-        child: MaterialApp(theme: KoloTheme.light, home: const BudgetScreen()),
-      ),
-    );
-
-    await tester.pumpAndSettle();
+    await _pumpBudget(tester, _dashboard);
 
     expect(find.text('2 items'), findsOneWidget);
     expect(find.text('0 items'), findsOneWidget);
   });
+
+  testWidgets('budget analytics includes vault savings in the legend', (
+    tester,
+  ) async {
+    await _pumpBudget(
+      tester,
+      _dashboard.copyWith(
+        vaults: const [
+          SavingsVault(
+            id: 'vault-phone',
+            name: 'New Phone',
+            targetKobo: 18000000,
+            currentKobo: 450000,
+          ),
+        ],
+      ),
+    );
+
+    expect(find.text('Savings'), findsOneWidget);
+    expect(find.textContaining('4,500'), findsOneWidget);
+  });
+}
+
+Future<void> _pumpBudget(WidgetTester tester, DashboardState state) async {
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [dashboardProvider.overrideWith((ref) => Stream.value(state))],
+      child: MaterialApp(theme: KoloTheme.light, home: const BudgetScreen()),
+    ),
+  );
+  await tester.pumpAndSettle();
 }
 
 final _now = DateTime(2026, 5, 24, 12);
