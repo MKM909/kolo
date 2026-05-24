@@ -72,6 +72,11 @@ class ProfileScreen extends ConsumerWidget {
             ),
             _ProfileSection(
               title: 'Gig Tracker',
+              action: TextButton(
+                key: const Key('open_gig_tracker'),
+                onPressed: () => _openGigTrackerSheet(context),
+                child: const Text('Add'),
+              ),
               children: [
                 for (final gig in state.gigs)
                   _SimpleRow(
@@ -141,6 +146,16 @@ class ProfileScreen extends ConsumerWidget {
       ),
     );
   }
+
+  Future<void> _openGigTrackerSheet(BuildContext context) {
+    return showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const _GigTrackerSheet(),
+    );
+  }
 }
 
 class _PermissionRow extends StatelessWidget {
@@ -188,10 +203,15 @@ class _PermissionRow extends StatelessWidget {
 }
 
 class _ProfileSection extends StatelessWidget {
-  const _ProfileSection({required this.title, required this.children});
+  const _ProfileSection({
+    required this.title,
+    required this.children,
+    this.action,
+  });
 
   final String title;
   final List<Widget> children;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -201,11 +221,255 @@ class _ProfileSection extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                ?action,
+              ],
+            ),
             const SizedBox(height: 12),
             ...children,
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _GigTrackerSheet extends ConsumerStatefulWidget {
+  const _GigTrackerSheet();
+
+  @override
+  ConsumerState<_GigTrackerSheet> createState() => _GigTrackerSheetState();
+}
+
+class _GigTrackerSheetState extends ConsumerState<_GigTrackerSheet> {
+  final TextEditingController _clientController = TextEditingController();
+  final TextEditingController _amountController = TextEditingController();
+  final TextEditingController _projectTypeController = TextEditingController();
+  final TextEditingController _noteController = TextEditingController();
+  String? _error;
+
+  @override
+  void dispose() {
+    _clientController.dispose();
+    _amountController.dispose();
+    _projectTypeController.dispose();
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dashboard = ref.watch(dashboardProvider);
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Container(
+        key: const Key('gig_tracker_sheet'),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.82,
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+        decoration: const BoxDecoration(
+          color: Color(0xF0FFFFFF),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          boxShadow: [
+            BoxShadow(
+              color: Color(0x20000000),
+              blurRadius: 40,
+              offset: Offset(0, -8),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    height: 4,
+                    width: 42,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE5E7EB),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Gig Tracker',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 18),
+                dashboard.when(
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (error, _) => Text('Could not load gigs: $error'),
+                  data: (state) => Column(
+                    children: [
+                      for (final gig in state.gigs)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _GigCard(gig: gig),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text('New gig', style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const Key('new_gig_client'),
+                  controller: _clientController,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(labelText: 'Client'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const Key('new_gig_amount'),
+                  controller: _amountController,
+                  keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(
+                    labelText: 'Amount',
+                    prefixText: '\u20A6 ',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const Key('new_gig_project_type'),
+                  controller: _projectTypeController,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(labelText: 'Project type'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _noteController,
+                  decoration: const InputDecoration(labelText: 'Note'),
+                ),
+                if (_error != null) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    _error!,
+                    style: const TextStyle(color: KoloColors.expense),
+                  ),
+                ],
+                const SizedBox(height: 18),
+                ElevatedButton(
+                  key: const Key('save_new_gig'),
+                  onPressed: _save,
+                  child: const Text('Save gig'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _save() async {
+    final client = _clientController.text.trim();
+    final amountKobo = MoneyFormatter.parseNairaToKobo(
+      _amountController.text.trim(),
+    );
+    final projectType = _projectTypeController.text.trim();
+
+    if (client.isEmpty || amountKobo == null || amountKobo <= 0) {
+      setState(() => _error = 'Enter a client and amount.');
+      return;
+    }
+
+    final now = DateTime.now();
+    await ref
+        .read(koloRepositoryProvider)
+        .upsertGig(
+          GigRecord(
+            id: 'gig-${now.microsecondsSinceEpoch}',
+            client: client,
+            amountKobo: amountKobo,
+            date: now,
+            projectType: projectType.isEmpty ? 'Gig' : projectType,
+            note: _noteController.text.trim().isEmpty
+                ? null
+                : _noteController.text.trim(),
+          ),
+        );
+    _clientController.clear();
+    _amountController.clear();
+    _projectTypeController.clear();
+    _noteController.clear();
+    if (mounted) setState(() => _error = null);
+  }
+}
+
+class _GigCard extends StatelessWidget {
+  const _GigCard({required this.gig});
+
+  final GigRecord gig;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 20,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            height: 40,
+            width: 40,
+            decoration: BoxDecoration(
+              color: KoloColors.primaryPastel,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.work_outline, color: KoloColors.primary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  gig.client,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  gig.projectType,
+                  style: Theme.of(context).textTheme.labelMedium,
+                ),
+              ],
+            ),
+          ),
+          Text(
+            MoneyFormatter.formatKobo(gig.amountKobo),
+            style: const TextStyle(
+              color: KoloColors.income,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
       ),
     );
   }

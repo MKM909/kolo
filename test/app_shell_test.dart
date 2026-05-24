@@ -223,6 +223,44 @@ void main() {
     expect(find.text('Settled'), findsOneWidget);
   });
 
+  testWidgets('profile gig tracker logs a new gig', (tester) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.person_outline));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Gig Tracker'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const Key('open_gig_tracker')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('gig_tracker_sheet')), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('new_gig_client')),
+      'Muna Foods',
+    );
+    await tester.enterText(find.byKey(const Key('new_gig_amount')), '90000');
+    await tester.enterText(
+      find.byKey(const Key('new_gig_project_type')),
+      'Brand kit',
+    );
+    await tester.ensureVisible(find.byKey(const Key('save_new_gig')));
+    await tester.tap(find.byKey(const Key('save_new_gig')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Muna Foods'), findsWidgets);
+    expect(find.text('Brand kit'), findsOneWidget);
+    expect(
+      find.textContaining(MoneyFormatter.formatKobo(9000000)),
+      findsWidgets,
+    );
+  });
+
   testWidgets('profile can grant a permission from locked state', (
     tester,
   ) async {
