@@ -257,6 +257,29 @@ class FakeKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<void> upsertOwing(Owing owing) async {
+    final otherOwings = _state.owings
+        .where((existing) => existing.id != owing.id)
+        .toList(growable: false);
+    _state = _state.copyWith(
+      owings: [owing, ...otherOwings],
+      aiMessages: [
+        AiMessage(
+          id: 'ai-${owing.id}-${DateTime.now().microsecondsSinceEpoch}',
+          role: AiRole.assistant,
+          content: owing.settled
+              ? '${owing.person} is marked settled.'
+              : '${owing.person} noted for ${MoneyFormatter.formatKobo(owing.amountKobo)}.',
+          timestamp: DateTime.now(),
+          context: 'owing',
+        ),
+        ..._state.aiMessages,
+      ],
+    );
+    _controller.add(_state);
+  }
+
+  @override
   Future<void> logTransaction(TransactionRecord transaction) async {
     final updatedTransactions = [transaction, ..._state.transactions];
     _state = _state.copyWith(

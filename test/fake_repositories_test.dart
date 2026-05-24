@@ -81,6 +81,45 @@ void main() {
     expect(dashboard.aiMessages.first.context, 'vault');
   });
 
+  test('fake repository creates and updates owings', () async {
+    final repository = FakeKoloRepository.seeded();
+
+    await repository.upsertOwing(
+      Owing(
+        id: 'owing-sade',
+        type: OwingType.theyOweMe,
+        person: 'Sade',
+        amountKobo: 1200000,
+        date: DateTime(2026, 5, 24),
+        note: 'Design deposit',
+      ),
+    );
+
+    var dashboard = await repository.watchDashboard().first;
+    expect(dashboard.owings.first.person, 'Sade');
+    expect(dashboard.owings.first.settled, isFalse);
+
+    await repository.upsertOwing(
+      Owing(
+        id: 'owing-sade',
+        type: OwingType.theyOweMe,
+        person: 'Sade',
+        amountKobo: 1200000,
+        date: DateTime(2026, 5, 24),
+        settled: true,
+        note: 'Design deposit',
+      ),
+    );
+
+    dashboard = await repository.watchDashboard().first;
+    expect(dashboard.owings.first.settled, isTrue);
+    expect(
+      dashboard.owings.where((owing) => owing.id == 'owing-sade'),
+      hasLength(1),
+    );
+    expect(dashboard.aiMessages.first.context, 'owing');
+  });
+
   test('fake AI returns an onboarding budget and stores messages', () async {
     final repository = FakeKoloRepository.seeded();
 

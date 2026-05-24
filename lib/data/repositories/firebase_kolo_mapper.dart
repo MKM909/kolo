@@ -73,6 +73,20 @@ class FirebaseKoloMapper {
     };
   }
 
+  static Map<String, Object?> owingToJson(Owing owing) {
+    return {
+      'type': owing.type.name,
+      'person': owing.person,
+      'amountKobo': owing.amountKobo,
+      'date': Timestamp.fromDate(owing.date),
+      'settled': owing.settled,
+      'note': owing.note,
+      'dueDate': owing.dueDate == null
+          ? null
+          : Timestamp.fromDate(owing.dueDate!),
+    };
+  }
+
   static Map<String, Object?> aiMessageToJson(AiMessage message) {
     return {
       'role': message.role.name,

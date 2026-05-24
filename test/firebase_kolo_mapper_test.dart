@@ -148,4 +148,26 @@ void main() {
     expect(payload['currentKobo'], 750000);
     expect((payload['deadline'] as Timestamp).toDate(), deadline);
   });
+
+  test('serializes owings for Firebase persistence', () {
+    final date = DateTime(2026, 5, 24);
+
+    final payload = FirebaseKoloMapper.owingToJson(
+      Owing(
+        id: 'owing-sade',
+        type: OwingType.theyOweMe,
+        person: 'Sade',
+        amountKobo: 1200000,
+        date: date,
+        settled: true,
+        note: 'Design deposit',
+      ),
+    );
+
+    expect(payload['type'], 'theyOweMe');
+    expect(payload['person'], 'Sade');
+    expect(payload['amountKobo'], 1200000);
+    expect(payload['settled'], isTrue);
+    expect((payload['date'] as Timestamp).toDate(), date);
+  });
 }

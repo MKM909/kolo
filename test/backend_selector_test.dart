@@ -60,6 +60,11 @@ class _StubRepository implements KoloRepository {
   }
 
   @override
+  Future<void> upsertOwing(Owing owing) {
+    throw UnimplementedError();
+  }
+
+  @override
   Future<BudgetPlan> completeOnboarding(OnboardingAnswers answers) {
     throw UnimplementedError();
   }
