@@ -109,9 +109,7 @@ class _KoloFloatingAssistantState extends ConsumerState<KoloFloatingAssistant> {
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  const KoloLiquidAetherOrb(
-                    key: Key('kolo_liquid_aether_orb'),
-                  ),
+                  const KoloLiquidAetherOrb(key: Key('kolo_liquid_aether_orb')),
                   if (balanceIsNegative)
                     Positioned(
                       right: 2,
@@ -153,6 +151,12 @@ class _FloatingConversationPanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dashboard = ref.watch(dashboardProvider);
+    void sendPrompt(String text) {
+      controller.text = text;
+      controller.selection = TextSelection.collapsed(offset: text.length);
+      onSend();
+    }
+
     return Align(
       key: const Key('kolo_floating_assistant'),
       alignment: Alignment.bottomRight,
@@ -228,6 +232,13 @@ class _FloatingConversationPanel extends ConsumerWidget {
                         data: (state) =>
                             _FloatingMessageList(messages: state.aiMessages),
                       ),
+                    ),
+                    _FloatingQuickActions(
+                      onDismiss: onClose,
+                      onLogIt: () =>
+                          sendPrompt('Help me log this transaction.'),
+                      onTellMore: () =>
+                          sendPrompt('Tell me more about this money check.'),
                     ),
                     _FloatingInput(
                       controller: controller,
@@ -434,6 +445,85 @@ class _AssistantBubbleShell extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _FloatingQuickActions extends StatelessWidget {
+  const _FloatingQuickActions({
+    required this.onDismiss,
+    required this.onLogIt,
+    required this.onTellMore,
+  });
+
+  final VoidCallback onDismiss;
+  final VoidCallback onLogIt;
+  final VoidCallback onTellMore;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 2),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.64),
+        border: const Border(top: BorderSide(color: Color(0xFFEDE9FE))),
+      ),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: [
+          _FloatingQuickActionButton(
+            key: const Key('kolo_quick_dismiss'),
+            icon: Icons.close_rounded,
+            label: 'Dismiss',
+            onPressed: onDismiss,
+          ),
+          _FloatingQuickActionButton(
+            key: const Key('kolo_quick_log_it'),
+            icon: Icons.add_circle_outline,
+            label: 'Log it',
+            onPressed: onLogIt,
+          ),
+          _FloatingQuickActionButton(
+            key: const Key('kolo_quick_tell_more'),
+            icon: Icons.info_outline,
+            label: 'Tell me more',
+            onPressed: onTellMore,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FloatingQuickActionButton extends StatelessWidget {
+  const _FloatingQuickActionButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    super.key,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 16),
+      label: Text(label),
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(0, 34),
+        foregroundColor: KoloColors.primary,
+        side: const BorderSide(color: Color(0xFFEDE9FE)),
+        padding: const EdgeInsets.symmetric(horizontal: 9),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+        visualDensity: VisualDensity.compact,
       ),
     );
   }

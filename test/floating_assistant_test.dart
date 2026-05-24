@@ -44,6 +44,21 @@ void main() {
     },
   );
 
+  testWidgets('floating assistant quick actions send suggested prompts', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('kolo_liquid_aether_orb')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('kolo_quick_tell_more')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tell me more about this money check.'), findsOneWidget);
+  });
+
   testWidgets('floating assistant warns when balance is negative', (
     tester,
   ) async {
@@ -63,10 +78,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(
-      find.text("Your balance is in the red, let's talk"),
-      findsOneWidget,
-    );
+    expect(find.text("Your balance is in the red, let's talk"), findsOneWidget);
     expect(find.byKey(const Key('kolo_assistant_alert_badge')), findsOneWidget);
   });
 
