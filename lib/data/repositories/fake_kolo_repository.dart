@@ -259,6 +259,28 @@ class FakeKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<void> deleteVault(String vaultId) async {
+    final vault = _state.vaults.where((item) => item.id == vaultId).firstOrNull;
+    _state = _state.copyWith(
+      vaults: _state.vaults
+          .where((existing) => existing.id != vaultId)
+          .toList(growable: false),
+      aiMessages: [
+        if (vault != null)
+          AiMessage(
+            id: 'ai-$vaultId-${DateTime.now().microsecondsSinceEpoch}',
+            role: AiRole.assistant,
+            content: '${vault.name} was removed from protected funds.',
+            timestamp: DateTime.now(),
+            context: 'vault',
+          ),
+        ..._state.aiMessages,
+      ],
+    );
+    _controller.add(_state);
+  }
+
+  @override
   Future<void> upsertOwing(Owing owing) async {
     final otherOwings = _state.owings
         .where((existing) => existing.id != owing.id)

@@ -5,6 +5,7 @@ abstract class KoloRepository {
   Stream<DashboardState> watchDashboard();
   Future<void> adjustBalance(BalanceAdjustment adjustment);
   Future<void> upsertVault(SavingsVault vault);
+  Future<void> deleteVault(String vaultId);
   Future<void> upsertOwing(Owing owing);
   Future<void> upsertGig(GigRecord gig);
   Future<void> upsertBill(BillReminder bill);

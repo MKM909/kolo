@@ -125,6 +125,11 @@ class _RecordingKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<void> deleteVault(String vaultId) {
+    throw UnimplementedError();
+  }
+
+  @override
   Future<void> upsertOwing(Owing owing) {
     throw UnimplementedError();
   }

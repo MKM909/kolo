@@ -140,6 +140,9 @@ class _FailingChatRepository implements KoloRepository {
   Future<void> upsertVault(SavingsVault vault) async {}
 
   @override
+  Future<void> deleteVault(String vaultId) async {}
+
+  @override
   Future<void> upsertWatchedApp(WatchedApp app) async {}
 }
 

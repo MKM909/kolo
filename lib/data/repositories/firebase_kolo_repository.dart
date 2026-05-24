@@ -98,6 +98,11 @@ class FirebaseKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<void> deleteVault(String vaultId) async {
+    await _userDoc.collection('vaults').doc(vaultId).delete();
+  }
+
+  @override
   Future<void> upsertOwing(Owing owing) async {
     await _userDoc.collection('owings').doc(owing.id).set({
       ...FirebaseKoloMapper.owingToJson(owing),

@@ -105,6 +105,20 @@ void main() {
     expect(dashboard.aiMessages.first.context, 'vault');
   });
 
+  test('fake repository deletes savings vaults', () async {
+    final repository = FakeKoloRepository.seeded();
+
+    await repository.deleteVault('vault-phone');
+
+    final dashboard = await repository.watchDashboard().first;
+    expect(
+      dashboard.vaults.where((vault) => vault.id == 'vault-phone'),
+      isEmpty,
+    );
+    expect(dashboard.aiMessages.first.context, 'vault');
+    expect(dashboard.aiMessages.first.content, contains('removed'));
+  });
+
   test('fake repository creates and updates owings', () async {
     final repository = FakeKoloRepository.seeded();
 
