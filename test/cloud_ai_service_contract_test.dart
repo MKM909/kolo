@@ -21,7 +21,7 @@ void main() {
     }
 
     expect(source, contains('Future<String> interventionMessage'));
-    expect(source, contains('Future<TransactionDraft> categorizeTransaction'));
+    expect(source, contains('Future<TransactionDraft?> categorizeTransaction'));
     expect(source, contains('Future<String> draftReminder'));
     expect(source, contains('Future<WeeklyInsight> analyzeSpending'));
   });
@@ -38,5 +38,30 @@ void main() {
 
     expect(source, contains('on Object catch'));
     expect(source, contains('AiFailureMessage.chat'));
+  });
+
+  test('CloudAiService has typed fallbacks for every Gemini callable', () {
+    expect(
+      AiFailureMessage.intervention,
+      'Pause and check your Kolo balance before spending.',
+    );
+    expect(
+      AiFailureMessage.reminder,
+      'Gentle reminder about the money we noted in Kolo.',
+    );
+
+    final source = File(
+      'lib/data/services/cloud_ai_service.dart',
+    ).readAsStringSync();
+
+    for (final marker in [
+      'return _fallbackBudget(answers);',
+      'return AiFailureMessage.intervention;',
+      'return null;',
+      'return _fallbackReminder(owing);',
+      'return _fallbackInsight();',
+    ]) {
+      expect(source, contains(marker));
+    }
   });
 }

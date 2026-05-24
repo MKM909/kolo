@@ -28,73 +28,92 @@ class CloudAiService
   }
 
   Future<BudgetPlan> generateBudget(OnboardingAnswers answers) async {
-    final callable = _functions.httpsCallable('generateBudget');
-    final response = await callable.call<Map<String, dynamic>>({
-      'answers': {
-        'incomeSource': answers.incomeSource,
-        'incomeFrequency': answers.incomeFrequency,
-        'currentBalanceKobo': answers.currentBalanceKobo,
-        'biggestProblem': answers.biggestProblem,
-        'savingsGoal': answers.savingsGoal,
-      },
-    });
-    return _budgetFromPayload(response.data);
+    try {
+      final callable = _functions.httpsCallable('generateBudget');
+      final response = await callable.call<Map<String, dynamic>>({
+        'answers': {
+          'incomeSource': answers.incomeSource,
+          'incomeFrequency': answers.incomeFrequency,
+          'currentBalanceKobo': answers.currentBalanceKobo,
+          'biggestProblem': answers.biggestProblem,
+          'savingsGoal': answers.savingsGoal,
+        },
+      });
+      return _budgetFromPayload(response.data);
+    } on Object catch (_) {
+      return _fallbackBudget(answers);
+    }
   }
 
   @override
   Future<String> interventionMessage({required DashboardState context}) async {
-    final callable = _functions.httpsCallable('interventionMessage');
-    final response = await callable.call<Map<String, dynamic>>({
-      'context': _contextPayload(context),
-    });
-    return response.data['content'] as String? ??
-        'Pause and check your Kolo balance before spending.';
+    try {
+      final callable = _functions.httpsCallable('interventionMessage');
+      final response = await callable.call<Map<String, dynamic>>({
+        'context': _contextPayload(context),
+      });
+      return response.data['content'] as String? ??
+          AiFailureMessage.intervention;
+    } on Object catch (_) {
+      return AiFailureMessage.intervention;
+    }
   }
 
   @override
-  Future<TransactionDraft> categorizeTransaction({
+  Future<TransactionDraft?> categorizeTransaction({
     required String rawText,
     required TransactionSource source,
     required DashboardState context,
   }) async {
-    final callable = _functions.httpsCallable('categorizeTransaction');
-    final response = await callable.call<Map<String, dynamic>>({
-      'rawText': rawText,
-      'source': source.name,
-      'context': _contextPayload(context),
-    });
-    return _transactionDraftFromPayload(
-      rawText: rawText,
-      source: source,
-      payload: response.data,
-    );
+    try {
+      final callable = _functions.httpsCallable('categorizeTransaction');
+      final response = await callable.call<Map<String, dynamic>>({
+        'rawText': rawText,
+        'source': source.name,
+        'context': _contextPayload(context),
+      });
+      return _transactionDraftFromPayload(
+        rawText: rawText,
+        source: source,
+        payload: response.data,
+      );
+    } on Object catch (_) {
+      return null;
+    }
   }
 
   Future<String> draftReminder({
     required Owing owing,
     required DashboardState context,
   }) async {
-    final callable = _functions.httpsCallable('draftReminder');
-    final response = await callable.call<Map<String, dynamic>>({
-      'owing': {
-        'person': owing.person,
-        'amountKobo': owing.amountKobo,
-        'note': owing.note,
-      },
-      'context': _contextPayload(context),
-    });
-    return response.data['message'] as String? ??
-        'Gentle reminder about the money we noted in Kolo.';
+    try {
+      final callable = _functions.httpsCallable('draftReminder');
+      final response = await callable.call<Map<String, dynamic>>({
+        'owing': {
+          'person': owing.person,
+          'amountKobo': owing.amountKobo,
+          'note': owing.note,
+        },
+        'context': _contextPayload(context),
+      });
+      return response.data['message'] as String? ?? _fallbackReminder(owing);
+    } on Object catch (_) {
+      return _fallbackReminder(owing);
+    }
   }
 
   Future<WeeklyInsight> analyzeSpending({
     required DashboardState context,
   }) async {
-    final callable = _functions.httpsCallable('analyzeSpending');
-    final response = await callable.call<Map<String, dynamic>>({
-      'context': _contextPayload(context),
-    });
-    return _weeklyInsightFromPayload(response.data);
+    try {
+      final callable = _functions.httpsCallable('analyzeSpending');
+      final response = await callable.call<Map<String, dynamic>>({
+        'context': _contextPayload(context),
+      });
+      return _weeklyInsightFromPayload(response.data);
+    } on Object catch (_) {
+      return _fallbackInsight();
+    }
   }
 
   Map<String, Object?> _contextPayload(DashboardState state) {
@@ -202,5 +221,59 @@ class CloudAiService
       final num amount => amount.toInt(),
       _ => 0,
     };
+  }
+
+  BudgetPlan _fallbackBudget(OnboardingAnswers answers) {
+    final balance = answers.currentBalanceKobo;
+    return BudgetPlan(
+      monthlyIncomeKobo: (balance * 2.4).round(),
+      incomeType: answers.incomeFrequency.toLowerCase().contains('regular')
+          ? 'regular'
+          : 'irregular',
+      categories: [
+        BudgetCategory(
+          name: 'Food & Snacks',
+          emoji: '*',
+          allocatedKobo: (balance * 0.28).round(),
+          priority: 1,
+        ),
+        BudgetCategory(
+          name: 'Transport',
+          emoji: '*',
+          allocatedKobo: (balance * 0.16).round(),
+          priority: 2,
+        ),
+        BudgetCategory(
+          name: 'Data & Airtime',
+          emoji: '*',
+          allocatedKobo: (balance * 0.10).round(),
+          priority: 3,
+        ),
+        BudgetCategory(
+          name: 'Savings',
+          emoji: '*',
+          allocatedKobo: (balance * 0.25).round(),
+          priority: 0,
+        ),
+      ],
+      savingsTargetKobo: (balance * 0.25).round(),
+      savingsGoal: answers.savingsGoal ?? 'Emergency buffer',
+      aiNotes:
+          'Kolo used a local fallback plan because Gemini was unavailable.',
+    );
+  }
+
+  String _fallbackReminder(Owing owing) {
+    return '${AiFailureMessage.reminder} ${owing.person}, please send it when you can.';
+  }
+
+  WeeklyInsight _fallbackInsight() {
+    return WeeklyInsight(
+      id: 'ai-insight-fallback-${DateTime.now().microsecondsSinceEpoch}',
+      title: 'Kolo needs a moment',
+      body:
+          'Kolo could not analyze spending right now. Try again when the connection settles.',
+      createdAt: DateTime.now(),
+    );
   }
 }
