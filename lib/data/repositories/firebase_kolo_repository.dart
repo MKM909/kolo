@@ -271,7 +271,21 @@ class FirebaseKoloRepository implements KoloRepository {
   @override
   Future<BudgetPlan> completeOnboarding(OnboardingAnswers answers) async {
     final budget = await _aiService.generateBudget(answers);
-    await _userDoc.set({
+    final now = DateTime.now();
+    final messageDoc = _userDoc
+        .collection('aiMessages')
+        .doc('onboarding-${now.microsecondsSinceEpoch}');
+    final onboardingMessage = AiMessage(
+      id: messageDoc.id,
+      role: AiRole.assistant,
+      content:
+          'Your first Kolo budget is ready. I kept ${answers.biggestProblem.toLowerCase()} in view and protected ${budget.savingsGoal}.',
+      timestamp: now,
+      context: 'onboarding',
+    );
+
+    final batch = _firestore.batch();
+    batch.set(_userDoc, {
       'balanceKobo': answers.currentBalanceKobo,
       'onboardingAnswers': {
         'incomeSource': answers.incomeSource,
@@ -284,6 +298,11 @@ class FirebaseKoloRepository implements KoloRepository {
       'onboardingComplete': true,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+    batch.set(messageDoc, {
+      ...FirebaseKoloMapper.aiMessageToJson(onboardingMessage),
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    await batch.commit();
     return budget;
   }
 

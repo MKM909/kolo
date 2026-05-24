@@ -18,4 +18,15 @@ void main() {
     expect(source, contains('if (existingTransaction.exists) return;'));
     expect(source, contains('dbTransaction.set(transactionDoc'));
   });
+
+  test('Firebase onboarding stores AI context message', () {
+    final source = File(
+      'lib/data/repositories/firebase_kolo_repository.dart',
+    ).readAsStringSync();
+
+    expect(source, contains("context: 'onboarding'"));
+    expect(source, contains(".collection('aiMessages')"));
+    expect(source, contains('FirebaseKoloMapper.aiMessageToJson'));
+    expect(source, contains('Your first Kolo budget is ready'));
+  });
 }
