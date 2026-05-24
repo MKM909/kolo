@@ -87,6 +87,16 @@ class FirebaseKoloMapper {
     };
   }
 
+  static Map<String, Object?> gigToJson(GigRecord gig) {
+    return {
+      'client': gig.client,
+      'amountKobo': gig.amountKobo,
+      'date': Timestamp.fromDate(gig.date),
+      'projectType': gig.projectType,
+      'note': gig.note,
+    };
+  }
+
   static Map<String, Object?> aiMessageToJson(AiMessage message) {
     return {
       'role': message.role.name,

@@ -120,6 +120,41 @@ void main() {
     expect(dashboard.aiMessages.first.context, 'owing');
   });
 
+  test('fake repository creates and updates gig records', () async {
+    final repository = FakeKoloRepository.seeded();
+
+    await repository.upsertGig(
+      GigRecord(
+        id: 'gig-brand',
+        client: 'Muna Foods',
+        amountKobo: 8500000,
+        date: DateTime(2026, 5, 24),
+        projectType: 'Brand kit',
+        note: 'Half paid upfront',
+      ),
+    );
+
+    var dashboard = await repository.watchDashboard().first;
+    expect(dashboard.gigs.first.client, 'Muna Foods');
+    expect(dashboard.gigs.first.projectType, 'Brand kit');
+
+    await repository.upsertGig(
+      GigRecord(
+        id: 'gig-brand',
+        client: 'Muna Foods',
+        amountKobo: 9000000,
+        date: DateTime(2026, 5, 24),
+        projectType: 'Brand kit',
+        note: 'Added social templates',
+      ),
+    );
+
+    dashboard = await repository.watchDashboard().first;
+    expect(dashboard.gigs.first.amountKobo, 9000000);
+    expect(dashboard.gigs.where((gig) => gig.id == 'gig-brand'), hasLength(1));
+    expect(dashboard.aiMessages.first.context, 'gig');
+  });
+
   test('fake AI returns an onboarding budget and stores messages', () async {
     final repository = FakeKoloRepository.seeded();
 

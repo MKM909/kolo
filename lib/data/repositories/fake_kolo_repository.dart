@@ -280,6 +280,28 @@ class FakeKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<void> upsertGig(GigRecord gig) async {
+    final otherGigs = _state.gigs
+        .where((existing) => existing.id != gig.id)
+        .toList(growable: false);
+    _state = _state.copyWith(
+      gigs: [gig, ...otherGigs],
+      aiMessages: [
+        AiMessage(
+          id: 'ai-${gig.id}-${DateTime.now().microsecondsSinceEpoch}',
+          role: AiRole.assistant,
+          content:
+              '${gig.client} gig logged for ${MoneyFormatter.formatKobo(gig.amountKobo)}. I will keep it visible in your income pattern.',
+          timestamp: DateTime.now(),
+          context: 'gig',
+        ),
+        ..._state.aiMessages,
+      ],
+    );
+    _controller.add(_state);
+  }
+
+  @override
   Future<void> logTransaction(TransactionRecord transaction) async {
     final updatedTransactions = [transaction, ..._state.transactions];
     _state = _state.copyWith(

@@ -104,6 +104,14 @@ class FirebaseKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<void> upsertGig(GigRecord gig) async {
+    await _userDoc.collection('gigs').doc(gig.id).set({
+      ...FirebaseKoloMapper.gigToJson(gig),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  @override
   Future<void> logTransaction(TransactionRecord transaction) async {
     await _userDoc.collection('transactions').doc(transaction.id).set({
       ...FirebaseKoloMapper.transactionToJson(transaction),

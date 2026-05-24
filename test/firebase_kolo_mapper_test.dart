@@ -170,4 +170,25 @@ void main() {
     expect(payload['settled'], isTrue);
     expect((payload['date'] as Timestamp).toDate(), date);
   });
+
+  test('serializes gig records for Firebase persistence', () {
+    final date = DateTime(2026, 5, 24);
+
+    final payload = FirebaseKoloMapper.gigToJson(
+      GigRecord(
+        id: 'gig-brand',
+        client: 'Muna Foods',
+        amountKobo: 9000000,
+        date: date,
+        projectType: 'Brand kit',
+        note: 'Added social templates',
+      ),
+    );
+
+    expect(payload['client'], 'Muna Foods');
+    expect(payload['amountKobo'], 9000000);
+    expect(payload['projectType'], 'Brand kit');
+    expect(payload['note'], 'Added social templates');
+    expect((payload['date'] as Timestamp).toDate(), date);
+  });
 }
