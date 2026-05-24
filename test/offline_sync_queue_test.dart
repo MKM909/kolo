@@ -49,4 +49,23 @@ void main() {
     expect(synced, 0);
     expect(pending.single.id, 'sync-throws');
   });
+
+  test('pending operations survive queue recreation with the same store', () async {
+    final store = MemoryOfflineSyncStore();
+    final firstQueue = OfflineSyncQueue(store: store);
+    await firstQueue.enqueue(
+      PendingSyncOperation(
+        id: 'sync-persisted',
+        kind: 'transaction',
+        payload: const {'amountKobo': 250000},
+        createdAt: DateTime(2026, 5, 24),
+      ),
+    );
+
+    final secondQueue = OfflineSyncQueue(store: store);
+    final pending = await secondQueue.watchPendingOperations().first;
+
+    expect(pending.single.id, 'sync-persisted');
+    expect(pending.single.payload['amountKobo'], 250000);
+  });
 }
