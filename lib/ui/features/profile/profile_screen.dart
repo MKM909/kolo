@@ -194,6 +194,40 @@ class ProfileScreen extends ConsumerWidget {
                   ),
               ],
             ),
+            _ProfileSection(
+              title: 'About Kolo',
+              children: const [
+                _SimpleRow(
+                  icon: Icons.info_outline,
+                  label: 'Kolo v1',
+                  value: 'Android-first',
+                  color: KoloColors.primary,
+                ),
+              ],
+            ),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                key: const Key('profile_sign_out'),
+                onPressed: () async {
+                  await ref.read(authRepositoryProvider).signOut();
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Signed out of Kolo.')),
+                  );
+                },
+                icon: const Icon(Icons.logout),
+                label: const Text('Sign out'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: KoloColors.expense,
+                  side: const BorderSide(color: KoloColors.expense),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
+            ),
           ],
         ),
       ),
