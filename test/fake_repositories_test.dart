@@ -304,6 +304,18 @@ void main() {
     expect(dashboard.aiMessages.first.context, 'watched_app');
   });
 
+  test(
+    'fake repository stores the preferred Gemini model on the profile',
+    () async {
+      final repository = FakeKoloRepository.seeded();
+
+      await repository.updatePreferredAiModel('gemini-3.1-flash');
+      final dashboard = await repository.watchDashboard().first;
+
+      expect(dashboard.profile.preferredAiModel, 'gemini-3.1-flash');
+    },
+  );
+
   test('fake AI returns an onboarding budget and stores messages', () async {
     final repository = FakeKoloRepository.seeded();
 

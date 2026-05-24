@@ -1,3 +1,5 @@
+import 'package:kolo/domain/services/ai_model_config.dart';
+
 enum TransactionType { income, expense }
 
 enum TransactionSource { sms, notification, manual, watchedApp }
@@ -26,6 +28,7 @@ class UserProfile {
     required this.createdAt,
     this.onboardingComplete = false,
     this.avatarUrl,
+    this.preferredAiModel = defaultGeminiModelName,
   });
 
   final String uid;
@@ -34,6 +37,27 @@ class UserProfile {
   final DateTime createdAt;
   final bool onboardingComplete;
   final String? avatarUrl;
+  final String preferredAiModel;
+
+  UserProfile copyWith({
+    String? uid,
+    String? name,
+    String? email,
+    DateTime? createdAt,
+    bool? onboardingComplete,
+    String? avatarUrl,
+    String? preferredAiModel,
+  }) {
+    return UserProfile(
+      uid: uid ?? this.uid,
+      name: name ?? this.name,
+      email: email ?? this.email,
+      createdAt: createdAt ?? this.createdAt,
+      onboardingComplete: onboardingComplete ?? this.onboardingComplete,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+      preferredAiModel: preferredAiModel ?? this.preferredAiModel,
+    );
+  }
 }
 
 class OnboardingAnswers {

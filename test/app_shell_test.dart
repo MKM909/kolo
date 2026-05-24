@@ -86,6 +86,31 @@ void main() {
     expect(find.text(customPrompt), findsNothing);
   });
 
+  testWidgets('profile menu changes the Kolo AI model', (tester) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.person_outline));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Kolo AI Model'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    expect(find.text('Gemini 3.1 Flash Lite'), findsOneWidget);
+
+    await tester.ensureVisible(find.byKey(const Key('open_ai_model_settings')));
+    await tester.tap(find.byKey(const Key('open_ai_model_settings')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('ai_model_settings_sheet')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('ai_model_option_gemini_3_1_flash')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Gemini 3.1 Flash'), findsWidgets);
+  });
+
   testWidgets('manual expense logging updates the dashboard', (tester) async {
     await tester.pumpWidget(const KoloApp());
     await tester.pumpAndSettle();

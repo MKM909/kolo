@@ -15,6 +15,7 @@ void main() {
         'email': 'micah@example.com',
         'createdAt': Timestamp.fromDate(createdAt),
         'onboardingComplete': true,
+        'preferredAiModel': 'gemini-3.1-flash',
         'balanceKobo': 1234500,
         'budgetPlan': {
           'monthlyIncomeKobo': 5000000,
@@ -85,6 +86,7 @@ void main() {
     expect(state.profile.uid, 'user-123');
     expect(state.profile.name, 'Micah');
     expect(state.profile.createdAt, createdAt);
+    expect(state.profile.preferredAiModel, 'gemini-3.1-flash');
     expect(state.balanceKobo, 1234500);
     expect(state.balanceAdjustments.single.deltaKobo, 234500);
     expect(state.budgetPlan.savingsGoal, 'Laptop');
@@ -125,6 +127,7 @@ void main() {
     expect(state.profile.uid, 'new-user');
     expect(state.profile.name, 'Kolo User');
     expect(state.profile.onboardingComplete, isFalse);
+    expect(state.profile.preferredAiModel, 'gemini-3.1-flash-lite');
     expect(state.balanceKobo, 0);
     expect(state.budgetPlan.categories, isNotEmpty);
     expect(state.permissions.length, KoloPermission.values.length);

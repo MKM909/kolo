@@ -2,25 +2,31 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/services/ai_context_builder.dart';
 import 'package:kolo/domain/services/ai_failure_message.dart';
+import 'package:kolo/domain/services/ai_model_config.dart';
 import 'package:kolo/domain/services/spending_intervention_advisor.dart';
 import 'package:kolo/domain/services/transaction_categorizer.dart';
 
 class CloudAiService
     implements TransactionCategorizer, SpendingInterventionAdvisor {
-  CloudAiService({FirebaseFunctions? functions})
-    : _functions = functions ?? FirebaseFunctions.instance;
+  CloudAiService({
+    FirebaseFunctions? functions,
+    this.modelName = defaultGeminiModelName,
+  }) : _functions = functions ?? FirebaseFunctions.instance;
 
   final FirebaseFunctions _functions;
+  final String modelName;
 
   Future<String> chatWithKolo({
     required String message,
     required DashboardState context,
+    String? modelName,
   }) async {
     try {
       final callable = _functions.httpsCallable('chatWithKolo');
       final response = await callable.call<Map<String, dynamic>>({
         'message': message,
         'context': _contextPayload(context),
+        'model': _resolvedModel(modelName),
       });
       return response.data['content'] as String? ?? AiFailureMessage.chat;
     } on Object catch (_) {
@@ -28,7 +34,10 @@ class CloudAiService
     }
   }
 
-  Future<BudgetPlan> generateBudget(OnboardingAnswers answers) async {
+  Future<BudgetPlan> generateBudget(
+    OnboardingAnswers answers, {
+    String? modelName,
+  }) async {
     try {
       final callable = _functions.httpsCallable('generateBudget');
       final response = await callable.call<Map<String, dynamic>>({
@@ -39,6 +48,7 @@ class CloudAiService
           'biggestProblem': answers.biggestProblem,
           'savingsGoal': answers.savingsGoal,
         },
+        'model': _resolvedModel(modelName),
       });
       return _budgetFromPayload(response.data);
     } on Object catch (_) {
@@ -47,11 +57,15 @@ class CloudAiService
   }
 
   @override
-  Future<String> interventionMessage({required DashboardState context}) async {
+  Future<String> interventionMessage({
+    required DashboardState context,
+    String? modelName,
+  }) async {
     try {
       final callable = _functions.httpsCallable('interventionMessage');
       final response = await callable.call<Map<String, dynamic>>({
         'context': _contextPayload(context),
+        'model': _resolvedModel(modelName),
       });
       return response.data['content'] as String? ??
           AiFailureMessage.intervention;
@@ -65,6 +79,7 @@ class CloudAiService
     required String rawText,
     required TransactionSource source,
     required DashboardState context,
+    String? modelName,
   }) async {
     try {
       final callable = _functions.httpsCallable('categorizeTransaction');
@@ -72,6 +87,7 @@ class CloudAiService
         'rawText': rawText,
         'source': source.name,
         'context': _contextPayload(context),
+        'model': _resolvedModel(modelName),
       });
       return _transactionDraftFromPayload(
         rawText: rawText,
@@ -86,6 +102,7 @@ class CloudAiService
   Future<String> draftReminder({
     required Owing owing,
     required DashboardState context,
+    String? modelName,
   }) async {
     try {
       final callable = _functions.httpsCallable('draftReminder');
@@ -96,6 +113,7 @@ class CloudAiService
           'note': owing.note,
         },
         'context': _contextPayload(context),
+        'model': _resolvedModel(modelName),
       });
       return response.data['message'] as String? ?? _fallbackReminder(owing);
     } on Object catch (_) {
@@ -105,11 +123,13 @@ class CloudAiService
 
   Future<WeeklyInsight> analyzeSpending({
     required DashboardState context,
+    String? modelName,
   }) async {
     try {
       final callable = _functions.httpsCallable('analyzeSpending');
       final response = await callable.call<Map<String, dynamic>>({
         'context': _contextPayload(context),
+        'model': _resolvedModel(modelName),
       });
       return _weeklyInsightFromPayload(response.data);
     } on Object catch (_) {
@@ -119,6 +139,10 @@ class CloudAiService
 
   Map<String, Object?> _contextPayload(DashboardState state) {
     return AiContextBuilder.build(state);
+  }
+
+  String _resolvedModel(String? override) {
+    return koloAiModelNameOrDefault(override ?? modelName);
   }
 
   BudgetPlan _budgetFromPayload(Map<String, dynamic> payload) {

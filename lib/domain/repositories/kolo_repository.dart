@@ -24,4 +24,5 @@ abstract class KoloRepository {
     KoloPermission permission,
     PermissionGrantState state,
   );
+  Future<void> updatePreferredAiModel(String modelName);
 }

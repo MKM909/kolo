@@ -35,6 +35,10 @@ migrate_working_dir/
 node_modules/
 functions/node_modules/
 functions/lib/
+.env
+.env.*
+functions/.env
+functions/.env.*
 
 # Symbolication related
 app.*.symbols

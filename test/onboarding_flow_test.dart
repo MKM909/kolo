@@ -229,6 +229,11 @@ class _RecordingKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<void> updatePreferredAiModel(String modelName) {
+    throw UnimplementedError();
+  }
+
+  @override
   Stream<DashboardState> watchDashboard() {
     throw UnimplementedError();
   }

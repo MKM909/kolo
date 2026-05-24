@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/repositories/kolo_repository.dart';
+import 'package:kolo/domain/services/ai_model_config.dart';
 import 'package:kolo/domain/services/money_formatter.dart';
 import 'package:kolo/domain/services/partner_summary_builder.dart';
 
@@ -478,14 +479,7 @@ class FakeKoloRepository implements KoloRepository {
   Future<BudgetPlan> completeOnboarding(OnboardingAnswers answers) async {
     final budget = await generateBudget(answers);
     _state = _state.copyWith(
-      profile: UserProfile(
-        uid: _state.profile.uid,
-        name: _state.profile.name,
-        email: _state.profile.email,
-        createdAt: _state.profile.createdAt,
-        onboardingComplete: true,
-        avatarUrl: _state.profile.avatarUrl,
-      ),
+      profile: _state.profile.copyWith(onboardingComplete: true),
       aiMessages: [
         AiMessage(
           id: 'ai-onboarding-${DateTime.now().microsecondsSinceEpoch}',
@@ -587,6 +581,16 @@ class FakeKoloRepository implements KoloRepository {
   ) async {
     _state = _state.copyWith(
       permissions: {..._state.permissions, permission: state},
+    );
+    _controller.add(_state);
+  }
+
+  @override
+  Future<void> updatePreferredAiModel(String modelName) async {
+    _state = _state.copyWith(
+      profile: _state.profile.copyWith(
+        preferredAiModel: koloAiModelNameOrDefault(modelName),
+      ),
     );
     _controller.add(_state);
   }

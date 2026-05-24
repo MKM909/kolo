@@ -1,5 +1,5 @@
 import {genkit, z} from "genkit";
-import {googleAI, gemini20Flash} from "@genkit-ai/googleai";
+import {googleAI} from "@genkit-ai/googleai";
 import {onCallGenkit} from "firebase-functions/https";
 import {
   fallbackInterventionMessage,
@@ -18,13 +18,39 @@ import {
 import {requireCallableAuth} from "./callable_guards.js";
 import {buildChatPrompt, KoloAiContext} from "./prompts.js";
 
+const DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite";
+const SUPPORTED_KOLO_GEMINI_MODELS = [
+  DEFAULT_GEMINI_MODEL,
+  "gemini-3.1-flash",
+  "gemini-3.1-pro",
+] as const;
+const modelNameSchema = z.enum(SUPPORTED_KOLO_GEMINI_MODELS);
+const geminiApiKey = process.env.GEMINI_API_KEY;
+
 const ai = genkit({
-  plugins: [googleAI()],
-  model: gemini20Flash,
+  plugins: [geminiApiKey ? googleAI({apiKey: geminiApiKey}) : googleAI()],
+  model: googleAI.model(DEFAULT_GEMINI_MODEL),
 });
+
+function resolveGeminiModelName(model?: string | null): string {
+  if (
+    model &&
+    SUPPORTED_KOLO_GEMINI_MODELS.includes(
+      model as (typeof SUPPORTED_KOLO_GEMINI_MODELS)[number],
+    )
+  ) {
+    return model;
+  }
+  return DEFAULT_GEMINI_MODEL;
+}
+
+function selectedGeminiModel(model?: string | null) {
+  return googleAI.model(resolveGeminiModelName(model));
+}
 
 const chatSchema = z.object({
   message: z.string().min(1),
+  model: modelNameSchema.optional(),
   context: z.object({
     balanceKobo: z.number(),
     spendableBalanceKobo: z.number().optional(),
@@ -88,6 +114,7 @@ const chatSchema = z.object({
 });
 
 const budgetSchema = z.object({
+  model: modelNameSchema.optional(),
   answers: z.object({
     incomeSource: z.string(),
     incomeFrequency: z.string(),
@@ -103,9 +130,10 @@ const chatFlow = ai.defineFlow(
     inputSchema: chatSchema,
     outputSchema: z.object({content: z.string()}),
   },
-  async ({message, context}, {context: flowContext}) => {
+  async ({message, context, model}, {context: flowContext}) => {
     requireCallableAuth(flowContext);
     const response = await ai.generate({
+      model: selectedGeminiModel(model),
       prompt: buildChatPrompt(message, context as KoloAiContext),
     });
     return {content: response.text};
@@ -132,10 +160,11 @@ const generateBudgetFlow = ai.defineFlow(
       ),
     }),
   },
-  async ({answers}, {context: flowContext}) => {
+  async ({answers, model}, {context: flowContext}) => {
     requireCallableAuth(flowContext);
     const balance = answers.currentBalanceKobo;
     const response = await ai.generate({
+      model: selectedGeminiModel(model),
       prompt: [
         "Create a strict but kind Nigerian Naira budget for Kolo.",
         `Income source: ${answers.incomeSource}.`,
@@ -170,12 +199,15 @@ const generateBudgetFlow = ai.defineFlow(
 const interventionMessageFlow = ai.defineFlow(
   {
     name: "interventionMessageFlow",
-    inputSchema: interventionInputSchema,
+    inputSchema: interventionInputSchema.extend({
+      model: modelNameSchema.optional(),
+    }),
     outputSchema: interventionMessageSchema,
   },
-  async ({context: inputContext}, {context: flowContext}) => {
+  async ({context: inputContext, model}, {context: flowContext}) => {
     requireCallableAuth(flowContext);
     const response = await ai.generate({
+      model: selectedGeminiModel(model),
       prompt: [
         "Write a short Kolo spending intervention.",
         "Use Nigerian Naira context. Be warm, direct, and never shame the user.",
@@ -190,12 +222,15 @@ const interventionMessageFlow = ai.defineFlow(
 const categorizeTransactionFlow = ai.defineFlow(
   {
     name: "categorizeTransactionFlow",
-    inputSchema: transactionCategorizationInputSchema,
+    inputSchema: transactionCategorizationInputSchema.extend({
+      model: modelNameSchema.optional(),
+    }),
     outputSchema: transactionCategorizationSchema,
   },
   async (input, {context: flowContext}) => {
     requireCallableAuth(flowContext);
     const response = await ai.generate({
+      model: selectedGeminiModel(input.model),
       prompt: [
         "Categorize this Nigerian transaction for Kolo.",
         "Return amount in kobo, type, category, description, merchant name, confidence, and reason.",
@@ -212,12 +247,15 @@ const categorizeTransactionFlow = ai.defineFlow(
 const draftReminderFlow = ai.defineFlow(
   {
     name: "draftReminderFlow",
-    inputSchema: reminderInputSchema,
+    inputSchema: reminderInputSchema.extend({
+      model: modelNameSchema.optional(),
+    }),
     outputSchema: reminderDraftSchema,
   },
   async (input, {context: flowContext}) => {
     requireCallableAuth(flowContext);
     const response = await ai.generate({
+      model: selectedGeminiModel(input.model),
       prompt: [
         "Draft a polite money reminder message for Kolo.",
         `Person: ${input.owing.person}.`,
@@ -234,12 +272,15 @@ const draftReminderFlow = ai.defineFlow(
 const analyzeSpendingFlow = ai.defineFlow(
   {
     name: "analyzeSpendingFlow",
-    inputSchema: weeklyInsightInputSchema,
+    inputSchema: weeklyInsightInputSchema.extend({
+      model: modelNameSchema.optional(),
+    }),
     outputSchema: weeklyInsightSchema,
   },
-  async ({context: inputContext}, {context: flowContext}) => {
+  async ({context: inputContext, model}, {context: flowContext}) => {
     requireCallableAuth(flowContext);
     const response = await ai.generate({
+      model: selectedGeminiModel(model),
       prompt: [
         "Summarize one weekly Kolo spending insight.",
         "Return a title, body, optional category, and severity.",

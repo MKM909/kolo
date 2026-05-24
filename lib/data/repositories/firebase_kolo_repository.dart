@@ -5,6 +5,7 @@ import 'package:kolo/data/repositories/firebase_kolo_mapper.dart';
 import 'package:kolo/data/services/cloud_ai_service.dart';
 import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/repositories/kolo_repository.dart';
+import 'package:kolo/domain/services/ai_model_config.dart';
 import 'package:kolo/domain/services/partner_summary_builder.dart';
 
 class FirebaseKoloRepository implements KoloRepository {
@@ -237,6 +238,7 @@ class FirebaseKoloRepository implements KoloRepository {
     final draft = await _aiService.draftReminder(
       owing: owing,
       context: context,
+      modelName: context.profile.preferredAiModel,
     );
     await recordAiMessage(
       AiMessage(
@@ -253,7 +255,10 @@ class FirebaseKoloRepository implements KoloRepository {
   @override
   Future<WeeklyInsight> generateWeeklyInsight() async {
     final context = await _loadDashboard();
-    final insight = await _aiService.analyzeSpending(context: context);
+    final insight = await _aiService.analyzeSpending(
+      context: context,
+      modelName: context.profile.preferredAiModel,
+    );
     await _userDoc.collection('insights').doc(insight.id).set({
       ...FirebaseKoloMapper.insightToJson(insight),
       'serverCreatedAt': FieldValue.serverTimestamp(),
@@ -263,14 +268,22 @@ class FirebaseKoloRepository implements KoloRepository {
 
   @override
   Future<BudgetPlan> generateBudget(OnboardingAnswers answers) async {
-    final budget = await _aiService.generateBudget(answers);
+    final modelName = await _preferredAiModel();
+    final budget = await _aiService.generateBudget(
+      answers,
+      modelName: modelName,
+    );
     await updateBudget(budget);
     return budget;
   }
 
   @override
   Future<BudgetPlan> completeOnboarding(OnboardingAnswers answers) async {
-    final budget = await _aiService.generateBudget(answers);
+    final modelName = await _preferredAiModel();
+    final budget = await _aiService.generateBudget(
+      answers,
+      modelName: modelName,
+    );
     final now = DateTime.now();
     final messageDoc = _userDoc
         .collection('aiMessages')
@@ -327,6 +340,7 @@ class FirebaseKoloRepository implements KoloRepository {
     final response = await _aiService.chatWithKolo(
       message: message,
       context: context,
+      modelName: context.profile.preferredAiModel,
     );
     final assistantDoc = messages.doc();
     final assistantMessage = AiMessage(
@@ -361,6 +375,14 @@ class FirebaseKoloRepository implements KoloRepository {
     }, SetOptions(merge: true));
   }
 
+  @override
+  Future<void> updatePreferredAiModel(String modelName) async {
+    await _userDoc.set({
+      'preferredAiModel': koloAiModelNameOrDefault(modelName),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
   List<Stream<void>> _dashboardStreams() {
     return [
       _userDoc.snapshots().map((_) {}),
@@ -379,6 +401,13 @@ class FirebaseKoloRepository implements KoloRepository {
 
   CollectionReference<Map<String, dynamic>> _collection(String name) {
     return _userDoc.collection(name);
+  }
+
+  Future<String> _preferredAiModel() async {
+    final snapshot = await _userDoc.get();
+    return koloAiModelNameOrDefault(
+      snapshot.data()?['preferredAiModel'] as String?,
+    );
   }
 
   Future<DashboardState> _loadDashboard() async {

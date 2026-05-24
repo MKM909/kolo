@@ -24,21 +24,26 @@ void main() {
     expect(source, contains('Future<TransactionDraft?> categorizeTransaction'));
     expect(source, contains('Future<String> draftReminder'));
     expect(source, contains('Future<WeeklyInsight> analyzeSpending'));
+    expect(source, contains("this.modelName = defaultGeminiModelName"));
+    expect(source, contains("'model': _resolvedModel(modelName)"));
   });
 
-  test('CloudAiService returns the friendly chat fallback when Gemini fails', () {
-    expect(
-      AiFailureMessage.chat,
-      'Having trouble thinking right now, try again in a sec.',
-    );
+  test(
+    'CloudAiService returns the friendly chat fallback when Gemini fails',
+    () {
+      expect(
+        AiFailureMessage.chat,
+        'Having trouble thinking right now, try again in a sec.',
+      );
 
-    final source = File(
-      'lib/data/services/cloud_ai_service.dart',
-    ).readAsStringSync();
+      final source = File(
+        'lib/data/services/cloud_ai_service.dart',
+      ).readAsStringSync();
 
-    expect(source, contains('on Object catch'));
-    expect(source, contains('AiFailureMessage.chat'));
-  });
+      expect(source, contains('on Object catch'));
+      expect(source, contains('AiFailureMessage.chat'));
+    },
+  );
 
   test('CloudAiService has typed fallbacks for every Gemini callable', () {
     expect(

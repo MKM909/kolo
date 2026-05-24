@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kolo/app/providers.dart';
 import 'package:kolo/domain/models/models.dart';
+import 'package:kolo/domain/services/ai_model_config.dart';
 import 'package:kolo/domain/services/bill_reminder_schedule.dart';
 import 'package:kolo/domain/services/money_formatter.dart';
 import 'package:kolo/ui/core/theme/kolo_theme.dart';
@@ -158,6 +159,26 @@ class ProfileScreen extends ConsumerWidget {
               ],
             ),
             _ProfileSection(
+              title: 'Kolo AI Model',
+              action: TextButton(
+                onPressed: () => _openAiModelSettingsSheet(context),
+                child: const Text('Change'),
+              ),
+              children: [
+                InkWell(
+                  key: const Key('open_ai_model_settings'),
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () => _openAiModelSettingsSheet(context),
+                  child: _SimpleRow(
+                    icon: Icons.auto_awesome,
+                    label: 'Default for Gemini calls',
+                    value: koloAiModelLabel(state.profile.preferredAiModel),
+                    color: KoloColors.primary,
+                  ),
+                ),
+              ],
+            ),
+            _ProfileSection(
               title: 'Permissions',
               children: [
                 for (final entry in state.permissions.entries)
@@ -226,6 +247,171 @@ class ProfileScreen extends ConsumerWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => const _AiHistorySheet(),
+    );
+  }
+
+  Future<void> _openAiModelSettingsSheet(BuildContext context) {
+    return showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const _AiModelSettingsSheet(),
+    );
+  }
+}
+
+class _AiModelSettingsSheet extends ConsumerWidget {
+  const _AiModelSettingsSheet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dashboard = ref.watch(dashboardProvider);
+
+    return Container(
+      key: const Key('ai_model_settings_sheet'),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.72,
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+      decoration: const BoxDecoration(
+        color: Color(0xF0FFFFFF),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x20000000),
+            blurRadius: 40,
+            offset: Offset(0, -8),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: dashboard.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, _) => Text('Could not load AI settings: $error'),
+          data: (state) {
+            final selected = state.profile.preferredAiModel;
+            return SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      height: 4,
+                      width: 42,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE5E7EB),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Kolo AI Model',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Choose the Gemini model Kolo uses for chat, budgets, reminders, and insights.',
+                    style: TextStyle(color: KoloColors.textSecondary),
+                  ),
+                  const SizedBox(height: 18),
+                  for (final option in koloAiModelOptions)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _AiModelOptionTile(
+                        option: option,
+                        selected: option.modelName == selected,
+                        onTap: () => ref
+                            .read(koloRepositoryProvider)
+                            .updatePreferredAiModel(option.modelName),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _AiModelOptionTile extends StatelessWidget {
+  const _AiModelOptionTile({
+    required this.option,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final AiModelOption option;
+  final bool selected;
+  final Future<void> Function() onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      key: Key('ai_model_option_${koloAiModelKeySlug(option.modelName)}'),
+      borderRadius: BorderRadius.circular(20),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: selected ? KoloColors.primaryPastel : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? KoloColors.primary : const Color(0xFFEDE9FE),
+            width: selected ? 1.5 : 1,
+          ),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x14000000),
+              blurRadius: 20,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: selected
+                  ? KoloColors.primary
+                  : KoloColors.primaryPastel,
+              child: Icon(
+                Icons.auto_awesome,
+                color: selected ? Colors.white : KoloColors.primary,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    option.label,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    option.description,
+                    style: const TextStyle(
+                      color: KoloColors.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Icon(
+              selected ? Icons.check_circle : Icons.radio_button_unchecked,
+              color: selected ? KoloColors.primary : KoloColors.textMuted,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

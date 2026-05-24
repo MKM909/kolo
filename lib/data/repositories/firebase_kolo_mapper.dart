@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:kolo/domain/models/models.dart';
+import 'package:kolo/domain/services/ai_model_config.dart';
 
 class FirebaseKoloMapper {
   FirebaseKoloMapper._();
@@ -175,6 +176,9 @@ class FirebaseKoloMapper {
       createdAt: _date(user['createdAt'], fallback: now),
       onboardingComplete: _bool(user['onboardingComplete']),
       avatarUrl: user['avatarUrl'] as String?,
+      preferredAiModel: koloAiModelNameOrDefault(
+        user['preferredAiModel'] as String?,
+      ),
     );
   }
 

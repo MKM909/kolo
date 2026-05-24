@@ -79,3 +79,16 @@ Run tests:
 ```sh
 flutter test
 ```
+
+Run backend tests:
+
+```sh
+cd functions
+npm test
+```
+
+## Gemini Configuration
+
+Kolo calls Gemini only from Firebase Cloud Functions. Functions read the API key from `GEMINI_API_KEY`; do not commit the raw key. Set it as a Firebase secret or local Functions environment value before running live AI calls.
+
+The default model is `gemini-3.1-flash-lite`. Users can change the model from Profile > Kolo AI Model, and the selected model is sent with Gemini-backed callable requests.
