@@ -5,6 +5,8 @@ abstract class OverlayWindowPlatform {
 
   Future<bool> isActive();
 
+  Future<bool?> requestPermission();
+
   Future<void> showOverlay({
     required int height,
     required int width,
@@ -28,6 +30,11 @@ class FlutterOverlayWindowPlatform implements OverlayWindowPlatform {
   @override
   Future<bool> isActive() {
     return FlutterOverlayWindow.isActive();
+  }
+
+  @override
+  Future<bool?> requestPermission() {
+    return FlutterOverlayWindow.requestPermission();
   }
 
   @override
@@ -82,5 +89,9 @@ class OverlayBubbleService {
       positionGravity: PositionGravity.auto,
     );
     return true;
+  }
+
+  Future<bool> requestPermission() async {
+    return await _platform.requestPermission() ?? false;
   }
 }

@@ -38,14 +38,43 @@ void main() {
     expect(platform.enableDrag, isTrue);
     expect(platform.overlayTitle, 'Kolo bubble active');
   });
+
+  test('requests overlay permission through the overlay platform', () async {
+    final platform = _FakeOverlayWindow(
+      permissionGranted: false,
+      requestPermissionResult: true,
+    );
+    final service = OverlayBubbleService(platform: platform);
+
+    final granted = await service.requestPermission();
+
+    expect(granted, isTrue);
+    expect(platform.requestPermissionCalls, 1);
+  });
+
+  test('treats a null overlay permission response as not granted', () async {
+    final platform = _FakeOverlayWindow(permissionGranted: false);
+    final service = OverlayBubbleService(platform: platform);
+
+    final granted = await service.requestPermission();
+
+    expect(granted, isFalse);
+    expect(platform.requestPermissionCalls, 1);
+  });
 }
 
 class _FakeOverlayWindow implements OverlayWindowPlatform {
-  _FakeOverlayWindow({required this.permissionGranted, this.active = false});
+  _FakeOverlayWindow({
+    required this.permissionGranted,
+    this.active = false,
+    this.requestPermissionResult,
+  });
 
   final bool permissionGranted;
   final bool active;
+  final bool? requestPermissionResult;
   int showCalls = 0;
+  int requestPermissionCalls = 0;
   int? height;
   int? width;
   OverlayAlignment? alignment;
@@ -58,6 +87,12 @@ class _FakeOverlayWindow implements OverlayWindowPlatform {
 
   @override
   Future<bool> isActive() async => active;
+
+  @override
+  Future<bool?> requestPermission() async {
+    requestPermissionCalls += 1;
+    return requestPermissionResult;
+  }
 
   @override
   Future<void> showOverlay({

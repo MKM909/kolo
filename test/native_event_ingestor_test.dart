@@ -125,4 +125,7 @@ class _FakeOverlayBubbleService implements OverlayBubbleService {
     showCalls += 1;
     return true;
   }
+
+  @override
+  Future<bool> requestPermission() async => true;
 }

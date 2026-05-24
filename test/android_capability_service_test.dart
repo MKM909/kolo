@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kolo/data/services/android_capability_service.dart';
 import 'package:kolo/data/services/android_permission_requester.dart';
+import 'package:kolo/data/services/overlay_bubble_service.dart';
 import 'package:kolo/domain/models/models.dart';
 
 void main() {
@@ -122,6 +123,37 @@ void main() {
     expect(capabilities.startedBackgroundWatcher, isTrue);
     expect(state, PermissionGrantState.granted);
   });
+
+  test('overlay request uses the overlay window permission flow', () async {
+    final overlayBubble = _FakeOverlayBubbleService(requestResult: true);
+    final requester = AndroidPermissionRequester(
+      capabilities: _FakeAndroidCapabilities(
+        notificationListenerEnabled: false,
+      ),
+      overlayBubble: overlayBubble,
+    );
+
+    final state = await requester.request(KoloPermission.overlay);
+
+    expect(overlayBubble.requestPermissionCalls, 1);
+    expect(state, PermissionGrantState.granted);
+  });
+}
+
+class _FakeOverlayBubbleService implements OverlayBubbleService {
+  _FakeOverlayBubbleService({required this.requestResult});
+
+  final bool requestResult;
+  int requestPermissionCalls = 0;
+
+  @override
+  Future<bool> requestPermission() async {
+    requestPermissionCalls += 1;
+    return requestResult;
+  }
+
+  @override
+  Future<bool> showKoloBubble() async => true;
 }
 
 class _FakeAndroidCapabilities extends AndroidCapabilityService {

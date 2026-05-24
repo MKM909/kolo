@@ -1,13 +1,18 @@
 import 'package:kolo/data/services/android_capability_service.dart';
+import 'package:kolo/data/services/overlay_bubble_service.dart';
 import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/services/permission_requester.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class AndroidPermissionRequester implements PermissionRequester {
-  AndroidPermissionRequester({AndroidCapabilityService? capabilities})
-    : _capabilities = capabilities ?? AndroidCapabilityService();
+  AndroidPermissionRequester({
+    AndroidCapabilityService? capabilities,
+    OverlayBubbleService? overlayBubble,
+  }) : _capabilities = capabilities ?? AndroidCapabilityService(),
+       _overlayBubble = overlayBubble ?? OverlayBubbleService();
 
   final AndroidCapabilityService _capabilities;
+  final OverlayBubbleService _overlayBubble;
 
   @override
   Future<PermissionGrantState> request(KoloPermission permission) async {
@@ -20,7 +25,9 @@ class AndroidPermissionRequester implements PermissionRequester {
             ? PermissionGrantState.granted
             : PermissionGrantState.notRequested;
       case KoloPermission.overlay:
-        return _fromStatus(await Permission.systemAlertWindow.request());
+        return await _overlayBubble.requestPermission()
+            ? PermissionGrantState.granted
+            : PermissionGrantState.notRequested;
       case KoloPermission.accessibility:
         await _capabilities.openAccessibilitySettings();
         return await _capabilities.isAccessibilityServiceEnabled()
