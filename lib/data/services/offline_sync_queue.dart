@@ -33,4 +33,31 @@ class OfflineSyncQueue {
     _operations.removeWhere((operation) => operation.id == id);
     _controller.add(List.unmodifiable(_operations));
   }
+
+  Future<int> retryPending(
+    Future<bool> Function(PendingSyncOperation operation) sync,
+  ) async {
+    var synced = 0;
+    final completedIds = <String>{};
+
+    for (final operation in List<PendingSyncOperation>.from(_operations)) {
+      try {
+        if (await sync(operation)) {
+          completedIds.add(operation.id);
+          synced += 1;
+        }
+      } on Object {
+        // Keep failed operations queued for the next retry window.
+      }
+    }
+
+    if (completedIds.isNotEmpty) {
+      _operations.removeWhere(
+        (operation) => completedIds.contains(operation.id),
+      );
+      _controller.add(List.unmodifiable(_operations));
+    }
+
+    return synced;
+  }
 }
