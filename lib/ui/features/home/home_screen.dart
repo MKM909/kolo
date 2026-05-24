@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:kolo/app/providers.dart';
 import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/services/financial_calculator.dart';
@@ -86,7 +87,12 @@ class HomeScreen extends ConsumerWidget {
                   ),
                 ),
               const SizedBox(height: 24),
-              const KoloSectionHeader(title: 'Budget Summary', action: 'View'),
+              KoloSectionHeader(
+                title: 'Budget Summary',
+                action: 'View',
+                actionKey: const Key('home_budget_summary_view'),
+                onAction: () => context.go('/budget'),
+              ),
               KoloCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -113,9 +119,11 @@ class HomeScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 24),
-              const KoloSectionHeader(
+              KoloSectionHeader(
                 title: 'Recent Transactions',
                 action: 'View All',
+                actionKey: const Key('home_recent_transactions_view_all'),
+                onAction: () => context.go('/transactions'),
               ),
               KoloCard(
                 child: Column(

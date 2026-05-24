@@ -120,6 +120,37 @@ void main() {
     expect(find.text('Chicken Republic'), findsOneWidget);
   });
 
+  testWidgets('home section actions navigate to budget and transactions', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -120));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('home_budget_summary_view')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Categories'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.home_outlined));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('home_recent_transactions_view_all')),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, 120));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('home_recent_transactions_view_all')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('transaction_filter_all')), findsOneWidget);
+  });
+
   testWidgets('balance adjustment sheet updates the dashboard balance', (
     tester,
   ) async {

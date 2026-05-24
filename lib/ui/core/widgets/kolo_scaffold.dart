@@ -74,10 +74,18 @@ class KoloCard extends StatelessWidget {
 }
 
 class KoloSectionHeader extends StatelessWidget {
-  const KoloSectionHeader({required this.title, this.action, super.key});
+  const KoloSectionHeader({
+    required this.title,
+    this.action,
+    this.actionKey,
+    this.onAction,
+    super.key,
+  });
 
   final String title;
   final String? action;
+  final Key? actionKey;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -89,11 +97,19 @@ class KoloSectionHeader extends StatelessWidget {
             child: Text(title, style: Theme.of(context).textTheme.titleMedium),
           ),
           if (action != null)
-            Text(
-              action!,
-              style: const TextStyle(
-                color: KoloColors.primary,
-                fontWeight: FontWeight.w700,
+            InkWell(
+              key: actionKey,
+              borderRadius: BorderRadius.circular(999),
+              onTap: onAction,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                child: Text(
+                  action!,
+                  style: const TextStyle(
+                    color: KoloColors.primary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
             ),
         ],
