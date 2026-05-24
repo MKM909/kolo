@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kolo/app/providers.dart';
 import 'package:kolo/domain/models/models.dart';
@@ -1630,9 +1631,24 @@ class _OwingDetailSheetState extends ConsumerState<_OwingDetailSheet> {
                     BoxShadow(color: Color(0x14000000), blurRadius: 20),
                   ],
                 ),
-                child: Text(
-                  _draft!,
-                  style: Theme.of(context).textTheme.bodyMedium,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _draft!,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        key: const Key('copy_owing_reminder'),
+                        onPressed: _copyDraft,
+                        icon: const Icon(Icons.copy_outlined, size: 18),
+                        label: const Text('Copy reminder'),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -1676,6 +1692,18 @@ class _OwingDetailSheetState extends ConsumerState<_OwingDetailSheet> {
       _draft = draft;
       _drafting = false;
     });
+  }
+
+  Future<void> _copyDraft() async {
+    final draft = _draft;
+    if (draft == null) return;
+
+    await Clipboard.setData(ClipboardData(text: draft));
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Reminder copied')));
   }
 }
 

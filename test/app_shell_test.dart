@@ -587,6 +587,40 @@ void main() {
     );
   });
 
+  testWidgets('owing reminder draft can be copied', (tester) async {
+    final clipboardWrites = <String>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+          if (call.method == 'Clipboard.setData') {
+            final data = Map<Object?, Object?>.from(call.arguments as Map);
+            clipboardWrites.add(data['text']! as String);
+          }
+          return null;
+        });
+    addTearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null);
+    });
+
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Owings'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Timi'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('draft_owing_reminder')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('copy_owing_reminder')));
+    await tester.pumpAndSettle();
+
+    expect(clipboardWrites.single, contains('Hi Timi'));
+    expect(find.text('Reminder copied'), findsOneWidget);
+  });
+
   testWidgets('profile gig tracker logs a new gig', (tester) async {
     await tester.pumpWidget(const KoloApp());
     await tester.pumpAndSettle();
