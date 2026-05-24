@@ -467,6 +467,25 @@ void main() {
     );
   });
 
+  testWidgets('vault detail sheet deletes an existing vault', (tester) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Vaults'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('New Phone'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('vault_detail_sheet')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('delete_vault')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('New Phone'), findsNothing);
+    expect(find.textContaining('removed from protected funds'), findsWidgets);
+  });
+
   testWidgets('owings sheet filters records by direction', (tester) async {
     await tester.pumpWidget(const KoloApp());
     await tester.pumpAndSettle();

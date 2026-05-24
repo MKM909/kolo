@@ -1085,6 +1085,17 @@ class _VaultDetailSheetState extends ConsumerState<_VaultDetailSheet> {
                 onPressed: _save,
                 child: const Text('Add to vault'),
               ),
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                key: const Key('delete_vault'),
+                onPressed: _delete,
+                icon: const Icon(Icons.delete_outline),
+                label: const Text('Delete vault'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: KoloColors.expense,
+                  side: const BorderSide(color: KoloColors.expense),
+                ),
+              ),
             ],
           ),
         ),
@@ -1113,6 +1124,21 @@ class _VaultDetailSheetState extends ConsumerState<_VaultDetailSheet> {
           ),
         );
     if (mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _delete() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
+    await ref.read(koloRepositoryProvider).deleteVault(widget.vault.id);
+    if (!mounted) return;
+
+    navigator.pop();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text('${widget.vault.name} removed from protected funds'),
+      ),
+    );
   }
 }
 
