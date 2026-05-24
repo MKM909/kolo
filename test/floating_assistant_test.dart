@@ -44,6 +44,32 @@ void main() {
     },
   );
 
+  testWidgets('floating assistant warns when balance is negative', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          dashboardProvider.overrideWith(
+            (ref) => Stream<DashboardState>.value(
+              _dashboardState(balanceKobo: -450000),
+            ),
+          ),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(body: Stack(children: [KoloFloatingAssistant()])),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text("Your balance is in the red, let's talk"),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('kolo_assistant_alert_badge')), findsOneWidget);
+  });
+
   testWidgets('floating assistant can close while offline', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
@@ -71,4 +97,36 @@ void main() {
     expect(find.byKey(const Key('kolo_floating_conversation')), findsNothing);
     expect(find.byKey(const Key('kolo_liquid_aether_orb')), findsOneWidget);
   });
+}
+
+DashboardState _dashboardState({required int balanceKobo}) {
+  return DashboardState(
+    profile: UserProfile(
+      uid: 'test-user',
+      name: 'Micah',
+      email: 'micah@kolo.app',
+      createdAt: DateTime(2026, 5, 24),
+      onboardingComplete: true,
+    ),
+    balanceKobo: balanceKobo,
+    balanceAdjustments: const [],
+    budgetPlan: const BudgetPlan(
+      monthlyIncomeKobo: 0,
+      incomeType: 'irregular',
+      categories: [],
+      savingsTargetKobo: 0,
+      savingsGoal: '',
+      aiNotes: '',
+    ),
+    transactions: const [],
+    aiMessages: const [],
+    vaults: const [],
+    owings: const [],
+    gigs: const [],
+    bills: const [],
+    watchedApps: const [],
+    partnerShares: const [],
+    insights: const [],
+    permissions: const {},
+  );
 }

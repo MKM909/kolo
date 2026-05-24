@@ -52,6 +52,15 @@ class _KoloFloatingAssistantState extends ConsumerState<KoloFloatingAssistant> {
       );
     }
 
+    final dashboard = ref.watch(dashboardProvider);
+    final balanceIsNegative = dashboard.maybeWhen(
+      data: (state) => state.balanceKobo < 0,
+      orElse: () => false,
+    );
+    final idlePrompt = balanceIsNegative
+        ? "Your balance is in the red, let's talk"
+        : 'Need a quick money check?';
+
     return Align(
       key: const Key('kolo_floating_assistant'),
       alignment: Alignment.bottomRight,
@@ -81,10 +90,12 @@ class _KoloFloatingAssistantState extends ConsumerState<KoloFloatingAssistant> {
                   ),
                 ],
               ),
-              child: const Text(
-                'Need a quick money check?',
+              child: Text(
+                idlePrompt,
                 style: TextStyle(
-                  color: Colors.white,
+                  color: balanceIsNegative
+                      ? const Color(0xFFFFE4E6)
+                      : Colors.white,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
@@ -95,8 +106,28 @@ class _KoloFloatingAssistantState extends ConsumerState<KoloFloatingAssistant> {
                 widget.onTap?.call();
                 setState(() => _expanded = true);
               },
-              child: const KoloLiquidAetherOrb(
-                key: Key('kolo_liquid_aether_orb'),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  const KoloLiquidAetherOrb(
+                    key: Key('kolo_liquid_aether_orb'),
+                  ),
+                  if (balanceIsNegative)
+                    Positioned(
+                      right: 2,
+                      top: 2,
+                      child: Container(
+                        key: const Key('kolo_assistant_alert_badge'),
+                        height: 12,
+                        width: 12,
+                        decoration: BoxDecoration(
+                          color: KoloColors.expense,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
           ],
