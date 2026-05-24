@@ -53,6 +53,52 @@ void main() {
     expect(overlayBubble.showCalls, 1);
   });
 
+  test('does not apply the same native event twice', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          expect(call.method, 'drainNativeEvents');
+          return [
+            {
+              'id': 'sms-dupe',
+              'type': 'sms_received',
+              'createdAt': DateTime(2026, 5, 24).millisecondsSinceEpoch,
+              'payload': {
+                'body':
+                    'GTBank Alert: Acct 0123456789 DR NGN2,500.00 at Chicken Republic. Bal: NGN47,500.00',
+              },
+            },
+            {
+              'id': 'sms-dupe',
+              'type': 'sms_received',
+              'createdAt': DateTime(2026, 5, 24).millisecondsSinceEpoch,
+              'payload': {
+                'body':
+                    'GTBank Alert: Acct 0123456789 DR NGN2,500.00 at Chicken Republic. Bal: NGN47,500.00',
+              },
+            },
+          ];
+        });
+
+    final repository = FakeKoloRepository.seeded();
+    final overlayBubble = _FakeOverlayBubbleService();
+    final ingestor = NativeEventIngestor(
+      capabilities: AndroidCapabilityService(channel: channel),
+      repository: repository,
+      overlayBubble: overlayBubble,
+    );
+
+    final processed = await ingestor.drainAndProcess();
+    final dashboard = await repository.watchDashboard().first;
+
+    expect(processed, 1);
+    expect(
+      dashboard.transactions.where((tx) => tx.id == 'native-sms-dupe'),
+      hasLength(1),
+    );
+    expect(dashboard.balanceKobo, 5080000 - 250000);
+    expect(overlayBubble.showCalls, 1);
+  });
+
   test(
     'drains watched foreground app events into intervention messages',
     () async {

@@ -24,9 +24,12 @@ class NativeEventIngestor {
 
   Future<int> drainAndProcess() async {
     final events = await _capabilities.drainNativeEvents();
+    final seenEventIds = <String>{};
     var processed = 0;
 
     for (final event in events) {
+      if (!seenEventIds.add(event.id)) continue;
+
       if (event.type == 'foreground_app') {
         if (await _processForegroundApp(event)) processed += 1;
         continue;

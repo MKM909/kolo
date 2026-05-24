@@ -24,6 +24,30 @@ void main() {
     expect(updated.transactions.first.description, 'Dinner');
   });
 
+  test('fake repository ignores duplicate transaction ids', () async {
+    final repository = FakeKoloRepository.seeded();
+    final initial = await repository.watchDashboard().first;
+    final transaction = TransactionRecord.expense(
+      id: 'native-sms-dupe',
+      amountKobo: 250000,
+      category: 'Food & Snacks',
+      description: 'Dinner',
+      date: DateTime(2026, 5, 24),
+      source: TransactionSource.sms,
+    );
+
+    await repository.logTransaction(transaction);
+    await repository.logTransaction(transaction);
+
+    final updated = await repository.watchDashboard().first;
+
+    expect(updated.balanceKobo, initial.balanceKobo - 250000);
+    expect(
+      updated.transactions.where((tx) => tx.id == 'native-sms-dupe'),
+      hasLength(1),
+    );
+  });
+
   test('fake repository records balance adjustments', () async {
     final repository = FakeKoloRepository.seeded();
     final initial = await repository.watchDashboard().first;

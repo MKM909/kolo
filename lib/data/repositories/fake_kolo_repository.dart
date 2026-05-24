@@ -382,6 +382,11 @@ class FakeKoloRepository implements KoloRepository {
 
   @override
   Future<void> logTransaction(TransactionRecord transaction) async {
+    final alreadyLogged = _state.transactions.any(
+      (existing) => existing.id == transaction.id,
+    );
+    if (alreadyLogged) return;
+
     final updatedTransactions = [transaction, ..._state.transactions];
     _state = _state.copyWith(
       balanceKobo: _state.balanceKobo + transaction.signedKobo,

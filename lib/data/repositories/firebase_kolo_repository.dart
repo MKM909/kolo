@@ -160,13 +160,19 @@ class FirebaseKoloRepository implements KoloRepository {
 
   @override
   Future<void> logTransaction(TransactionRecord transaction) async {
-    await _userDoc.collection('transactions').doc(transaction.id).set({
-      ...FirebaseKoloMapper.transactionToJson(transaction),
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+    final transactionDoc = _userDoc
+        .collection('transactions')
+        .doc(transaction.id);
     await _firestore.runTransaction((dbTransaction) async {
+      final existingTransaction = await dbTransaction.get(transactionDoc);
+      if (existingTransaction.exists) return;
+
       final snapshot = await dbTransaction.get(_userDoc);
       final current = (snapshot.data()?['balanceKobo'] as int?) ?? 0;
+      dbTransaction.set(transactionDoc, {
+        ...FirebaseKoloMapper.transactionToJson(transaction),
+        'createdAt': FieldValue.serverTimestamp(),
+      });
       dbTransaction.set(_userDoc, {
         'balanceKobo': current + transaction.signedKobo,
       }, SetOptions(merge: true));
