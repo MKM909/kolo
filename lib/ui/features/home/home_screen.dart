@@ -1213,13 +1213,22 @@ class _OwingCard extends StatelessWidget {
   }
 }
 
-class _OwingDetailSheet extends ConsumerWidget {
+class _OwingDetailSheet extends ConsumerStatefulWidget {
   const _OwingDetailSheet({required this.owing});
 
   final Owing owing;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_OwingDetailSheet> createState() => _OwingDetailSheetState();
+}
+
+class _OwingDetailSheetState extends ConsumerState<_OwingDetailSheet> {
+  String? _draft;
+  bool _drafting = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final owing = widget.owing;
     final theyOweMe = owing.type == OwingType.theyOweMe;
     return Container(
       key: const Key('owing_detail_sheet'),
@@ -1265,6 +1274,39 @@ class _OwingDetailSheet extends ConsumerWidget {
               label: 'Status',
               value: owing.settled ? 'Settled' : 'Open',
             ),
+            if (theyOweMe && !owing.settled) ...[
+              const SizedBox(height: 18),
+              OutlinedButton.icon(
+                key: const Key('draft_owing_reminder'),
+                onPressed: _drafting ? null : _draftReminder,
+                icon: _drafting
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.auto_awesome),
+                label: Text(_drafting ? 'Drafting...' : 'Draft reminder'),
+              ),
+            ],
+            if (_draft != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                key: const Key('owing_reminder_draft'),
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: const [
+                    BoxShadow(color: Color(0x14000000), blurRadius: 20),
+                  ],
+                ),
+                child: Text(
+                  _draft!,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ),
+            ],
             const SizedBox(height: 18),
             ElevatedButton(
               key: const Key('settle_owing'),
@@ -1293,6 +1335,18 @@ class _OwingDetailSheet extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _draftReminder() async {
+    setState(() => _drafting = true);
+    final draft = await ref
+        .read(koloRepositoryProvider)
+        .draftOwingReminder(widget.owing);
+    if (!mounted) return;
+    setState(() {
+      _draft = draft;
+      _drafting = false;
+    });
   }
 }
 

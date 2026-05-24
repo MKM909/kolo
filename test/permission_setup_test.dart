@@ -109,6 +109,11 @@ class _RecordingKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<String> draftOwingReminder(Owing owing) {
+    throw UnimplementedError();
+  }
+
+  @override
   Future<AiMessage> sendAiMessage(String message) {
     throw UnimplementedError();
   }

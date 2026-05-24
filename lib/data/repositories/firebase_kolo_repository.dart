@@ -159,6 +159,25 @@ class FirebaseKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<String> draftOwingReminder(Owing owing) async {
+    final context = await _loadDashboard();
+    final draft = await _aiService.draftReminder(
+      owing: owing,
+      context: context,
+    );
+    await recordAiMessage(
+      AiMessage(
+        id: 'ai-reminder-${owing.id}-${DateTime.now().microsecondsSinceEpoch}',
+        role: AiRole.assistant,
+        content: draft,
+        timestamp: DateTime.now(),
+        context: 'owing_reminder',
+      ),
+    );
+    return draft;
+  }
+
+  @override
   Future<BudgetPlan> generateBudget(OnboardingAnswers answers) async {
     final budget = await _aiService.generateBudget(answers);
     await updateBudget(budget);

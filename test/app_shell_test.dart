@@ -223,6 +223,29 @@ void main() {
     expect(find.text('Settled'), findsOneWidget);
   });
 
+  testWidgets('owing detail sheet drafts a reminder message', (tester) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Owings'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Timi'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('owing_detail_sheet')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('draft_owing_reminder')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('owing_reminder_draft')), findsOneWidget);
+    expect(find.textContaining('Hi Timi'), findsOneWidget);
+    expect(
+      find.textContaining(MoneyFormatter.formatKobo(350000)),
+      findsWidgets,
+    );
+  });
+
   testWidgets('profile gig tracker logs a new gig', (tester) async {
     await tester.pumpWidget(const KoloApp());
     await tester.pumpAndSettle();

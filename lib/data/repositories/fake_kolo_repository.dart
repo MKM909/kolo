@@ -398,6 +398,22 @@ class FakeKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<String> draftOwingReminder(Owing owing) async {
+    final draft =
+        'Hi ${owing.person}, gentle reminder about the ${MoneyFormatter.formatKobo(owing.amountKobo)} we noted. Please send it when you can.';
+    await recordAiMessage(
+      AiMessage(
+        id: 'ai-reminder-${owing.id}-${DateTime.now().microsecondsSinceEpoch}',
+        role: AiRole.assistant,
+        content: draft,
+        timestamp: DateTime.now(),
+        context: 'owing_reminder',
+      ),
+    );
+    return draft;
+  }
+
+  @override
   Future<BudgetPlan> completeOnboarding(OnboardingAnswers answers) async {
     final budget = await generateBudget(answers);
     _state = _state.copyWith(
