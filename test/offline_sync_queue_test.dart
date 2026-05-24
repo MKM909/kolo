@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hive/hive.dart';
 import 'package:kolo/data/services/offline_sync_queue.dart';
 
 void main() {
@@ -67,5 +70,41 @@ void main() {
 
     expect(pending.single.id, 'sync-persisted');
     expect(pending.single.payload['amountKobo'], 250000);
+  });
+
+  test('Hive store persists pending operations across reopened boxes', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'kolo_offline_sync_',
+    );
+    Hive.init(directory.path);
+    var box = await Hive.openBox<Object?>('sync_queue_test');
+    addTearDown(() async {
+      if (Hive.isBoxOpen('sync_queue_test')) {
+        await Hive.box<Object?>('sync_queue_test').close();
+      }
+      await Hive.deleteBoxFromDisk('sync_queue_test');
+      if (await directory.exists()) {
+        await directory.delete(recursive: true);
+      }
+    });
+
+    final firstQueue = OfflineSyncQueue(store: HiveOfflineSyncStore(box));
+    await firstQueue.enqueue(
+      PendingSyncOperation(
+        id: 'sync-hive',
+        kind: 'bill',
+        payload: const {'billId': 'bill-data'},
+        createdAt: DateTime(2026, 5, 24, 15),
+      ),
+    );
+
+    await box.close();
+    box = await Hive.openBox<Object?>('sync_queue_test');
+    final secondQueue = OfflineSyncQueue(store: HiveOfflineSyncStore(box));
+    final pending = await secondQueue.watchPendingOperations().first;
+
+    expect(pending.single.id, 'sync-hive');
+    expect(pending.single.kind, 'bill');
+    expect(pending.single.payload['billId'], 'bill-data');
   });
 }

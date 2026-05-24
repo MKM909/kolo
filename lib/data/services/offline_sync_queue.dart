@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:hive/hive.dart';
+
 class PendingSyncOperation {
   const PendingSyncOperation({
     required this.id,
@@ -12,6 +14,28 @@ class PendingSyncOperation {
   final String kind;
   final Map<String, Object?> payload;
   final DateTime createdAt;
+
+  factory PendingSyncOperation.fromJson(Map<String, Object?> json) {
+    return PendingSyncOperation(
+      id: json['id'] as String? ?? '',
+      kind: json['kind'] as String? ?? '',
+      payload: Map<String, Object?>.from(
+        (json['payload'] as Map?) ?? const {},
+      ),
+      createdAt:
+          DateTime.tryParse(json['createdAt'] as String? ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    return {
+      'id': id,
+      'kind': kind,
+      'payload': payload,
+      'createdAt': createdAt.toIso8601String(),
+    };
+  }
 }
 
 abstract class OfflineSyncStore {
@@ -31,6 +55,36 @@ class MemoryOfflineSyncStore implements OfflineSyncStore {
   @override
   Future<void> save(List<PendingSyncOperation> operations) async {
     _operations = List.unmodifiable(operations);
+  }
+}
+
+class HiveOfflineSyncStore implements OfflineSyncStore {
+  HiveOfflineSyncStore(this._box);
+
+  static const _operationsKey = 'pending_operations';
+
+  final Box<Object?> _box;
+
+  @override
+  Future<List<PendingSyncOperation>> load() async {
+    final rawOperations = _box.get(_operationsKey);
+    if (rawOperations is! List) return const [];
+
+    return [
+      for (final rawOperation in rawOperations)
+        if (rawOperation is Map)
+          PendingSyncOperation.fromJson(
+            Map<String, Object?>.from(rawOperation),
+          ),
+    ];
+  }
+
+  @override
+  Future<void> save(List<PendingSyncOperation> operations) async {
+    await _box.put(
+      _operationsKey,
+      [for (final operation in operations) operation.toJson()],
+    );
   }
 }
 
