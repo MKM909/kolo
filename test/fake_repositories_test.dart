@@ -325,4 +325,18 @@ void main() {
     expect(updated.insights.first.title, isNotEmpty);
     expect(updated.insights.first.body, contains('Kolo'));
   });
+
+  test('fake repository publishes a partner-safe summary', () async {
+    final repository = FakeKoloRepository.seeded();
+    final dashboard = await repository.watchDashboard().first;
+
+    final summary = await repository.publishPartnerSummary(
+      dashboard.partnerShares.first,
+    );
+
+    expect(summary, isNotNull);
+    expect(summary!.partnerEmail, 'accountability@friend.ng');
+    expect(summary.sections.keys, contains('balance_summary'));
+    expect(summary.toJson().toString(), isNot(contains('Chicken Republic')));
+  });
 }

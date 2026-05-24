@@ -23,6 +23,12 @@ service cloud.firestore {
           && resource.data.status == 'active'
           && resource.data.partnerEmail == request.auth.token.email;
       }
+
+      match /partnerSummaries/{summaryId} {
+        allow read, write: if isOwner(uid);
+        allow read: if signedIn()
+          && resource.data.partnerEmail == request.auth.token.email;
+      }
     }
   }
 }

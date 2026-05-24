@@ -1,4 +1,5 @@
 import 'package:kolo/domain/models/models.dart';
+import 'package:kolo/domain/services/partner_summary_builder.dart';
 
 abstract class KoloRepository {
   Stream<DashboardState> watchDashboard();
@@ -8,6 +9,7 @@ abstract class KoloRepository {
   Future<void> upsertGig(GigRecord gig);
   Future<void> upsertBill(BillReminder bill);
   Future<void> upsertPartnerShare(PartnerShare share);
+  Future<PartnerSafeSummary?> publishPartnerSummary(PartnerShare share);
   Future<void> upsertWatchedApp(WatchedApp app);
   Future<void> logTransaction(TransactionRecord transaction);
   Future<void> recordAiMessage(AiMessage message);

@@ -5,6 +5,7 @@ import 'package:kolo/app/providers.dart';
 import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/repositories/kolo_repository.dart';
 import 'package:kolo/domain/services/permission_requester.dart';
+import 'package:kolo/domain/services/partner_summary_builder.dart';
 import 'package:kolo/ui/core/theme/kolo_theme.dart';
 import 'package:kolo/ui/features/auth/auth_screens.dart';
 
@@ -80,6 +81,11 @@ class _RecordingKoloRepository implements KoloRepository {
 
   @override
   Future<void> upsertPartnerShare(PartnerShare share) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<PartnerSafeSummary?> publishPartnerSummary(PartnerShare share) {
     throw UnimplementedError();
   }
 

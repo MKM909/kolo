@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kolo/app/backend_selector.dart';
 import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/repositories/kolo_repository.dart';
+import 'package:kolo/domain/services/partner_summary_builder.dart';
 
 void main() {
   test(
@@ -76,6 +77,11 @@ class _StubRepository implements KoloRepository {
 
   @override
   Future<void> upsertPartnerShare(PartnerShare share) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<PartnerSafeSummary?> publishPartnerSummary(PartnerShare share) {
     throw UnimplementedError();
   }
 

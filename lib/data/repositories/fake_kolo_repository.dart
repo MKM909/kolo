@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/repositories/kolo_repository.dart';
 import 'package:kolo/domain/services/money_formatter.dart';
+import 'package:kolo/domain/services/partner_summary_builder.dart';
 
 class FakeKoloRepository implements KoloRepository {
   FakeKoloRepository._(this._state);
@@ -345,6 +346,15 @@ class FakeKoloRepository implements KoloRepository {
       ],
     );
     _controller.add(_state);
+  }
+
+  @override
+  Future<PartnerSafeSummary?> publishPartnerSummary(PartnerShare share) async {
+    return PartnerSummaryBuilder.build(
+      dashboard: _state,
+      share: share,
+      generatedAt: DateTime.now(),
+    );
   }
 
   @override

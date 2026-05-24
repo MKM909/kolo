@@ -5,6 +5,7 @@ import 'package:kolo/data/repositories/firebase_kolo_mapper.dart';
 import 'package:kolo/data/services/cloud_ai_service.dart';
 import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/repositories/kolo_repository.dart';
+import 'package:kolo/domain/services/partner_summary_builder.dart';
 
 class FirebaseKoloRepository implements KoloRepository {
   FirebaseKoloRepository({
@@ -125,6 +126,28 @@ class FirebaseKoloRepository implements KoloRepository {
       ...FirebaseKoloMapper.partnerShareToJson(share),
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+  }
+
+  @override
+  Future<PartnerSafeSummary?> publishPartnerSummary(PartnerShare share) async {
+    final summaryRef = _userDoc.collection('partnerSummaries').doc(share.id);
+    final dashboard = await _loadDashboard();
+    final summary = PartnerSummaryBuilder.build(
+      dashboard: dashboard,
+      share: share,
+      generatedAt: DateTime.now(),
+    );
+    if (summary == null) {
+      await summaryRef.delete();
+      return null;
+    }
+
+    await summaryRef.set({
+      ...summary.toJson(),
+      'ownerUid': _uid,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    return summary;
   }
 
   @override
