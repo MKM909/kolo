@@ -278,6 +278,7 @@ class TransactionDraft {
     required this.rawText,
     this.balanceAfterKobo,
     this.category = 'Miscellaneous',
+    this.occurredAt,
   });
 
   final int amountKobo;
@@ -287,6 +288,7 @@ class TransactionDraft {
   final String rawText;
   final int? balanceAfterKobo;
   final String category;
+  final DateTime? occurredAt;
 }
 
 class AiMessage {

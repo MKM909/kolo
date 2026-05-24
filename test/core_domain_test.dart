@@ -123,6 +123,7 @@ void main() {
       expect(draft.amountKobo, 4500000);
       expect(draft.merchantName, 'ACME LTD');
       expect(draft.balanceAfterKobo, 9000000);
+      expect(draft.occurredAt, DateTime(2026, 5, 24));
     });
 
     test('parses Access debit descriptions into airtime category', () {

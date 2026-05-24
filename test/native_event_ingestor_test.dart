@@ -54,6 +54,36 @@ void main() {
     expect(overlayBubble.showCalls, 1);
   });
 
+  test('uses parsed SMS dates for logged native transactions', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          expect(call.method, 'drainNativeEvents');
+          return [
+            {
+              'id': 'sms-date',
+              'type': 'sms_received',
+              'createdAt': DateTime(2026, 5, 24, 15).millisecondsSinceEpoch,
+              'payload': {
+                'body':
+                    'GTBank Alert: Acct 0123456789 DR NGN2,500.00 at Chicken Republic. Date: 23-May-2026. Bal: NGN47,500.00',
+              },
+            },
+          ];
+        });
+
+    final repository = FakeKoloRepository.seeded();
+    final ingestor = NativeEventIngestor(
+      capabilities: AndroidCapabilityService(channel: channel),
+      repository: repository,
+    );
+
+    await ingestor.drainAndProcess();
+    final dashboard = await repository.watchDashboard().first;
+
+    expect(dashboard.transactions.first.id, 'native-sms-date');
+    expect(dashboard.transactions.first.date, DateTime(2026, 5, 23));
+  });
+
   test('does not apply the same native event twice', () async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {

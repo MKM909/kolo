@@ -20,6 +20,7 @@ class TransactionParser {
       rawText: rawText,
       balanceAfterKobo: balance,
       category: _guessCategory(merchant),
+      occurredAt: _parseTransactionDate(rawText),
     );
   }
 
@@ -119,5 +120,65 @@ class TransactionParser {
       return 'Data & Airtime';
     }
     return 'Miscellaneous';
+  }
+
+  static DateTime? _parseTransactionDate(String text) {
+    final monthNameMatch = RegExp(
+      r'\b(?:date|dt|on)[:\s]+(\d{1,2})[-/\s]([a-z]{3,9})[-/\s](\d{2,4})\b',
+      caseSensitive: false,
+    ).firstMatch(text);
+    if (monthNameMatch != null) {
+      return _dateFromParts(
+        day: monthNameMatch.group(1)!,
+        month: monthNameMatch.group(2)!,
+        year: monthNameMatch.group(3)!,
+      );
+    }
+
+    final numericMatch = RegExp(
+      r'\b(?:date|dt|on)[:\s]+(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})\b',
+      caseSensitive: false,
+    ).firstMatch(text);
+    if (numericMatch == null) return null;
+    return _dateFromParts(
+      day: numericMatch.group(1)!,
+      month: numericMatch.group(2)!,
+      year: numericMatch.group(3)!,
+    );
+  }
+
+  static DateTime? _dateFromParts({
+    required String day,
+    required String month,
+    required String year,
+  }) {
+    final parsedDay = int.tryParse(day);
+    final parsedMonth = int.tryParse(month) ?? _monthNumber(month);
+    var parsedYear = int.tryParse(year);
+    if (parsedDay == null || parsedMonth == null || parsedYear == null) {
+      return null;
+    }
+    if (parsedYear < 100) parsedYear += 2000;
+    if (parsedMonth < 1 || parsedMonth > 12) return null;
+    if (parsedDay < 1 || parsedDay > 31) return null;
+    return DateTime(parsedYear, parsedMonth, parsedDay);
+  }
+
+  static int? _monthNumber(String value) {
+    return switch (value.toLowerCase().substring(0, 3)) {
+      'jan' => 1,
+      'feb' => 2,
+      'mar' => 3,
+      'apr' => 4,
+      'may' => 5,
+      'jun' => 6,
+      'jul' => 7,
+      'aug' => 8,
+      'sep' => 9,
+      'oct' => 10,
+      'nov' => 11,
+      'dec' => 12,
+      _ => null,
+    };
   }
 }

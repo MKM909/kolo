@@ -191,7 +191,7 @@ class NativeEventIngestor {
             amountKobo: draft.amountKobo,
             category: draft.category,
             description: description,
-            date: event.createdAt,
+            date: draft.occurredAt ?? event.createdAt,
             source: draft.source,
             merchantName: draft.merchantName,
           )
@@ -200,7 +200,7 @@ class NativeEventIngestor {
             amountKobo: draft.amountKobo,
             category: draft.category,
             description: description,
-            date: event.createdAt,
+            date: draft.occurredAt ?? event.createdAt,
             source: draft.source,
             merchantName: draft.merchantName,
           );
