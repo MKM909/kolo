@@ -176,6 +176,7 @@ void main() {
                 'type': 'notification_posted',
                 'createdAt': DateTime(2026, 5, 24, 11).millisecondsSinceEpoch,
                 'payload': {
+                  'packageName': 'com.kuda.android',
                   'title': 'Kuda',
                   'text':
                       'Your payment to Shoprite for two thousand naira was successful.',
@@ -218,6 +219,42 @@ void main() {
       expect(overlayBubble.showCalls, 1);
     },
   );
+
+  test('ignores transaction-like notifications from unwatched apps', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          expect(call.method, 'drainNativeEvents');
+          return [
+            {
+              'id': 'notif-whatsapp-1',
+              'type': 'notification_posted',
+              'createdAt': DateTime(2026, 5, 24, 12).millisecondsSinceEpoch,
+              'payload': {
+                'packageName': 'com.whatsapp',
+                'title': 'WhatsApp',
+                'text': 'Timi: send me NGN2,500 for lunch',
+              },
+            },
+          ];
+        });
+
+    final repository = FakeKoloRepository.seeded();
+    final initial = await repository.watchDashboard().first;
+    final overlayBubble = _FakeOverlayBubbleService();
+    final ingestor = NativeEventIngestor(
+      capabilities: AndroidCapabilityService(channel: channel),
+      repository: repository,
+      overlayBubble: overlayBubble,
+    );
+
+    final processed = await ingestor.drainAndProcess();
+    final dashboard = await repository.watchDashboard().first;
+
+    expect(processed, 0);
+    expect(dashboard.transactions, hasLength(initial.transactions.length));
+    expect(dashboard.balanceKobo, initial.balanceKobo);
+    expect(overlayBubble.showCalls, 0);
+  });
 }
 
 class _FakeTransactionCategorizer implements TransactionCategorizer {

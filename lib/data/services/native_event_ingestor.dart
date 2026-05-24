@@ -35,6 +35,11 @@ class NativeEventIngestor {
         continue;
       }
 
+      if (event.type == 'notification_posted' &&
+          !await _isEnabledWatchedApp(event)) {
+        continue;
+      }
+
       final rawText = _rawTextFor(event);
       if (rawText == null || rawText.trim().isEmpty) continue;
 
@@ -62,6 +67,16 @@ class NativeEventIngestor {
       rawText: rawText,
       source: _sourceFor(event),
       context: context,
+    );
+  }
+
+  Future<bool> _isEnabledWatchedApp(NativeAndroidEvent event) async {
+    final packageName = event.payload['packageName'] as String?;
+    if (packageName == null || packageName.isEmpty) return false;
+
+    final dashboard = await _repository.watchDashboard().first;
+    return dashboard.watchedApps.any(
+      (app) => app.packageName == packageName && app.enabled,
     );
   }
 
