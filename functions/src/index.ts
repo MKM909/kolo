@@ -27,8 +27,24 @@ const chatSchema = z.object({
   message: z.string().min(1),
   context: z.object({
     balanceKobo: z.number(),
+    spendableBalanceKobo: z.number().optional(),
+    vaultProtectionKobo: z.number().optional(),
+    daysSinceLastIncome: z.number().nullable().optional(),
+    periodTotals: z
+      .object({
+        incomeKobo: z.number(),
+        expenseKobo: z.number(),
+        savingsKobo: z.number(),
+      })
+      .optional(),
     budgetCategories: z.array(
-      z.object({name: z.string(), allocatedKobo: z.number()}),
+      z.object({
+        name: z.string(),
+        allocatedKobo: z.number(),
+        spentKobo: z.number().optional(),
+        remainingKobo: z.number().optional(),
+        progress: z.number().optional(),
+      }),
     ),
     recentTransactions: z.array(
       z.object({
@@ -36,6 +52,9 @@ const chatSchema = z.object({
         type: z.string(),
         category: z.string(),
         description: z.string(),
+        date: z.string().optional(),
+        source: z.string().optional(),
+        merchantName: z.string().nullable().optional(),
       }),
     ),
     vaults: z.array(
@@ -43,8 +62,28 @@ const chatSchema = z.object({
         name: z.string(),
         targetKobo: z.number(),
         currentKobo: z.number(),
+        deadline: z.string().nullable().optional(),
       }),
     ),
+    dueBills: z
+      .array(
+        z.object({
+          name: z.string(),
+          amountKobo: z.number(),
+          frequency: z.string(),
+          nextDue: z.string(),
+          active: z.boolean(),
+          daysUntilDue: z.number(),
+        }),
+      )
+      .optional(),
+    gigSummary: z
+      .object({
+        totalThisMonthKobo: z.number(),
+        totalThisYearKobo: z.number(),
+        daysSinceLastGig: z.number().nullable().optional(),
+      })
+      .optional(),
   }),
 });
 
