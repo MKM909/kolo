@@ -36,6 +36,12 @@ void main() {
       ),
     );
 
+    expect(find.byKey(const Key('onboarding_progress_dot_5')), findsOneWidget);
+    expect(find.textContaining("I'm Kolo"), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('onboarding_next')));
+    await tester.pumpAndSettle();
+
     await tester.enterText(
       find.byKey(const Key('onboarding_income_source')),
       'Freelance design',
@@ -43,8 +49,9 @@ void main() {
     await tester.tap(find.byKey(const Key('onboarding_next')));
     await tester.pumpAndSettle();
 
-    await tester.tap(
-      find.byKey(const Key('onboarding_income_frequency_irregular_gigs')),
+    await tester.enterText(
+      find.byKey(const Key('onboarding_income_frequency')),
+      'It comes when clients pay',
     );
     await tester.tap(find.byKey(const Key('onboarding_next')));
     await tester.pumpAndSettle();
@@ -56,14 +63,25 @@ void main() {
     await tester.tap(find.byKey(const Key('onboarding_next')));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('onboarding_problem_impulse_buys')));
+    await tester.enterText(
+      find.byKey(const Key('onboarding_biggest_problem')),
+      'Impulse snacks after class',
+    );
+    await tester.tap(find.byKey(const Key('onboarding_next')));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('onboarding_savings_goal')),
+      'New laptop',
+    );
     await tester.tap(find.byKey(const Key('onboarding_next')));
     await tester.pumpAndSettle();
 
     expect(repository.answers?.incomeSource, 'Freelance design');
-    expect(repository.answers?.incomeFrequency, 'Irregular gigs');
+    expect(repository.answers?.incomeFrequency, 'It comes when clients pay');
     expect(repository.answers?.currentBalanceKobo, 4200000);
-    expect(repository.answers?.biggestProblem, 'Impulse buys');
+    expect(repository.answers?.biggestProblem, 'Impulse snacks after class');
+    expect(repository.answers?.savingsGoal, 'New laptop');
     expect(find.text('Permissions reached'), findsOneWidget);
   });
 }

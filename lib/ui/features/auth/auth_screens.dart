@@ -70,10 +70,9 @@ class _EmailVerificationScreenState
 
   @override
   Widget build(BuildContext context) {
-    final authUser = ref.watch(authStateProvider).maybeWhen(
-      data: (user) => user,
-      orElse: () => null,
-    );
+    final authUser = ref
+        .watch(authStateProvider)
+        .maybeWhen(data: (user) => user, orElse: () => null);
 
     return KoloGradientScaffold(
       key: const Key('email_verification_screen'),
@@ -594,18 +593,24 @@ class _OnboardingSetupScreen extends ConsumerStatefulWidget {
 
 class _OnboardingSetupScreenState
     extends ConsumerState<_OnboardingSetupScreen> {
+  static const _stepCount = 6;
+
   final _incomeController = TextEditingController();
+  final _frequencyController = TextEditingController();
   final _balanceController = TextEditingController();
+  final _problemController = TextEditingController();
+  final _savingsGoalController = TextEditingController();
   int _step = 0;
-  String _incomeFrequency = 'Irregular gigs';
-  String _biggestProblem = 'Impulse buys';
   bool _submitting = false;
   String? _error;
 
   @override
   void dispose() {
     _incomeController.dispose();
+    _frequencyController.dispose();
     _balanceController.dispose();
+    _problemController.dispose();
+    _savingsGoalController.dispose();
     super.dispose();
   }
 
@@ -615,9 +620,9 @@ class _OnboardingSetupScreenState
       child: Column(
         children: [
           const SizedBox(height: 18),
-          _ProgressDots(currentStep: _step, count: 4),
+          _ProgressDots(currentStep: _step, count: _stepCount),
           Expanded(
-            flex: 4,
+            flex: 3,
             child: Center(
               child: Container(
                 key: const Key('onboarding_kolo_bubble'),
@@ -643,7 +648,7 @@ class _OnboardingSetupScreenState
             ),
           ),
           Expanded(
-            flex: 6,
+            flex: 7,
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
@@ -661,30 +666,22 @@ class _OnboardingSetupScreenState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const _AssistantBubble(
-                    text:
-                        'Let me build your first money plan. I will ask a few quick questions and keep it practical.',
-                  ),
+                  _AssistantBubble(text: _assistantText),
+                  if (_step > 0) ...[
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: _UserReplyPreview(text: _previousAnswer),
+                    ),
+                  ],
                   const SizedBox(height: 20),
                   Text(
-                    _step == 0
-                        ? 'Income source'
-                        : _step == 1
-                        ? 'Income rhythm'
-                        : _step == 2
-                        ? 'Current balance'
-                        : 'Main money problem',
+                    _stepTitle,
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _step == 0
-                        ? 'Tell Kolo where money usually comes from.'
-                        : _step == 1
-                        ? 'Pick the pattern that feels closest.'
-                        : _step == 2
-                        ? 'Your balance helps Kolo size the first budget.'
-                        : 'This becomes the thing Kolo watches closely.',
+                    _stepSubtitle,
                     style: const TextStyle(color: KoloColors.textSecondary),
                   ),
                   const SizedBox(height: 20),
@@ -702,7 +699,9 @@ class _OnboardingSetupScreenState
                     child: Text(
                       _submitting
                           ? 'Building'
-                          : _step < 3
+                          : _step == 0
+                          ? 'Start setup'
+                          : _step < _stepCount - 1
                           ? 'Next'
                           : 'Build my Kolo',
                     ),
@@ -718,6 +717,15 @@ class _OnboardingSetupScreenState
 
   Widget _stepContent() {
     if (_step == 0) {
+      return const Center(
+        child: Text(
+          'Before we start, I need the money context that makes advice useful: where money comes from, how often, what you have now, what keeps leaking, and what you want protected.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: KoloColors.textSecondary, height: 1.45),
+        ),
+      );
+    }
+    if (_step == 1) {
       return TextField(
         key: const Key('onboarding_income_source'),
         controller: _incomeController,
@@ -727,27 +735,19 @@ class _OnboardingSetupScreenState
         ),
       );
     }
-    if (_step == 1) {
-      return Wrap(
-        spacing: 10,
-        runSpacing: 10,
-        children: [
-          for (final label in const [
-            'Weekly',
-            'Monthly',
-            'Irregular gigs',
-            'Family support',
-          ])
-            _ChoicePill(
-              key: Key('onboarding_income_frequency_${_keySlug(label)}'),
-              label: label,
-              selected: _incomeFrequency == label,
-              onTap: () => setState(() => _incomeFrequency = label),
-            ),
-        ],
+    if (_step == 2) {
+      return _FreeTextStep(
+        fieldKey: const Key('onboarding_income_frequency'),
+        controller: _frequencyController,
+        labelText: 'Example: weekly, monthly, or it comes when it comes',
+        icon: Icons.calendar_today_outlined,
+        suggestions: const ['Weekly', 'Monthly', 'Irregular gigs'],
+        onSuggestion: (value) {
+          setState(() => _frequencyController.text = value);
+        },
       );
     }
-    if (_step == 2) {
+    if (_step == 3) {
       return TextField(
         key: const Key('onboarding_balance'),
         controller: _balanceController,
@@ -758,29 +758,33 @@ class _OnboardingSetupScreenState
         ),
       );
     }
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: [
-        for (final label in const [
-          'Food spending',
-          'Transport leaks',
-          'Impulse buys',
-          'Irregular income',
-        ])
-          _ChoicePill(
-            key: Key('onboarding_problem_${_keySlug(label)}'),
-            label: label,
-            selected: _biggestProblem == label,
-            onTap: () => setState(() => _biggestProblem = label),
-          ),
-      ],
+    if (_step == 4) {
+      return _FreeTextStep(
+        fieldKey: const Key('onboarding_biggest_problem'),
+        controller: _problemController,
+        labelText: 'Example: impulse snacks, transport, inconsistent income',
+        icon: Icons.psychology_alt_outlined,
+        suggestions: const ['Food spending', 'Transport leaks', 'Impulse buys'],
+        onSuggestion: (value) {
+          setState(() => _problemController.text = value);
+        },
+      );
+    }
+    return _FreeTextStep(
+      fieldKey: const Key('onboarding_savings_goal'),
+      controller: _savingsGoalController,
+      labelText: 'Example: laptop, rent, emergency buffer',
+      icon: Icons.lock_outline,
+      suggestions: const ['New laptop', 'Emergency buffer', 'Rent'],
+      onSuggestion: (value) {
+        setState(() => _savingsGoalController.text = value);
+      },
     );
   }
 
   Future<void> _advance() async {
     setState(() => _error = null);
-    if (_step < 3) {
+    if (_step < _stepCount - 1) {
       setState(() => _step += 1);
       return;
     }
@@ -789,9 +793,16 @@ class _OnboardingSetupScreenState
       _balanceController.text.trim(),
     );
     final incomeSource = _incomeController.text.trim();
-    if (incomeSource.isEmpty || amountKobo == null || amountKobo <= 0) {
+    final incomeFrequency = _frequencyController.text.trim();
+    final biggestProblem = _problemController.text.trim();
+    final savingsGoal = _savingsGoalController.text.trim();
+    if (incomeSource.isEmpty ||
+        incomeFrequency.isEmpty ||
+        biggestProblem.isEmpty ||
+        amountKobo == null ||
+        amountKobo <= 0) {
       setState(() {
-        _error = 'Add your income source and current balance.';
+        _error = 'Add your income source, rhythm, balance, and money problem.';
       });
       return;
     }
@@ -803,9 +814,10 @@ class _OnboardingSetupScreenState
           .completeOnboarding(
             OnboardingAnswers(
               incomeSource: incomeSource,
-              incomeFrequency: _incomeFrequency,
+              incomeFrequency: incomeFrequency,
               currentBalanceKobo: amountKobo,
-              biggestProblem: _biggestProblem,
+              biggestProblem: biggestProblem,
+              savingsGoal: savingsGoal.isEmpty ? null : savingsGoal,
             ),
           );
       if (!mounted) return;
@@ -818,11 +830,54 @@ class _OnboardingSetupScreenState
     }
   }
 
-  String _keySlug(String value) {
-    return value
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
-        .replaceAll(RegExp(r'(^_|_$)'), '');
+  String get _assistantText {
+    return switch (_step) {
+      0 =>
+        "Hey! I'm Kolo, your personal money manager. Before we start, let me understand your situation.",
+      1 => 'How do you usually get money?',
+      2 => 'Is that money regular, or does it come when it comes?',
+      3 =>
+        "What's your balance right now across all your accounts? An estimate is fine.",
+      4 => "What's your biggest money problem right now?",
+      _ => 'Is there something specific you are saving towards?',
+    };
+  }
+
+  String get _stepTitle {
+    return switch (_step) {
+      0 => 'Meet Kolo',
+      1 => 'Income source',
+      2 => 'Income rhythm',
+      3 => 'Current balance',
+      4 => 'Main money problem',
+      _ => 'Savings goal',
+    };
+  }
+
+  String get _stepSubtitle {
+    return switch (_step) {
+      0 => 'A short setup chat helps Kolo build advice around your real life.',
+      1 => 'Tell Kolo where money usually comes from.',
+      2 => 'Use your own words if none of the chips fit.',
+      3 => 'Your balance helps Kolo size the first budget.',
+      4 => 'This becomes the thing Kolo watches closely.',
+      _ => 'Optional, but Kolo can protect this money in future decisions.',
+    };
+  }
+
+  String get _previousAnswer {
+    final answer = switch (_step) {
+      1 => 'Ready',
+      2 => _incomeController.text.trim(),
+      3 => _frequencyController.text.trim(),
+      4 =>
+        _balanceController.text.trim().isEmpty
+            ? ''
+            : 'NGN ${_balanceController.text.trim()}',
+      5 => _problemController.text.trim(),
+      _ => '',
+    };
+    return answer.isEmpty ? 'Noted' : answer;
   }
 }
 
@@ -852,6 +907,36 @@ class _ProgressDots extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _UserReplyPreview extends StatelessWidget {
+  const _UserReplyPreview({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 220),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: const BoxDecoration(
+        color: KoloColors.primary,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(16),
+          topRight: Radius.circular(16),
+          bottomLeft: Radius.circular(16),
+          bottomRight: Radius.circular(4),
+        ),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
     );
   }
 }
@@ -889,6 +974,66 @@ class _AssistantBubble extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+class _FreeTextStep extends StatelessWidget {
+  const _FreeTextStep({
+    required this.fieldKey,
+    required this.controller,
+    required this.labelText,
+    required this.icon,
+    required this.suggestions,
+    required this.onSuggestion,
+  });
+
+  final Key fieldKey;
+  final TextEditingController controller;
+  final String labelText;
+  final IconData icon;
+  final List<String> suggestions;
+  final ValueChanged<String> onSuggestion;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: EdgeInsets.zero,
+      children: [
+        TextField(
+          key: fieldKey,
+          controller: controller,
+          minLines: 1,
+          maxLines: 3,
+          decoration: InputDecoration(
+            labelText: labelText,
+            prefixIcon: Icon(icon),
+          ),
+        ),
+        const SizedBox(height: 14),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            for (final label in suggestions)
+              _ChoicePill(
+                key: Key(
+                  '${(fieldKey as ValueKey<String>).value}_${_keySlug(label)}',
+                ),
+                label: label,
+                selected: controller.text == label,
+                onTap: () => onSuggestion(label),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  String _keySlug(String value) {
+    return value
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+        .replaceAll(RegExp(r'(^_|_$)'), '');
   }
 }
 

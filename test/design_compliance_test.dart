@@ -29,8 +29,9 @@ void main() {
     );
 
     expect(find.byKey(const Key('onboarding_progress_dot_0')), findsOneWidget);
+    expect(find.byKey(const Key('onboarding_progress_dot_5')), findsOneWidget);
     expect(find.byKey(const Key('onboarding_kolo_bubble')), findsOneWidget);
-    expect(find.text('Income source'), findsOneWidget);
+    expect(find.textContaining("I'm Kolo"), findsOneWidget);
     expect(find.byKey(const Key('onboarding_next')), findsOneWidget);
   });
 

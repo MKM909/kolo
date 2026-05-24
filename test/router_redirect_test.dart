@@ -46,7 +46,8 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('Income source'), findsOneWidget);
+    expect(find.text('Meet Kolo'), findsOneWidget);
+    expect(find.textContaining("I'm Kolo"), findsOneWidget);
   });
 
   testWidgets('signed-in users with unverified email open verification', (
