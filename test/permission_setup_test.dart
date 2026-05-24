@@ -104,6 +104,11 @@ class _RecordingKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<void> recordAiMessage(AiMessage message) {
+    throw UnimplementedError();
+  }
+
+  @override
   Future<AiMessage> sendAiMessage(String message) {
     throw UnimplementedError();
   }

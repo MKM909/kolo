@@ -151,6 +151,14 @@ class FirebaseKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<void> recordAiMessage(AiMessage message) async {
+    await _userDoc.collection('aiMessages').doc(message.id).set({
+      ...FirebaseKoloMapper.aiMessageToJson(message),
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  @override
   Future<BudgetPlan> generateBudget(OnboardingAnswers answers) async {
     final budget = await _aiService.generateBudget(answers);
     await updateBudget(budget);

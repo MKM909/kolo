@@ -392,6 +392,12 @@ class FakeKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<void> recordAiMessage(AiMessage message) async {
+    _state = _state.copyWith(aiMessages: [message, ..._state.aiMessages]);
+    _controller.add(_state);
+  }
+
+  @override
   Future<BudgetPlan> completeOnboarding(OnboardingAnswers answers) async {
     final budget = await generateBudget(answers);
     _state = _state.copyWith(
