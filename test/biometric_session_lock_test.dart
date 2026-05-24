@@ -50,6 +50,21 @@ void main() {
     expect(lock.requiresUnlock, isFalse);
     expect(notifications, 1);
   });
+
+  test('resume notifies listeners so timeout locks are re-evaluated', () {
+    final clock = _FakeClock(DateTime(2026, 5, 24, 9));
+    final lock = BiometricSessionLock(now: clock.now);
+    var notifications = 0;
+
+    lock.enable();
+    lock.markAppPaused();
+    lock.addListener(() => notifications += 1);
+    clock.advance(const Duration(minutes: 6));
+    lock.markAppResumed();
+
+    expect(lock.requiresUnlock, isTrue);
+    expect(notifications, 1);
+  });
 }
 
 class _FakeClock {

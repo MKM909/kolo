@@ -44,6 +44,11 @@ class BiometricSessionLock extends ChangeNotifier {
     notifyListeners();
   }
 
+  void markAppResumed() {
+    if (!_enabled) return;
+    notifyListeners();
+  }
+
   void markUnlocked() {
     _locked = false;
     _pausedAt = null;

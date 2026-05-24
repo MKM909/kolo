@@ -25,11 +25,39 @@ class KoloApp extends StatelessWidget {
   }
 }
 
-class _KoloMaterialApp extends ConsumerWidget {
+class _KoloMaterialApp extends ConsumerStatefulWidget {
   const _KoloMaterialApp();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_KoloMaterialApp> createState() => _KoloMaterialAppState();
+}
+
+class _KoloMaterialAppState extends ConsumerState<_KoloMaterialApp>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final lock = ref.read(biometricSessionLockProvider);
+    if (state == AppLifecycleState.resumed) {
+      lock.markAppResumed();
+    } else {
+      lock.markAppPaused();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     ref.watch(nativeEventDrainProvider);
     final router = ref.watch(koloRouterProvider);
 
