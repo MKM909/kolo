@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Kolo</string>
+    <string name="kolo_accessibility_description">Kolo watches selected banking apps so it can show spending context before you transact.</string>
+</resources>

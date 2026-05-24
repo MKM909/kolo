@@ -1,0 +1,26 @@
+{
+  "name": "kolo-functions",
+  "version": "1.0.0",
+  "private": true,
+  "main": "lib/index.js",
+  "scripts": {
+    "build": "tsc",
+    "serve": "npm run build && firebase emulators:start --only functions,firestore,auth",
+    "test": "npm run build",
+    "deploy": "firebase deploy --only functions,firestore"
+  },
+  "engines": {
+    "node": "22"
+  },
+  "dependencies": {
+    "@genkit-ai/firebase": "^1.23.0",
+    "@genkit-ai/googleai": "^1.23.0",
+    "firebase-admin": "^13.6.0",
+    "firebase-functions": "^7.1.0",
+    "genkit": "^1.23.0",
+    "zod": "^4.2.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0"
+  }
+}

@@ -1,0 +1,325 @@
+import 'dart:async';
+
+import 'package:kolo/domain/models/models.dart';
+import 'package:kolo/domain/repositories/kolo_repository.dart';
+import 'package:kolo/domain/services/money_formatter.dart';
+
+class FakeKoloRepository implements KoloRepository {
+  FakeKoloRepository._(this._state);
+
+  factory FakeKoloRepository.seeded() {
+    final now = DateTime(2026, 5, 24, 9, 30);
+    return FakeKoloRepository._(
+      DashboardState(
+        profile: UserProfile(
+          uid: 'demo-user',
+          name: 'Kolo User',
+          email: 'demo@kolo.app',
+          createdAt: now.subtract(const Duration(days: 12)),
+          onboardingComplete: true,
+        ),
+        balanceKobo: 5080000,
+        budgetPlan: const BudgetPlan(
+          monthlyIncomeKobo: 12000000,
+          incomeType: 'irregular',
+          savingsTargetKobo: 2500000,
+          savingsGoal: 'New phone',
+          aiNotes: 'Keep food controlled and protect vault money first.',
+          categories: [
+            BudgetCategory(
+              name: 'Food & Snacks',
+              emoji: '🍜',
+              allocatedKobo: 3000000,
+              priority: 1,
+            ),
+            BudgetCategory(
+              name: 'Transport',
+              emoji: '🚌',
+              allocatedKobo: 1500000,
+              priority: 2,
+            ),
+            BudgetCategory(
+              name: 'Data & Airtime',
+              emoji: '📶',
+              allocatedKobo: 1000000,
+              priority: 3,
+            ),
+            BudgetCategory(
+              name: 'Entertainment',
+              emoji: '🎧',
+              allocatedKobo: 1000000,
+              priority: 4,
+            ),
+          ],
+        ),
+        transactions: [
+          TransactionRecord.income(
+            id: 'tx-gig',
+            amountKobo: 4500000,
+            category: 'Gig Income',
+            description: 'Landing page gig',
+            date: now.subtract(const Duration(days: 2)),
+            source: TransactionSource.manual,
+            merchantName: 'Teniola Studio',
+          ),
+          TransactionRecord.expense(
+            id: 'tx-food',
+            amountKobo: 1250000,
+            category: 'Food & Snacks',
+            description: 'Chicken Republic',
+            date: now.subtract(const Duration(hours: 8)),
+            source: TransactionSource.sms,
+            merchantName: 'Chicken Republic',
+            aiApproved: false,
+            aiNote: 'Caution: food budget is climbing quickly.',
+          ),
+          TransactionRecord.expense(
+            id: 'tx-data',
+            amountKobo: 500000,
+            category: 'Data & Airtime',
+            description: 'MTN data bundle',
+            date: now.subtract(const Duration(days: 1)),
+            source: TransactionSource.notification,
+            merchantName: 'MTN',
+          ),
+        ],
+        aiMessages: [
+          AiMessage(
+            id: 'ai-welcome',
+            role: AiRole.assistant,
+            content:
+                'Your balance is ₦50,800. You have ₦17,500 left in flexible spending and your phone vault is safe.',
+            timestamp: now.subtract(const Duration(minutes: 20)),
+            context: 'home',
+          ),
+        ],
+        vaults: const [
+          SavingsVault(
+            id: 'vault-phone',
+            name: 'New Phone',
+            targetKobo: 18000000,
+            currentKobo: 4600000,
+          ),
+          SavingsVault(
+            id: 'vault-emergency',
+            name: 'Emergency',
+            targetKobo: 10000000,
+            currentKobo: 2200000,
+          ),
+        ],
+        owings: [
+          Owing(
+            id: 'owing-timi',
+            type: OwingType.theyOweMe,
+            person: 'Timi',
+            amountKobo: 350000,
+            date: now.subtract(const Duration(days: 6)),
+            note: 'Lunch',
+          ),
+          Owing(
+            id: 'owing-ada',
+            type: OwingType.iOweThem,
+            person: 'Ada',
+            amountKobo: 1000000,
+            date: now.subtract(const Duration(days: 3)),
+            dueDate: now.add(const Duration(days: 2)),
+          ),
+        ],
+        gigs: [
+          GigRecord(
+            id: 'gig-1',
+            client: 'Teniola Studio',
+            amountKobo: 4500000,
+            date: now.subtract(const Duration(days: 2)),
+            projectType: 'Design',
+          ),
+        ],
+        bills: [
+          BillReminder(
+            id: 'bill-data',
+            name: 'Monthly data',
+            amountKobo: 1000000,
+            frequency: 'Monthly',
+            nextDue: now.add(const Duration(days: 3)),
+          ),
+          BillReminder(
+            id: 'bill-hostel',
+            name: 'Hostel dues',
+            amountKobo: 7500000,
+            frequency: 'Quarterly',
+            nextDue: now.add(const Duration(days: 14)),
+          ),
+        ],
+        watchedApps: const [
+          WatchedApp(
+            packageName: 'com.kuda.android',
+            displayName: 'Kuda',
+            enabled: true,
+          ),
+          WatchedApp(packageName: 'team.opay.pay', displayName: 'Opay'),
+          WatchedApp(
+            packageName: 'com.gtbank.gtworldv1',
+            displayName: 'GTBank',
+            enabled: true,
+          ),
+        ],
+        partnerShares: [
+          PartnerShare(
+            id: 'share-1',
+            partnerEmail: 'accountability@friend.ng',
+            status: ShareStatus.active,
+            permissions: const {
+              'balance_summary',
+              'budget_summary',
+              'weekly_insights',
+            },
+            createdAt: now.subtract(const Duration(days: 4)),
+          ),
+        ],
+        insights: [
+          WeeklyInsight(
+            id: 'insight-food',
+            title: 'Late food spending is rising',
+            body:
+                'Most food expenses happened after 8pm this week. Kolo will flag the next snack run.',
+            createdAt: now.subtract(const Duration(hours: 2)),
+          ),
+          WeeklyInsight(
+            id: 'insight-gig',
+            title: 'Gig income landed',
+            body:
+                'You received ₦45,000 from Teniola Studio. Protect at least ₦10,000 for savings.',
+            createdAt: now.subtract(const Duration(days: 1)),
+          ),
+        ],
+        permissions: const {
+          KoloPermission.sms: PermissionGrantState.granted,
+          KoloPermission.notifications: PermissionGrantState.notRequested,
+          KoloPermission.overlay: PermissionGrantState.granted,
+          KoloPermission.accessibility: PermissionGrantState.notRequested,
+          KoloPermission.backgroundService: PermissionGrantState.notRequested,
+        },
+      ),
+    );
+  }
+
+  DashboardState _state;
+  final StreamController<DashboardState> _controller =
+      StreamController<DashboardState>.broadcast();
+
+  @override
+  Stream<DashboardState> watchDashboard() async* {
+    yield _state;
+    yield* _controller.stream;
+  }
+
+  @override
+  Future<void> logTransaction(TransactionRecord transaction) async {
+    final updatedTransactions = [transaction, ..._state.transactions];
+    _state = _state.copyWith(
+      balanceKobo: _state.balanceKobo + transaction.signedKobo,
+      transactions: updatedTransactions,
+      aiMessages: [
+        AiMessage(
+          id: 'ai-${transaction.id}',
+          role: AiRole.assistant,
+          content:
+              '${transaction.description} noted. Balance is now ${MoneyFormatter.formatKobo(_state.balanceKobo + transaction.signedKobo)}.',
+          timestamp: DateTime.now(),
+          context: 'transaction',
+        ),
+        ..._state.aiMessages,
+      ],
+    );
+    _controller.add(_state);
+  }
+
+  @override
+  Future<BudgetPlan> generateBudget(OnboardingAnswers answers) async {
+    final balance = answers.currentBalanceKobo;
+    final budget = BudgetPlan(
+      monthlyIncomeKobo: (balance * 2.4).round(),
+      incomeType: answers.incomeFrequency.toLowerCase().contains('regular')
+          ? 'regular'
+          : 'irregular',
+      savingsTargetKobo: (balance * 0.25).round(),
+      savingsGoal: answers.savingsGoal ?? 'Emergency buffer',
+      aiNotes:
+          'Built around ${answers.incomeSource}. The biggest risk is ${answers.biggestProblem.toLowerCase()}, so flexible spending stays tight.',
+      categories: [
+        BudgetCategory(
+          name: 'Food & Snacks',
+          emoji: '🍜',
+          allocatedKobo: (balance * 0.28).round(),
+          priority: 1,
+        ),
+        BudgetCategory(
+          name: 'Transport',
+          emoji: '🚌',
+          allocatedKobo: (balance * 0.16).round(),
+          priority: 2,
+        ),
+        BudgetCategory(
+          name: 'Data & Airtime',
+          emoji: '📶',
+          allocatedKobo: (balance * 0.10).round(),
+          priority: 3,
+        ),
+        BudgetCategory(
+          name: 'Savings',
+          emoji: '🔒',
+          allocatedKobo: (balance * 0.25).round(),
+          priority: 0,
+        ),
+      ],
+    );
+    _state = _state.copyWith(
+      balanceKobo: answers.currentBalanceKobo,
+      budgetPlan: budget,
+    );
+    _controller.add(_state);
+    return budget;
+  }
+
+  @override
+  Future<AiMessage> sendAiMessage(String message) async {
+    final userMessage = AiMessage(
+      id: 'user-${DateTime.now().microsecondsSinceEpoch}',
+      role: AiRole.user,
+      content: message,
+      timestamp: DateTime.now(),
+      context: 'chat',
+    );
+    final assistantMessage = AiMessage(
+      id: 'assistant-${DateTime.now().microsecondsSinceEpoch}',
+      role: AiRole.assistant,
+      content:
+          'You have ${MoneyFormatter.formatKobo(_state.balanceKobo)}. I would keep ${MoneyFormatter.formatKobo(_state.budgetPlan.savingsTargetKobo)} protected and stay careful with food this week.',
+      timestamp: DateTime.now(),
+      context: 'chat',
+    );
+
+    _state = _state.copyWith(
+      aiMessages: [assistantMessage, userMessage, ..._state.aiMessages],
+    );
+    _controller.add(_state);
+    return assistantMessage;
+  }
+
+  @override
+  Future<void> updateBudget(BudgetPlan budget) async {
+    _state = _state.copyWith(budgetPlan: budget);
+    _controller.add(_state);
+  }
+
+  @override
+  Future<void> updatePermission(
+    KoloPermission permission,
+    PermissionGrantState state,
+  ) async {
+    _state = _state.copyWith(
+      permissions: {..._state.permissions, permission: state},
+    );
+    _controller.add(_state);
+  }
+}

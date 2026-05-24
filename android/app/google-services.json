@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "881961141773",
+    "project_id": "kolo-292ad",
+    "storage_bucket": "kolo-292ad.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:881961141773:android:30f79e9eb054b5573b7744",
+        "android_client_info": {
+          "package_name": "com.micah.kolo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBpY9vt4BImtL9EzYCwAsegq3_7kmLOl3k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
