@@ -89,6 +89,11 @@ class ProfileScreen extends ConsumerWidget {
             ),
             _ProfileSection(
               title: 'Bill Reminders',
+              action: TextButton(
+                key: const Key('open_bill_reminders'),
+                onPressed: () => _openBillRemindersSheet(context),
+                child: const Text('Add'),
+              ),
               children: [
                 for (final bill in state.bills)
                   _SimpleRow(
@@ -154,6 +159,16 @@ class ProfileScreen extends ConsumerWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => const _GigTrackerSheet(),
+    );
+  }
+
+  Future<void> _openBillRemindersSheet(BuildContext context) {
+    return showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const _BillRemindersSheet(),
     );
   }
 }
@@ -473,6 +488,260 @@ class _GigCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _BillRemindersSheet extends ConsumerStatefulWidget {
+  const _BillRemindersSheet();
+
+  @override
+  ConsumerState<_BillRemindersSheet> createState() =>
+      _BillRemindersSheetState();
+}
+
+class _BillRemindersSheetState extends ConsumerState<_BillRemindersSheet> {
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _amountController = TextEditingController();
+  final TextEditingController _frequencyController = TextEditingController(
+    text: 'Monthly',
+  );
+  late final TextEditingController _nextDueController;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _nextDueController = TextEditingController(
+      text: _dateInput(DateTime.now().add(const Duration(days: 7))),
+    );
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _amountController.dispose();
+    _frequencyController.dispose();
+    _nextDueController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dashboard = ref.watch(dashboardProvider);
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Container(
+        key: const Key('bill_reminders_sheet'),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.82,
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+        decoration: const BoxDecoration(
+          color: Color(0xF0FFFFFF),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          boxShadow: [
+            BoxShadow(
+              color: Color(0x20000000),
+              blurRadius: 40,
+              offset: Offset(0, -8),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    height: 4,
+                    width: 42,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE5E7EB),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Bill Reminders',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 18),
+                dashboard.when(
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (error, _) => Text('Could not load bills: $error'),
+                  data: (state) => Column(
+                    children: [
+                      for (final bill in state.bills)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _BillCard(bill: bill),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'New bill',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const Key('new_bill_name'),
+                  controller: _nameController,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(labelText: 'Name'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const Key('new_bill_amount'),
+                  controller: _amountController,
+                  keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(
+                    labelText: 'Amount',
+                    prefixText: '\u20A6 ',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const Key('new_bill_frequency'),
+                  controller: _frequencyController,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(labelText: 'Frequency'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const Key('new_bill_next_due'),
+                  controller: _nextDueController,
+                  keyboardType: TextInputType.datetime,
+                  decoration: const InputDecoration(labelText: 'Next due date'),
+                ),
+                if (_error != null) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    _error!,
+                    style: const TextStyle(color: KoloColors.expense),
+                  ),
+                ],
+                const SizedBox(height: 18),
+                ElevatedButton(
+                  key: const Key('save_new_bill'),
+                  onPressed: _save,
+                  child: const Text('Save bill'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _save() async {
+    final name = _nameController.text.trim();
+    final amountKobo = MoneyFormatter.parseNairaToKobo(
+      _amountController.text.trim(),
+    );
+    final frequency = _frequencyController.text.trim();
+    final nextDue = DateTime.tryParse(_nextDueController.text.trim());
+
+    if (name.isEmpty ||
+        amountKobo == null ||
+        amountKobo <= 0 ||
+        frequency.isEmpty ||
+        nextDue == null) {
+      setState(() => _error = 'Enter bill details and a due date.');
+      return;
+    }
+
+    final now = DateTime.now();
+    await ref
+        .read(koloRepositoryProvider)
+        .upsertBill(
+          BillReminder(
+            id: 'bill-${now.microsecondsSinceEpoch}',
+            name: name,
+            amountKobo: amountKobo,
+            frequency: frequency,
+            nextDue: nextDue,
+          ),
+        );
+    _nameController.clear();
+    _amountController.clear();
+    if (mounted) setState(() => _error = null);
+  }
+}
+
+class _BillCard extends StatelessWidget {
+  const _BillCard({required this.bill});
+
+  final BillReminder bill;
+
+  @override
+  Widget build(BuildContext context) {
+    final statusColor = bill.active ? KoloColors.warning : KoloColors.textMuted;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 20,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            height: 40,
+            width: 40,
+            decoration: BoxDecoration(
+              color: KoloColors.primaryPastel,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(Icons.receipt_long, color: statusColor),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  bill.name,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${bill.frequency} - ${_dateInput(bill.nextDue)}',
+                  style: Theme.of(context).textTheme.labelMedium,
+                ),
+              ],
+            ),
+          ),
+          Text(
+            MoneyFormatter.formatKobo(bill.amountKobo),
+            style: TextStyle(color: statusColor, fontWeight: FontWeight.w800),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _dateInput(DateTime date) {
+  final month = date.month.toString().padLeft(2, '0');
+  final day = date.day.toString().padLeft(2, '0');
+  return '${date.year}-$month-$day';
 }
 
 class _ProgressRow extends StatelessWidget {

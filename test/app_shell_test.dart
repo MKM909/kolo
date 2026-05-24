@@ -261,6 +261,45 @@ void main() {
     );
   });
 
+  testWidgets('profile bill reminders logs a new bill', (tester) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.person_outline));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Bill Reminders'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const Key('open_bill_reminders')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('bill_reminders_sheet')), findsOneWidget);
+
+    await tester.enterText(find.byKey(const Key('new_bill_name')), 'Netflix');
+    await tester.enterText(find.byKey(const Key('new_bill_amount')), '5000');
+    await tester.enterText(
+      find.byKey(const Key('new_bill_frequency')),
+      'Monthly',
+    );
+    await tester.enterText(
+      find.byKey(const Key('new_bill_next_due')),
+      '2026-06-01',
+    );
+    await tester.ensureVisible(find.byKey(const Key('save_new_bill')));
+    await tester.tap(find.byKey(const Key('save_new_bill')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Netflix'), findsWidgets);
+    expect(find.text('Monthly'), findsWidgets);
+    expect(
+      find.textContaining(MoneyFormatter.formatKobo(500000)),
+      findsWidgets,
+    );
+  });
+
   testWidgets('profile can grant a permission from locked state', (
     tester,
   ) async {
