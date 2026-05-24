@@ -40,8 +40,16 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                 children: [
                   for (final message in state.aiMessages)
                     _ChatBubble(message: message),
-                  const _PromptChip(text: 'Can I afford a new pair of shoes?'),
-                  const _PromptChip(text: 'Redo my budget, I just got a gig'),
+                  _PromptChip(
+                    text: 'Can I afford a new pair of shoes?',
+                    onTap: () =>
+                        _sendMessage('Can I afford a new pair of shoes?'),
+                  ),
+                  _PromptChip(
+                    text: 'Redo my budget, I just got a gig',
+                    onTap: () =>
+                        _sendMessage('Redo my budget, I just got a gig'),
+                  ),
                 ],
               ),
             ),
@@ -61,14 +69,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                   ),
                   const SizedBox(width: 12),
                   IconButton.filled(
-                    onPressed: () async {
-                      final text = _controller.text.trim();
-                      if (text.isEmpty) return;
-                      await ref
-                          .read(koloRepositoryProvider)
-                          .sendAiMessage(text);
-                      _controller.clear();
-                    },
+                    onPressed: () => _sendMessage(_controller.text),
                     icon: const Icon(Icons.send),
                   ),
                 ],
@@ -78,6 +79,13 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _sendMessage(String rawText) async {
+    final text = rawText.trim();
+    if (text.isEmpty) return;
+    await ref.read(koloRepositoryProvider).sendAiMessage(text);
+    if (rawText == _controller.text) _controller.clear();
   }
 }
 
@@ -141,22 +149,33 @@ class _ChatBubble extends StatelessWidget {
 }
 
 class _PromptChip extends StatelessWidget {
-  const _PromptChip({required this.text});
+  const _PromptChip({required this.text, required this.onTap});
 
   final String text;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Align(
       alignment: Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: KoloColors.primaryPastel,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
           borderRadius: BorderRadius.circular(999),
+          onTap: onTap,
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: KoloColors.primaryPastel,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              text,
+              style: const TextStyle(color: KoloColors.primary),
+            ),
+          ),
         ),
-        child: Text(text, style: const TextStyle(color: KoloColors.primary)),
       ),
     );
   }

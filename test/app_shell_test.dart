@@ -28,6 +28,24 @@ void main() {
     expect(find.textContaining('Can I afford'), findsOneWidget);
   });
 
+  testWidgets('AI prompt chips send the suggested question', (tester) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.auto_awesome));
+    await tester.pumpAndSettle();
+
+    const prompt = 'Can I afford a new pair of shoes?';
+    expect(find.text(prompt), findsOneWidget);
+
+    await tester.tap(find.text(prompt));
+    await tester.pumpAndSettle();
+
+    final sentPrompt = tester.widget<Text>(find.text(prompt));
+    expect(sentPrompt.style?.color, Colors.white);
+    expect(find.textContaining('I would keep'), findsOneWidget);
+  });
+
   testWidgets('manual expense logging updates the dashboard', (tester) async {
     await tester.pumpWidget(const KoloApp());
     await tester.pumpAndSettle();
