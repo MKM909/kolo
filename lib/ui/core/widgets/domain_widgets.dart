@@ -166,11 +166,13 @@ class BudgetCategoryCard extends StatelessWidget {
   const BudgetCategoryCard({
     required this.category,
     required this.spentKobo,
+    this.onTap,
     super.key,
   });
 
   final BudgetCategory category;
   final int spentKobo;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -183,55 +185,62 @@ class BudgetCategoryCard extends StatelessWidget {
         ? KoloColors.warning
         : KoloColors.primary;
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [BoxShadow(color: Color(0x10000000), blurRadius: 16)],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                height: 36,
-                width: 36,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: KoloColors.primaryPastel,
-                  borderRadius: BorderRadius.circular(8),
+    return InkWell(
+      key: Key('budget_category_${category.name}'),
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: const [
+            BoxShadow(color: Color(0x10000000), blurRadius: 16),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  height: 36,
+                  width: 36,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: KoloColors.primaryPastel,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(category.emoji),
                 ),
-                child: Text(category.emoji),
-              ),
-              const Spacer(),
-              Text(
-                '${(progress * 100).round()}%',
-                style: Theme.of(context).textTheme.labelMedium,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            category.name,
-            style: const TextStyle(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '${MoneyFormatter.formatKobo(spentKobo)} / ${MoneyFormatter.formatKobo(category.allocatedKobo)}',
-          ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 5,
-              backgroundColor: KoloColors.primaryPastel,
-              color: color,
+                const Spacer(),
+                Text(
+                  '${(progress * 100).round()}%',
+                  style: Theme.of(context).textTheme.labelMedium,
+                ),
+              ],
             ),
-          ),
-        ],
+            const SizedBox(height: 12),
+            Text(
+              category.name,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${MoneyFormatter.formatKobo(spentKobo)} / ${MoneyFormatter.formatKobo(category.allocatedKobo)}',
+            ),
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 5,
+                backgroundColor: KoloColors.primaryPastel,
+                color: color,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

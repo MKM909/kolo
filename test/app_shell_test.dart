@@ -81,6 +81,31 @@ void main() {
     expect(find.text(MoneyFormatter.formatKobo(6000000)), findsOneWidget);
   });
 
+  testWidgets('budget category editing updates an allocation', (tester) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.pie_chart_outline));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Food & Snacks'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('budget_category_sheet')), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('budget_category_amount')),
+      '35000',
+    );
+    await tester.tap(find.byKey(const Key('save_budget_category')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining(MoneyFormatter.formatKobo(3500000)),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('profile can grant a permission from locked state', (
     tester,
   ) async {
