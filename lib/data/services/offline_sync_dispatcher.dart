@@ -28,6 +28,11 @@ class OfflineSyncDispatcher {
         if (bill == null) return false;
         await _repository.upsertBill(bill);
         return true;
+      case 'deleteBill':
+        final billId = _string(operation.payload['id']);
+        if (billId == null) return false;
+        await _repository.deleteBill(billId);
+        return true;
       case 'gig':
         final gig = _gigFromPayload(operation.payload);
         if (gig == null) return false;

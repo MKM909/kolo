@@ -108,6 +108,30 @@ void main() {
     },
   );
 
+  test('retryPending deletes queued bill reminders and marks them synced', () async {
+    final repository = FakeKoloRepository.seeded();
+    final queue = OfflineSyncQueue();
+    await queue.enqueue(
+      PendingSyncOperation(
+        id: 'offline-delete-bill',
+        kind: 'deleteBill',
+        payload: const {'id': 'bill-data'},
+        createdAt: DateTime(2026, 5, 24),
+      ),
+    );
+
+    final synced = await OfflineSyncDispatcher(
+      queue: queue,
+      repository: repository,
+    ).retryPending();
+    final pending = await queue.watchPendingOperations().first;
+    final dashboard = await repository.watchDashboard().first;
+
+    expect(synced, 1);
+    expect(pending, isEmpty);
+    expect(dashboard.bills.where((bill) => bill.id == 'bill-data'), isEmpty);
+  });
+
   test('retryPending upserts queued gig income and marks it synced', () async {
     final repository = FakeKoloRepository.seeded();
     final queue = OfflineSyncQueue();
