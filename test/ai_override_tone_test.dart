@@ -12,11 +12,22 @@ void main() {
     expect(AiOverrideTone.shouldAdjustTone(transactions), isFalse);
   });
 
-  test('adjusts tone after two recent AI-cautioned expenses', () {
+  test('does not adjust tone after only two recent AI-cautioned expenses', () {
     final transactions = [
       _expense(id: 'tx-1', aiApproved: false),
       _expense(id: 'tx-2', aiApproved: false),
       _expense(id: 'tx-3', aiApproved: true),
+    ];
+
+    expect(AiOverrideTone.shouldAdjustTone(transactions), isFalse);
+  });
+
+  test('adjusts tone after three recent AI-cautioned expenses', () {
+    final transactions = [
+      _expense(id: 'tx-1', aiApproved: false),
+      _expense(id: 'tx-2', aiApproved: false),
+      _expense(id: 'tx-3', aiApproved: false),
+      _expense(id: 'tx-4', aiApproved: true),
     ];
 
     expect(AiOverrideTone.shouldAdjustTone(transactions), isTrue);

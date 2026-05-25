@@ -13,9 +13,9 @@ class AiOverrideTone {
             .toList()
           ..sort((a, b) => b.date.compareTo(a.date));
 
-    if (recentExpenses.length < 2) return false;
+    if (recentExpenses.length < 3) return false;
     return recentExpenses
-        .take(2)
+        .take(3)
         .every((transaction) => transaction.aiApproved == false);
   }
 }
