@@ -346,12 +346,10 @@ class FirebaseKoloRepository implements KoloRepository {
   @override
   Future<BudgetPlan> generateBudget(OnboardingAnswers answers) async {
     final modelName = await _preferredAiModel();
-    final budget = await _aiService.generateBudget(
+    return _aiService.generateBudget(
       answers,
       modelName: modelName,
     );
-    await updateBudget(budget);
-    return budget;
   }
 
   @override

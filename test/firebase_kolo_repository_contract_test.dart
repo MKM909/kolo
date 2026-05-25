@@ -44,6 +44,19 @@ void main() {
     },
   );
 
+  test('Firebase budget generation does not persist preview budgets', () {
+    final source = File(
+      'lib/data/repositories/firebase_kolo_repository.dart',
+    ).readAsStringSync();
+    final body = RegExp(
+      r'Future<BudgetPlan> generateBudget\(OnboardingAnswers answers\) async \{([\s\S]*?)\n  \}',
+    ).firstMatch(source)!.group(1)!;
+
+    expect(body, contains('_aiService.generateBudget'));
+    expect(body, isNot(contains('updateBudget')));
+    expect(body, isNot(contains("'budgetPlan'")));
+  });
+
   test('Firebase profile persists notification preferences as one map', () {
     final source = File(
       'lib/data/repositories/firebase_kolo_repository.dart',
