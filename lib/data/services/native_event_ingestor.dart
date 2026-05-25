@@ -143,7 +143,10 @@ class NativeEventIngestor {
     if (advisor == null) return _fallbackIntervention(dashboard, watchedApp);
 
     try {
-      final message = await advisor.interventionMessage(context: dashboard);
+      final message = await advisor.interventionMessage(
+        context: dashboard,
+        modelName: dashboard.profile.preferredAiModel,
+      );
       if (message.trim().isNotEmpty) return message;
     } on Object {
       // Keep native interventions useful if Functions or Gemini is unavailable.

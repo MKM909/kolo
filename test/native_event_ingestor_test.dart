@@ -182,6 +182,7 @@ void main() {
         });
 
     final repository = FakeKoloRepository.seeded();
+    await repository.updatePreferredAiModel('gemini-3.1-flash');
     final advisor = _FakeSpendingInterventionAdvisor(
       message: 'Kolo from Gemini: pause before sending money.',
     );
@@ -197,6 +198,7 @@ void main() {
     expect(processed, 1);
     expect(advisor.calls, 1);
     expect(advisor.lastContext?.balanceKobo, 5080000);
+    expect(advisor.lastModelName, 'gemini-3.1-flash');
     expect(dashboard.aiMessages.first.content, advisor.message);
     expect(dashboard.aiMessages.first.context, 'intervention');
   });
@@ -394,11 +396,16 @@ class _FakeSpendingInterventionAdvisor implements SpendingInterventionAdvisor {
   final String message;
   int calls = 0;
   DashboardState? lastContext;
+  String? lastModelName;
 
   @override
-  Future<String> interventionMessage({required DashboardState context}) async {
+  Future<String> interventionMessage({
+    required DashboardState context,
+    String? modelName,
+  }) async {
     calls += 1;
     lastContext = context;
+    lastModelName = modelName;
     return message;
   }
 }
