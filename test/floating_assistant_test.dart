@@ -59,6 +59,26 @@ void main() {
     expect(find.text('Tell me more about this money check.'), findsOneWidget);
   });
 
+  testWidgets('floating assistant can start category correction', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('kolo_liquid_aether_orb')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('kolo_quick_wrong_category')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('kolo_quick_wrong_category')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('That transaction is in the wrong category.'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('floating assistant warns when balance is negative', (
     tester,
   ) async {

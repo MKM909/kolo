@@ -165,7 +165,7 @@ class _FloatingConversationPanel extends ConsumerWidget {
         child: Material(
           color: Colors.transparent,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 340, maxHeight: 430),
+            constraints: const BoxConstraints(maxWidth: 340, maxHeight: 460),
             child: Container(
               key: const Key('kolo_floating_conversation'),
               decoration: BoxDecoration(
@@ -237,6 +237,9 @@ class _FloatingConversationPanel extends ConsumerWidget {
                       onDismiss: onClose,
                       onLogIt: () =>
                           sendPrompt('Help me log this transaction.'),
+                      onWrongCategory: () => sendPrompt(
+                        'That transaction is in the wrong category.',
+                      ),
                       onTellMore: () =>
                           sendPrompt('Tell me more about this money check.'),
                     ),
@@ -454,11 +457,13 @@ class _FloatingQuickActions extends StatelessWidget {
   const _FloatingQuickActions({
     required this.onDismiss,
     required this.onLogIt,
+    required this.onWrongCategory,
     required this.onTellMore,
   });
 
   final VoidCallback onDismiss;
   final VoidCallback onLogIt;
+  final VoidCallback onWrongCategory;
   final VoidCallback onTellMore;
 
   @override
@@ -485,6 +490,12 @@ class _FloatingQuickActions extends StatelessWidget {
             icon: Icons.add_circle_outline,
             label: 'Log it',
             onPressed: onLogIt,
+          ),
+          _FloatingQuickActionButton(
+            key: const Key('kolo_quick_wrong_category'),
+            icon: Icons.category_outlined,
+            label: 'Wrong category',
+            onPressed: onWrongCategory,
           ),
           _FloatingQuickActionButton(
             key: const Key('kolo_quick_tell_more'),
