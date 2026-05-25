@@ -366,7 +366,7 @@ const onSmsReceivedFlow = ai.defineFlow(
       });
       dbTransaction.set(
         userRef,
-        {balance: FieldValue.increment(deltaKobo)},
+        {balanceKobo: FieldValue.increment(deltaKobo)},
         {merge: true},
       );
     });
