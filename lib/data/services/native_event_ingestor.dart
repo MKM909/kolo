@@ -3,6 +3,7 @@ import 'package:kolo/data/services/overlay_bubble_service.dart';
 import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/repositories/kolo_repository.dart';
 import 'package:kolo/domain/services/money_formatter.dart';
+import 'package:kolo/domain/services/sms_received_handler.dart';
 import 'package:kolo/domain/services/spending_intervention_advisor.dart';
 import 'package:kolo/domain/services/transaction_categorizer.dart';
 import 'package:kolo/domain/services/transaction_parser.dart';
@@ -14,17 +15,20 @@ class NativeEventIngestor {
     OverlayBubbleService? overlayBubble,
     TransactionCategorizer? categorizer,
     SpendingInterventionAdvisor? interventionAdvisor,
+    SmsReceivedHandler? smsReceivedHandler,
   }) : _capabilities = capabilities,
        _repository = repository,
        _overlayBubble = overlayBubble,
        _categorizer = categorizer,
-       _interventionAdvisor = interventionAdvisor;
+       _interventionAdvisor = interventionAdvisor,
+       _smsReceivedHandler = smsReceivedHandler;
 
   final AndroidCapabilityService _capabilities;
   final KoloRepository _repository;
   final OverlayBubbleService? _overlayBubble;
   final TransactionCategorizer? _categorizer;
   final SpendingInterventionAdvisor? _interventionAdvisor;
+  final SmsReceivedHandler? _smsReceivedHandler;
 
   Future<int> drainAndProcess() async {
     final events = await _capabilities.drainNativeEvents();
@@ -47,6 +51,13 @@ class NativeEventIngestor {
       final rawText = _rawTextFor(event);
       if (rawText == null || rawText.trim().isEmpty) continue;
 
+      if (event.type == 'sms_received' &&
+          await _processServerSms(event, rawText)) {
+        await _overlayBubble?.showKoloBubble();
+        processed += 1;
+        continue;
+      }
+
       final draft =
           TransactionParser.parse(rawText) ?? await _aiDraft(event, rawText);
       if (draft == null) {
@@ -62,6 +73,23 @@ class NativeEventIngestor {
     }
 
     return processed;
+  }
+
+  Future<bool> _processServerSms(
+    NativeAndroidEvent event,
+    String rawText,
+  ) async {
+    final smsReceivedHandler = _smsReceivedHandler;
+    if (smsReceivedHandler == null) return false;
+
+    final context = await _repository.watchDashboard().first;
+    return smsReceivedHandler.onSmsReceived(
+      rawText: rawText,
+      sender: event.payload['sender'] as String?,
+      receivedAt: event.createdAt,
+      context: context,
+      modelName: context.profile.preferredAiModel,
+    );
   }
 
   Future<TransactionDraft?> _aiDraft(

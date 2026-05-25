@@ -5,6 +5,7 @@ import 'package:kolo/data/services/android_capability_service.dart';
 import 'package:kolo/data/services/native_event_ingestor.dart';
 import 'package:kolo/data/services/overlay_bubble_service.dart';
 import 'package:kolo/domain/models/models.dart';
+import 'package:kolo/domain/services/sms_received_handler.dart';
 import 'package:kolo/domain/services/spending_intervention_advisor.dart';
 import 'package:kolo/domain/services/transaction_categorizer.dart';
 
@@ -289,6 +290,90 @@ void main() {
     },
   );
 
+  test('uses server SMS ingestion before local logging when available', () async {
+    final createdAt = DateTime(2026, 5, 24, 11);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          expect(call.method, 'drainNativeEvents');
+          return [
+            {
+              'id': 'sms-server-1',
+              'type': 'sms_received',
+              'createdAt': createdAt.millisecondsSinceEpoch,
+              'payload': {
+                'sender': 'GTBank',
+                'body':
+                    'GTBank Alert: Acct 0123456789 DR NGN2,500.00 at Chicken Republic. Bal: NGN47,500.00',
+              },
+            },
+          ];
+        });
+
+    final repository = FakeKoloRepository.seeded();
+    await repository.updatePreferredAiModel('gemini-3.1-flash-lite');
+    final initial = await repository.watchDashboard().first;
+    final handler = _FakeSmsReceivedHandler(accepted: true);
+    final overlayBubble = _FakeOverlayBubbleService();
+    final ingestor = NativeEventIngestor(
+      capabilities: AndroidCapabilityService(channel: channel),
+      repository: repository,
+      overlayBubble: overlayBubble,
+      smsReceivedHandler: handler,
+    );
+
+    final processed = await ingestor.drainAndProcess();
+    final dashboard = await repository.watchDashboard().first;
+
+    expect(processed, 1);
+    expect(handler.calls, 1);
+    expect(handler.lastRawText, contains('Chicken Republic'));
+    expect(handler.lastSender, 'GTBank');
+    expect(handler.lastReceivedAt, createdAt);
+    expect(handler.lastContext?.balanceKobo, initial.balanceKobo);
+    expect(handler.lastModelName, 'gemini-3.1-flash-lite');
+    expect(dashboard.transactions, hasLength(initial.transactions.length));
+    expect(dashboard.balanceKobo, initial.balanceKobo);
+    expect(overlayBubble.showCalls, 1);
+  });
+
+  test('falls back to local SMS logging when server ingestion fails', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          expect(call.method, 'drainNativeEvents');
+          return [
+            {
+              'id': 'sms-server-fallback',
+              'type': 'sms_received',
+              'createdAt': DateTime(2026, 5, 24).millisecondsSinceEpoch,
+              'payload': {
+                'body':
+                    'GTBank Alert: Acct 0123456789 DR NGN2,500.00 at Chicken Republic. Bal: NGN47,500.00',
+              },
+            },
+          ];
+        });
+
+    final repository = FakeKoloRepository.seeded();
+    final handler = _FakeSmsReceivedHandler(accepted: false);
+    final overlayBubble = _FakeOverlayBubbleService();
+    final ingestor = NativeEventIngestor(
+      capabilities: AndroidCapabilityService(channel: channel),
+      repository: repository,
+      overlayBubble: overlayBubble,
+      smsReceivedHandler: handler,
+    );
+
+    final processed = await ingestor.drainAndProcess();
+    final dashboard = await repository.watchDashboard().first;
+
+    expect(processed, 1);
+    expect(handler.calls, 1);
+    expect(dashboard.transactions.first.id, 'native-sms-server-fallback');
+    expect(dashboard.transactions.first.merchantName, 'Chicken Republic');
+    expect(dashboard.balanceKobo, 5080000 - 250000);
+    expect(overlayBubble.showCalls, 1);
+  });
+
   test('ignores transaction-like notifications from unwatched apps', () async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
@@ -407,6 +492,35 @@ class _FakeSpendingInterventionAdvisor implements SpendingInterventionAdvisor {
     lastContext = context;
     lastModelName = modelName;
     return message;
+  }
+}
+
+class _FakeSmsReceivedHandler implements SmsReceivedHandler {
+  _FakeSmsReceivedHandler({required this.accepted});
+
+  final bool accepted;
+  int calls = 0;
+  String? lastRawText;
+  String? lastSender;
+  DateTime? lastReceivedAt;
+  DashboardState? lastContext;
+  String? lastModelName;
+
+  @override
+  Future<bool> onSmsReceived({
+    required String rawText,
+    String? sender,
+    DateTime? receivedAt,
+    required DashboardState context,
+    String? modelName,
+  }) async {
+    calls += 1;
+    lastRawText = rawText;
+    lastSender = sender;
+    lastReceivedAt = receivedAt;
+    lastContext = context;
+    lastModelName = modelName;
+    return accepted;
   }
 }
 

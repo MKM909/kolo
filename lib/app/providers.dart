@@ -20,6 +20,7 @@ import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/repositories/auth_repository.dart';
 import 'package:kolo/domain/repositories/kolo_repository.dart';
 import 'package:kolo/domain/services/permission_requester.dart';
+import 'package:kolo/domain/services/sms_received_handler.dart';
 import 'package:kolo/domain/services/spending_intervention_advisor.dart';
 import 'package:kolo/domain/services/transaction_categorizer.dart';
 
@@ -68,6 +69,12 @@ final spendingInterventionAdvisorProvider =
       if (!bootstrap.initialized) return null;
       return CloudAiService();
     });
+
+final smsReceivedHandlerProvider = Provider<SmsReceivedHandler?>((ref) {
+  final bootstrap = ref.watch(firebaseBootstrapResultProvider);
+  if (!bootstrap.initialized) return null;
+  return CloudAiService();
+});
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   final bootstrap = ref.watch(firebaseBootstrapResultProvider);
@@ -144,6 +151,7 @@ final nativeEventIngestorProvider = Provider<NativeEventIngestor>((ref) {
     overlayBubble: ref.watch(overlayBubbleServiceProvider),
     categorizer: ref.watch(transactionCategorizerProvider),
     interventionAdvisor: ref.watch(spendingInterventionAdvisorProvider),
+    smsReceivedHandler: ref.watch(smsReceivedHandlerProvider),
   );
 });
 

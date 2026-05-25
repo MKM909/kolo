@@ -3,11 +3,15 @@ import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/services/ai_context_builder.dart';
 import 'package:kolo/domain/services/ai_failure_message.dart';
 import 'package:kolo/domain/services/ai_model_config.dart';
+import 'package:kolo/domain/services/sms_received_handler.dart';
 import 'package:kolo/domain/services/spending_intervention_advisor.dart';
 import 'package:kolo/domain/services/transaction_categorizer.dart';
 
 class CloudAiService
-    implements TransactionCategorizer, SpendingInterventionAdvisor {
+    implements
+        TransactionCategorizer,
+        SpendingInterventionAdvisor,
+        SmsReceivedHandler {
   CloudAiService({
     FirebaseFunctions? functions,
     this.modelName = defaultGeminiModelName,
@@ -99,6 +103,7 @@ class CloudAiService
     }
   }
 
+  @override
   Future<bool> onSmsReceived({
     required String rawText,
     String? sender,

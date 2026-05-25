@@ -39,6 +39,16 @@ void main() {
     );
   });
 
+  test('native event ingestor is wired to server SMS ingestion', () {
+    final providersSource = File('lib/app/providers.dart').readAsStringSync();
+
+    expect(providersSource, contains('smsReceivedHandlerProvider'));
+    expect(
+      providersSource,
+      contains('smsReceivedHandler: ref.watch(smsReceivedHandlerProvider)'),
+    );
+  });
+
   test('due bill processor is wired into startup', () {
     final providersSource = File('lib/app/providers.dart').readAsStringSync();
     final appSource = File('lib/app/kolo_app.dart').readAsStringSync();
