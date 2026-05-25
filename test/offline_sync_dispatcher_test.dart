@@ -209,6 +209,33 @@ void main() {
     expect(owing.dueDate, DateTime(2026, 5, 30));
   });
 
+  test('retryPending deletes queued owings and marks them synced', () async {
+    final repository = FakeKoloRepository.seeded();
+    final queue = OfflineSyncQueue();
+    await queue.enqueue(
+      PendingSyncOperation(
+        id: 'offline-delete-owing',
+        kind: 'deleteOwing',
+        payload: const {'id': 'owing-timi'},
+        createdAt: DateTime(2026, 5, 24),
+      ),
+    );
+
+    final synced = await OfflineSyncDispatcher(
+      queue: queue,
+      repository: repository,
+    ).retryPending();
+    final pending = await queue.watchPendingOperations().first;
+    final dashboard = await repository.watchDashboard().first;
+
+    expect(synced, 1);
+    expect(pending, isEmpty);
+    expect(
+      dashboard.owings.where((owing) => owing.id == 'owing-timi'),
+      isEmpty,
+    );
+  });
+
   test('retryPending upserts queued vaults and marks them synced', () async {
     final repository = FakeKoloRepository.seeded();
     final queue = OfflineSyncQueue();

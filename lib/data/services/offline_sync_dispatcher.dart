@@ -43,6 +43,11 @@ class OfflineSyncDispatcher {
         if (owing == null) return false;
         await _repository.upsertOwing(owing);
         return true;
+      case 'deleteOwing':
+        final owingId = _string(operation.payload['id']);
+        if (owingId == null) return false;
+        await _repository.deleteOwing(owingId);
+        return true;
       case 'vault':
         final vault = _vaultFromPayload(operation.payload);
         if (vault == null) return false;
