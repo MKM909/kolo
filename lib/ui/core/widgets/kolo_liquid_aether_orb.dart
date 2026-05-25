@@ -2,16 +2,33 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-class KoloLiquidAetherOrb extends StatelessWidget {
+class KoloLiquidAetherOrb extends StatefulWidget {
   const KoloLiquidAetherOrb({super.key, this.size = 58});
 
   final double size;
 
   @override
+  State<KoloLiquidAetherOrb> createState() => _KoloLiquidAetherOrbState();
+}
+
+class _KoloLiquidAetherOrbState extends State<KoloLiquidAetherOrb>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 3600),
+  )..forward();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Container(
-      height: size,
-      width: size,
+      height: widget.size,
+      width: widget.size,
       decoration: const BoxDecoration(
         shape: BoxShape.circle,
         boxShadow: [
@@ -23,9 +40,17 @@ class KoloLiquidAetherOrb extends StatelessWidget {
         ],
       ),
       child: ClipOval(
-        child: CustomPaint(
-          painter: const _LiquidAetherPainter(),
-          child: const SizedBox.expand(),
+        child: AnimatedBuilder(
+          key: const Key('kolo_liquid_aether_animation'),
+          animation: _controller,
+          builder: (context, _) {
+            return CustomPaint(
+              painter: _LiquidAetherPainter(
+                phase: _controller.value * math.pi * 2,
+              ),
+              child: const SizedBox.expand(),
+            );
+          },
         ),
       ),
     );
@@ -33,17 +58,25 @@ class KoloLiquidAetherOrb extends StatelessWidget {
 }
 
 class _LiquidAetherPainter extends CustomPainter {
-  const _LiquidAetherPainter();
+  const _LiquidAetherPainter({required this.phase});
+
+  final double phase;
 
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
-    final center = Offset(size.width * 0.58, size.height * 0.48);
+    final center = Offset(
+      size.width * (0.58 + math.sin(phase) * 0.03),
+      size.height * (0.48 + math.cos(phase) * 0.025),
+    );
     final radius = size.shortestSide / 2;
 
     final base = Paint()
       ..shader = RadialGradient(
-        center: const Alignment(0.28, -0.32),
+        center: Alignment(
+          0.28 + math.sin(phase * 0.7) * 0.08,
+          -0.32 + math.cos(phase * 0.7) * 0.05,
+        ),
         radius: 0.92,
         colors: const [
           Color(0xFF111827),
@@ -60,7 +93,7 @@ class _LiquidAetherPainter extends CustomPainter {
     for (var x = 0.0; x <= size.width; x += 4) {
       final y =
           size.height * 0.66 +
-          math.sin((x / size.width * math.pi * 2.2) + 0.6) * 5;
+          math.sin((x / size.width * math.pi * 2.2) + phase + 0.6) * 5;
       liquid.lineTo(x, y);
     }
     liquid
@@ -100,5 +133,7 @@ class _LiquidAetherPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _LiquidAetherPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _LiquidAetherPainter oldDelegate) {
+    return oldDelegate.phase != phase;
+  }
 }

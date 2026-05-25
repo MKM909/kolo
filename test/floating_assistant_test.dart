@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kolo/app/kolo_app.dart';
 import 'package:kolo/app/providers.dart';
 import 'package:kolo/domain/models/models.dart';
+import 'package:kolo/ui/core/widgets/kolo_liquid_aether_orb.dart';
 import 'package:kolo/ui/features/assistant/kolo_floating_assistant.dart';
 
 void main() {
@@ -16,6 +17,17 @@ void main() {
     expect(find.byKey(const Key('kolo_floating_assistant')), findsOneWidget);
     expect(find.byKey(const Key('kolo_liquid_aether_orb')), findsOneWidget);
     expect(find.text('Need a quick money check?'), findsOneWidget);
+  });
+
+  testWidgets('liquid aether orb animates its inner surface', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: KoloLiquidAetherOrb())),
+    );
+
+    expect(
+      find.byKey(const Key('kolo_liquid_aether_animation')),
+      findsOneWidget,
+    );
   });
 
   testWidgets(
