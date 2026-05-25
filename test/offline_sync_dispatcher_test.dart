@@ -67,4 +67,41 @@ void main() {
     expect(synced, 0);
     expect(pending.single.id, 'offline-unknown');
   });
+
+  test('retryPending upserts queued bill reminders and marks them synced', () async {
+    final repository = FakeKoloRepository.seeded();
+    final queue = OfflineSyncQueue();
+    await queue.enqueue(
+      PendingSyncOperation(
+        id: 'offline-bill',
+        kind: 'bill',
+        payload: {
+          'id': 'bill-offline-data',
+          'name': 'Data renewal',
+          'amountKobo': 150000,
+          'frequency': 'monthly',
+          'nextDue': DateTime(2026, 5, 27).toIso8601String(),
+          'active': true,
+        },
+        createdAt: DateTime(2026, 5, 24),
+      ),
+    );
+
+    final synced = await OfflineSyncDispatcher(
+      queue: queue,
+      repository: repository,
+    ).retryPending();
+    final pending = await queue.watchPendingOperations().first;
+    final dashboard = await repository.watchDashboard().first;
+    final bill = dashboard.bills.firstWhere(
+      (bill) => bill.id == 'bill-offline-data',
+    );
+
+    expect(synced, 1);
+    expect(pending, isEmpty);
+    expect(bill.name, 'Data renewal');
+    expect(bill.amountKobo, 150000);
+    expect(bill.frequency, 'monthly');
+    expect(bill.active, isTrue);
+  });
 }

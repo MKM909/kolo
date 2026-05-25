@@ -23,6 +23,11 @@ class OfflineSyncDispatcher {
         if (transaction == null) return false;
         await _repository.logTransaction(transaction);
         return true;
+      case 'bill':
+        final bill = _billFromPayload(operation.payload);
+        if (bill == null) return false;
+        await _repository.upsertBill(bill);
+        return true;
       default:
         return false;
     }
@@ -55,6 +60,25 @@ class OfflineSyncDispatcher {
     );
   }
 
+  BillReminder? _billFromPayload(Map<String, Object?> payload) {
+    final id = _string(payload['id']);
+    final name = _string(payload['name']);
+    final amountKobo = _int(payload['amountKobo']);
+    final nextDue = DateTime.tryParse(_string(payload['nextDue']) ?? '');
+    if (id == null || name == null || amountKobo == null || nextDue == null) {
+      return null;
+    }
+
+    return BillReminder(
+      id: id,
+      name: name,
+      amountKobo: amountKobo,
+      frequency: _string(payload['frequency']) ?? 'monthly',
+      nextDue: nextDue,
+      active: _bool(payload['active']) ?? true,
+    );
+  }
+
   String? _string(Object? value) {
     if (value is! String) return null;
     final trimmed = value.trim();
@@ -65,6 +89,10 @@ class OfflineSyncDispatcher {
     if (value is int) return value;
     if (value is num) return value.toInt();
     return null;
+  }
+
+  bool? _bool(Object? value) {
+    return value is bool ? value : null;
   }
 
   T? _enumByName<T extends Enum>(List<T> values, Object? value) {
