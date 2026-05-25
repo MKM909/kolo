@@ -6,6 +6,7 @@ import 'package:kolo/domain/services/ai_model_config.dart';
 import 'package:kolo/domain/services/money_formatter.dart';
 import 'package:kolo/domain/services/partner_share_policy.dart';
 import 'package:kolo/domain/services/partner_summary_builder.dart';
+import 'package:kolo/domain/services/vault_milestone_advisor.dart';
 
 class FakeKoloRepository implements KoloRepository {
   FakeKoloRepository._(this._state);
@@ -239,18 +240,27 @@ class FakeKoloRepository implements KoloRepository {
 
   @override
   Future<void> upsertVault(SavingsVault vault) async {
+    final previous = _state.vaults
+        .where((existing) => existing.id == vault.id)
+        .firstOrNull;
     final otherVaults = _state.vaults
         .where((existing) => existing.id != vault.id)
         .toList(growable: false);
+    final now = DateTime.now();
+    final milestoneMessage = VaultMilestoneAdvisor.messageFor(
+      previous: previous,
+      current: vault,
+    );
     _state = _state.copyWith(
       vaults: [vault, ...otherVaults],
       aiMessages: [
         AiMessage(
-          id: 'ai-${vault.id}-${DateTime.now().microsecondsSinceEpoch}',
+          id: 'ai-${vault.id}-${now.microsecondsSinceEpoch}',
           role: AiRole.assistant,
           content:
+              milestoneMessage ??
               '${vault.name} is now protected at ${MoneyFormatter.formatKobo(vault.currentKobo)} of ${MoneyFormatter.formatKobo(vault.targetKobo)}.',
-          timestamp: DateTime.now(),
+          timestamp: now,
           context: 'vault',
         ),
         ..._state.aiMessages,

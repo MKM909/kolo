@@ -129,6 +129,33 @@ void main() {
     expect(dashboard.aiMessages.first.context, 'vault');
   });
 
+  test('fake repository celebrates vault funding milestones', () async {
+    final repository = FakeKoloRepository.seeded();
+
+    await repository.upsertVault(
+      const SavingsVault(
+        id: 'vault-tablet',
+        name: 'Tablet',
+        targetKobo: 1000000,
+        currentKobo: 400000,
+      ),
+    );
+    await repository.upsertVault(
+      const SavingsVault(
+        id: 'vault-tablet',
+        name: 'Tablet',
+        targetKobo: 1000000,
+        currentKobo: 500000,
+      ),
+    );
+
+    final dashboard = await repository.watchDashboard().first;
+
+    expect(dashboard.aiMessages.first.context, 'vault');
+    expect(dashboard.aiMessages.first.content, contains('halfway'));
+    expect(dashboard.aiMessages.first.content, contains('Tablet'));
+  });
+
   test('fake repository deletes savings vaults', () async {
     final repository = FakeKoloRepository.seeded();
 
@@ -333,35 +360,38 @@ void main() {
     expect(dashboard.aiMessages.first.context, 'partner_share');
   });
 
-  test('fake repository keeps only one pending or active partner share', () async {
-    final repository = FakeKoloRepository.seeded();
+  test(
+    'fake repository keeps only one pending or active partner share',
+    () async {
+      final repository = FakeKoloRepository.seeded();
 
-    await repository.upsertPartnerShare(
-      PartnerShare(
-        id: 'share-ade',
-        partnerEmail: 'ade@example.com',
-        status: ShareStatus.pending,
-        permissions: const {'balance_summary'},
-        createdAt: DateTime(2026, 5, 24),
-      ),
-    );
+      await repository.upsertPartnerShare(
+        PartnerShare(
+          id: 'share-ade',
+          partnerEmail: 'ade@example.com',
+          status: ShareStatus.pending,
+          permissions: const {'balance_summary'},
+          createdAt: DateTime(2026, 5, 24),
+        ),
+      );
 
-    final dashboard = await repository.watchDashboard().first;
-    final visibleShares = dashboard.partnerShares.where(
-      (share) => share.status != ShareStatus.revoked,
-    );
+      final dashboard = await repository.watchDashboard().first;
+      final visibleShares = dashboard.partnerShares.where(
+        (share) => share.status != ShareStatus.revoked,
+      );
 
-    expect(visibleShares, hasLength(1));
-    expect(visibleShares.single.partnerEmail, 'ade@example.com');
-    expect(
-      dashboard.partnerShares.singleWhere((share) => share.id == 'share-1'),
-      isA<PartnerShare>().having(
-        (share) => share.status,
-        'status',
-        ShareStatus.revoked,
-      ),
-    );
-  });
+      expect(visibleShares, hasLength(1));
+      expect(visibleShares.single.partnerEmail, 'ade@example.com');
+      expect(
+        dashboard.partnerShares.singleWhere((share) => share.id == 'share-1'),
+        isA<PartnerShare>().having(
+          (share) => share.status,
+          'status',
+          ShareStatus.revoked,
+        ),
+      );
+    },
+  );
 
   test('fake repository enables and disables watched apps', () async {
     final repository = FakeKoloRepository.seeded();

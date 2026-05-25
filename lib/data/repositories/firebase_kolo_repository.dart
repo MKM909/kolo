@@ -8,6 +8,7 @@ import 'package:kolo/domain/repositories/kolo_repository.dart';
 import 'package:kolo/domain/services/ai_model_config.dart';
 import 'package:kolo/domain/services/partner_share_policy.dart';
 import 'package:kolo/domain/services/partner_summary_builder.dart';
+import 'package:kolo/domain/services/vault_milestone_advisor.dart';
 
 class FirebaseKoloRepository implements KoloRepository {
   FirebaseKoloRepository({
@@ -92,10 +93,34 @@ class FirebaseKoloRepository implements KoloRepository {
 
   @override
   Future<void> upsertVault(SavingsVault vault) async {
-    await _userDoc.collection('vaults').doc(vault.id).set({
+    final vaultRef = _userDoc.collection('vaults').doc(vault.id);
+    final previousSnapshot = await vaultRef.get();
+    final previous = _vaultFromSnapshot(previousSnapshot, fallback: vault);
+    final now = DateTime.now();
+    final milestoneMessage = VaultMilestoneAdvisor.messageFor(
+      previous: previous,
+      current: vault,
+    );
+
+    final batch = _firestore.batch();
+    batch.set(vaultRef, {
       ...FirebaseKoloMapper.vaultToJson(vault),
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+    if (milestoneMessage != null) {
+      final message = AiMessage(
+        id: 'ai-${vault.id}-${now.microsecondsSinceEpoch}',
+        role: AiRole.assistant,
+        content: milestoneMessage,
+        timestamp: now,
+        context: 'vault',
+      );
+      batch.set(_userDoc.collection('aiMessages').doc(message.id), {
+        ...FirebaseKoloMapper.aiMessageToJson(message),
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
   }
 
   @override
@@ -445,6 +470,24 @@ class FirebaseKoloRepository implements KoloRepository {
       'notificationPreferences': preferences.toJson(),
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+  }
+
+  SavingsVault? _vaultFromSnapshot(
+    DocumentSnapshot<Map<String, dynamic>> snapshot, {
+    required SavingsVault fallback,
+  }) {
+    final data = snapshot.data();
+    if (data == null) return null;
+
+    return SavingsVault(
+      id: snapshot.id,
+      name: data['name'] as String? ?? fallback.name,
+      targetKobo:
+          ((data['targetKobo'] as num?)?.toInt()) ?? fallback.targetKobo,
+      currentKobo:
+          ((data['currentKobo'] as num?)?.toInt()) ?? fallback.currentKobo,
+      deadline: (data['deadline'] as Timestamp?)?.toDate(),
+    );
   }
 
   List<Stream<void>> _dashboardStreams() {
