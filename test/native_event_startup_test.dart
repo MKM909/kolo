@@ -47,4 +47,13 @@ void main() {
     expect(providersSource, contains('DueBillProcessor('));
     expect(appSource, contains('ref.watch(dueBillProcessorProvider)'));
   });
+
+  test('offline sync retry is wired into startup', () {
+    final providersSource = File('lib/app/providers.dart').readAsStringSync();
+    final appSource = File('lib/app/kolo_app.dart').readAsStringSync();
+
+    expect(providersSource, contains('offlineSyncRetryProvider'));
+    expect(providersSource, contains('OfflineSyncDispatcher('));
+    expect(appSource, contains('ref.watch(offlineSyncRetryProvider)'));
+  });
 }
