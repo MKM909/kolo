@@ -13,6 +13,7 @@ import 'package:kolo/data/services/due_bill_processor.dart';
 import 'package:kolo/data/services/firebase_bootstrap.dart';
 import 'package:kolo/data/services/android_permission_requester.dart';
 import 'package:kolo/data/services/native_event_ingestor.dart';
+import 'package:kolo/data/services/offline_sync_queue.dart';
 import 'package:kolo/data/services/overlay_bubble_service.dart';
 import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/repositories/auth_repository.dart';
@@ -96,6 +97,15 @@ final koloRepositoryProvider = Provider<KoloRepository>((ref) {
 final dashboardProvider = StreamProvider<DashboardState>((ref) {
   return ref.watch(koloRepositoryProvider).watchDashboard();
 });
+
+final offlineSyncQueueProvider = Provider<OfflineSyncQueue>((ref) {
+  return OfflineSyncQueue();
+});
+
+final pendingSyncOperationsProvider =
+    StreamProvider<List<PendingSyncOperation>>((ref) {
+      return ref.watch(offlineSyncQueueProvider).watchPendingOperations();
+    });
 
 final dueBillProcessorProvider = FutureProvider<int>((ref) async {
   final bootstrap = ref.watch(firebaseBootstrapResultProvider);
