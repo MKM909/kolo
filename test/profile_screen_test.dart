@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kolo/app/kolo_app.dart';
 import 'package:kolo/app/providers.dart';
 import 'package:kolo/data/repositories/fake_kolo_repository.dart';
+import 'package:kolo/data/services/offline_sync_queue.dart';
 import 'package:kolo/domain/repositories/auth_repository.dart';
 import 'package:kolo/ui/core/theme/kolo_theme.dart';
 import 'package:kolo/ui/features/profile/profile_screen.dart';
@@ -33,6 +34,41 @@ void main() {
 
     expect(auth.signedOut, isTrue);
     expect(find.text('Signed out of Kolo.'), findsOneWidget);
+  });
+
+  testWidgets('profile surfaces pending offline sync work', (tester) async {
+    final repository = FakeKoloRepository.seeded();
+    final pendingOperations = [
+      PendingSyncOperation(
+        id: 'sync-transaction',
+        kind: 'transaction',
+        payload: const {'amountKobo': 125000},
+        createdAt: DateTime(2026, 5, 24, 8),
+      ),
+      PendingSyncOperation(
+        id: 'sync-bill',
+        kind: 'bill',
+        payload: const {'billId': 'rent'},
+        createdAt: DateTime(2026, 5, 24, 9),
+      ),
+    ];
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          koloRepositoryProvider.overrideWithValue(repository),
+          pendingSyncOperationsProvider.overrideWithValue(
+            AsyncData(pendingOperations),
+          ),
+        ],
+        child: MaterialApp(theme: KoloTheme.light, home: const ProfileScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('profile_sync_status')), findsOneWidget);
+    expect(find.text('Waiting to sync'), findsOneWidget);
+    expect(find.text('2 pending'), findsOneWidget);
   });
 
   testWidgets('profile notification preferences toggle weekly insights', (

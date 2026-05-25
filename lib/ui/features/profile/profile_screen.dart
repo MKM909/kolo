@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kolo/app/providers.dart';
+import 'package:kolo/data/services/offline_sync_queue.dart';
 import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/services/ai_model_config.dart';
 import 'package:kolo/domain/services/bill_reminder_schedule.dart';
@@ -16,6 +17,7 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dashboard = ref.watch(dashboardProvider);
+    final pendingSync = ref.watch(pendingSyncOperationsProvider);
 
     return dashboard.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -44,6 +46,8 @@ class ProfileScreen extends ConsumerWidget {
                       Text(state.profile.email),
                     ],
                   ),
+                  const SizedBox(width: 12),
+                  _SyncStatusPill(syncState: pendingSync),
                 ],
               ),
             ),
@@ -906,6 +910,69 @@ class _ProfileSection extends StatelessWidget {
             ...children,
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _SyncStatusPill extends StatelessWidget {
+  const _SyncStatusPill({required this.syncState});
+
+  final AsyncValue<List<PendingSyncOperation>> syncState;
+
+  @override
+  Widget build(BuildContext context) {
+    final operations = syncState.value ?? const <PendingSyncOperation>[];
+    final hasPending = operations.isNotEmpty;
+    final hasError = syncState.hasError && !syncState.hasValue;
+    final color = hasError
+        ? KoloColors.warning
+        : hasPending
+        ? KoloColors.warning
+        : KoloColors.income;
+    final title = hasError
+        ? 'Sync paused'
+        : hasPending
+        ? 'Waiting to sync'
+        : syncState.isLoading
+        ? 'Checking sync'
+        : 'All synced';
+    final countLabel = hasError
+        ? 'Retry soon'
+        : hasPending
+        ? '${operations.length} pending'
+        : syncState.isLoading
+        ? 'Checking'
+        : 'Clear';
+    return Container(
+      key: const Key('profile_sync_status'),
+      constraints: const BoxConstraints(maxWidth: 132),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: KoloColors.primaryPastel,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: KoloColors.textPrimary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(countLabel, style: TextStyle(color: color)),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
