@@ -90,6 +90,31 @@ void main() {
     expect(find.textContaining('Airtime plan is due soon'), findsOneWidget);
     expect(find.textContaining('Data bundle is due soon'), findsNothing);
   });
+
+  testWidgets('manual expense prompts before dipping into vault funds', (
+    tester,
+  ) async {
+    await _pumpHome(tester, _dashboardForVaultProtection());
+
+    await tester.tap(find.text('Log Expense'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('transaction_amount')), '3000');
+    await tester.enterText(
+      find.byKey(const Key('transaction_description')),
+      'Screen repair',
+    );
+    await tester.ensureVisible(find.byKey(const Key('save_transaction')));
+    await tester.tap(find.byKey(const Key('save_transaction')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('spending_justification_prompt')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('protected vault money'), findsOneWidget);
+    expect(find.textContaining('New Phone'), findsOneWidget);
+  });
 }
 
 Future<void> _pumpHome(WidgetTester tester, DashboardState state) async {
@@ -140,5 +165,34 @@ DashboardState _dashboardWithBills(List<BillReminder> bills) {
     partnerShares: const [],
     insights: const [],
     permissions: const {},
+  );
+}
+
+DashboardState _dashboardForVaultProtection() {
+  return _dashboardWithBills(const []).copyWith(
+    balanceKobo: 2000000,
+    budgetPlan: const BudgetPlan(
+      monthlyIncomeKobo: 5000000,
+      incomeType: 'irregular',
+      categories: [
+        BudgetCategory(
+          name: 'Food & Snacks',
+          emoji: '*',
+          allocatedKobo: 1000000,
+          priority: 1,
+        ),
+      ],
+      savingsTargetKobo: 500000,
+      savingsGoal: 'Emergency buffer',
+      aiNotes: 'Protect the phone vault first.',
+    ),
+    vaults: const [
+      SavingsVault(
+        id: 'vault-phone',
+        name: 'New Phone',
+        targetKobo: 6000000,
+        currentKobo: 1800000,
+      ),
+    ],
   );
 }
