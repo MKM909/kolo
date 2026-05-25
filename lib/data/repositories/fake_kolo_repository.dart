@@ -4,6 +4,7 @@ import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/repositories/kolo_repository.dart';
 import 'package:kolo/domain/services/ai_model_config.dart';
 import 'package:kolo/domain/services/money_formatter.dart';
+import 'package:kolo/domain/services/partner_share_policy.dart';
 import 'package:kolo/domain/services/partner_summary_builder.dart';
 
 class FakeKoloRepository implements KoloRepository {
@@ -416,19 +417,22 @@ class FakeKoloRepository implements KoloRepository {
 
   @override
   Future<void> upsertPartnerShare(PartnerShare share) async {
-    final otherShares = _state.partnerShares
-        .where((existing) => existing.id != share.id)
-        .toList(growable: false);
+    final now = DateTime.now();
+    final partnerShares = PartnerSharePolicy.enforceSingleVisibleShare(
+      incoming: share,
+      existingShares: _state.partnerShares,
+      now: now,
+    );
     _state = _state.copyWith(
-      partnerShares: [share, ...otherShares],
+      partnerShares: partnerShares,
       aiMessages: [
         AiMessage(
-          id: 'ai-${share.id}-${DateTime.now().microsecondsSinceEpoch}',
+          id: 'ai-${share.id}-${now.microsecondsSinceEpoch}',
           role: AiRole.assistant,
           content: share.status == ShareStatus.revoked
               ? '${share.partnerEmail} no longer has partner visibility.'
               : '${share.partnerEmail} can see the selected summaries.',
-          timestamp: DateTime.now(),
+          timestamp: now,
           context: 'partner_share',
         ),
         ..._state.aiMessages,

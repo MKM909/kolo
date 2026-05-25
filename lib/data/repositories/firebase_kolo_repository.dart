@@ -6,6 +6,7 @@ import 'package:kolo/data/services/cloud_ai_service.dart';
 import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/repositories/kolo_repository.dart';
 import 'package:kolo/domain/services/ai_model_config.dart';
+import 'package:kolo/domain/services/partner_share_policy.dart';
 import 'package:kolo/domain/services/partner_summary_builder.dart';
 
 class FirebaseKoloRepository implements KoloRepository {
@@ -170,10 +171,35 @@ class FirebaseKoloRepository implements KoloRepository {
 
   @override
   Future<void> upsertPartnerShare(PartnerShare share) async {
-    await _userDoc.collection('partnerShares').doc(share.id).set({
+    final collection = _userDoc.collection('partnerShares');
+    final payload = {
       ...FirebaseKoloMapper.partnerShareToJson(share),
       'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    };
+
+    if (!PartnerSharePolicy.isVisible(share)) {
+      await collection.doc(share.id).set(payload, SetOptions(merge: true));
+      return;
+    }
+
+    final visibleShares = await collection
+        .where(
+          'status',
+          whereIn: [ShareStatus.pending.name, ShareStatus.active.name],
+        )
+        .get();
+    final batch = _firestore.batch();
+    final revokedAt = DateTime.now();
+    for (final doc in visibleShares.docs) {
+      if (doc.id == share.id) continue;
+      batch.set(doc.reference, {
+        'status': ShareStatus.revoked.name,
+        'revokedAt': Timestamp.fromDate(revokedAt),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    }
+    batch.set(collection.doc(share.id), payload, SetOptions(merge: true));
+    await batch.commit();
   }
 
   @override
