@@ -55,6 +55,7 @@ class AiContextBuilder {
             _billPayload(bill, anchor),
       ],
       'gigSummary': _gigSummary(state.gigs, anchor),
+      'spendingPatterns': _spendingPatterns(periodTransactions),
     };
   }
 
@@ -122,6 +123,127 @@ class AiContextBuilder {
     };
   }
 
+  static Map<String, Object?> _spendingPatterns(
+    List<TransactionRecord> transactions,
+  ) {
+    final byWeekday = <String, _SpendingPatternBucket>{};
+    final byTimeOfDay = <String, _SpendingPatternBucket>{};
+    final byCategoryTimeOfDay = <String, _CategoryTimePatternBucket>{};
+
+    for (final transaction in transactions) {
+      if (transaction.type != TransactionType.expense) continue;
+
+      final weekday = _weekdayName(transaction.date.weekday);
+      final timeWindow = _timeWindow(transaction.date.hour);
+      _addPatternBucket(byWeekday, weekday, transaction.amountKobo);
+      _addPatternBucket(byTimeOfDay, timeWindow, transaction.amountKobo);
+
+      final categoryTimeKey = '${transaction.category}::$timeWindow';
+      final categoryTimeBucket = byCategoryTimeOfDay.putIfAbsent(
+        categoryTimeKey,
+        () => _CategoryTimePatternBucket(
+          category: transaction.category,
+          window: timeWindow,
+        ),
+      );
+      categoryTimeBucket.add(transaction.amountKobo);
+    }
+
+    return {
+      'byWeekday': _patternBucketPayloads(byWeekday, 'weekday'),
+      'byTimeOfDay': _patternBucketPayloads(byTimeOfDay, 'window'),
+      'byCategoryTimeOfDay': _categoryTimePatternPayloads(
+        byCategoryTimeOfDay,
+      ),
+    };
+  }
+
+  static void _addPatternBucket(
+    Map<String, _SpendingPatternBucket> buckets,
+    String label,
+    int amountKobo,
+  ) {
+    final bucket = buckets.putIfAbsent(
+      label,
+      () => _SpendingPatternBucket(label),
+    );
+    bucket.add(amountKobo);
+  }
+
+  static List<Map<String, Object?>> _patternBucketPayloads(
+    Map<String, _SpendingPatternBucket> buckets,
+    String labelKey,
+  ) {
+    final sortedBuckets = buckets.values.toList()
+      ..sort(_compareSpendingPatternBuckets);
+
+    return [
+      for (final bucket in sortedBuckets)
+        {
+          labelKey: bucket.label,
+          'expenseKobo': bucket.expenseKobo,
+          'transactionCount': bucket.transactionCount,
+        },
+    ];
+  }
+
+  static List<Map<String, Object?>> _categoryTimePatternPayloads(
+    Map<String, _CategoryTimePatternBucket> buckets,
+  ) {
+    final sortedBuckets = buckets.values.toList()
+      ..sort(_compareCategoryTimePatternBuckets);
+
+    return [
+      for (final bucket in sortedBuckets)
+        {
+          'category': bucket.category,
+          'window': bucket.window,
+          'expenseKobo': bucket.expenseKobo,
+          'transactionCount': bucket.transactionCount,
+        },
+    ];
+  }
+
+  static int _compareSpendingPatternBuckets(
+    _SpendingPatternBucket a,
+    _SpendingPatternBucket b,
+  ) {
+    final amountComparison = b.expenseKobo.compareTo(a.expenseKobo);
+    if (amountComparison != 0) return amountComparison;
+    return a.label.compareTo(b.label);
+  }
+
+  static int _compareCategoryTimePatternBuckets(
+    _CategoryTimePatternBucket a,
+    _CategoryTimePatternBucket b,
+  ) {
+    final amountComparison = b.expenseKobo.compareTo(a.expenseKobo);
+    if (amountComparison != 0) return amountComparison;
+    final categoryComparison = a.category.compareTo(b.category);
+    if (categoryComparison != 0) return categoryComparison;
+    return a.window.compareTo(b.window);
+  }
+
+  static String _weekdayName(int weekday) {
+    return switch (weekday) {
+      DateTime.monday => 'Monday',
+      DateTime.tuesday => 'Tuesday',
+      DateTime.wednesday => 'Wednesday',
+      DateTime.thursday => 'Thursday',
+      DateTime.friday => 'Friday',
+      DateTime.saturday => 'Saturday',
+      DateTime.sunday => 'Sunday',
+      _ => 'Unknown',
+    };
+  }
+
+  static String _timeWindow(int hour) {
+    if (hour < 5 || hour >= 21) return 'lateNight';
+    if (hour < 12) return 'morning';
+    if (hour < 17) return 'afternoon';
+    return 'evening';
+  }
+
   static int? _daysSinceLastIncome(
     List<TransactionRecord> transactions,
     DateTime now,
@@ -156,5 +278,32 @@ class AiContextBuilder {
 
   static DateTime _dateOnly(DateTime value) {
     return DateTime(value.year, value.month, value.day);
+  }
+}
+
+class _SpendingPatternBucket {
+  _SpendingPatternBucket(this.label);
+
+  final String label;
+  int expenseKobo = 0;
+  int transactionCount = 0;
+
+  void add(int amountKobo) {
+    expenseKobo += amountKobo;
+    transactionCount += 1;
+  }
+}
+
+class _CategoryTimePatternBucket {
+  _CategoryTimePatternBucket({required this.category, required this.window});
+
+  final String category;
+  final String window;
+  int expenseKobo = 0;
+  int transactionCount = 0;
+
+  void add(int amountKobo) {
+    expenseKobo += amountKobo;
+    transactionCount += 1;
   }
 }

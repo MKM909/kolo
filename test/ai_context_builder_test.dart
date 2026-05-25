@@ -141,6 +141,39 @@ void main() {
     expect(gigSummary['totalThisYearKobo'], 2500000);
     expect(gigSummary['daysSinceLastGig'], 4);
 
+    final spendingPatterns =
+        payload['spendingPatterns'] as Map<String, Object?>;
+    final weekdayPatterns =
+        spendingPatterns['byWeekday'] as List<Map<String, Object?>>;
+    final timePatterns =
+        spendingPatterns['byTimeOfDay'] as List<Map<String, Object?>>;
+    final categoryTimePatterns =
+        spendingPatterns['byCategoryTimeOfDay'] as List<Map<String, Object?>>;
+    expect(
+      weekdayPatterns,
+      contains(
+        containsPair('weekday', 'Sunday'),
+      ),
+    );
+    expect(weekdayPatterns.first, containsPair('expenseKobo', 120000));
+    expect(
+      timePatterns,
+      contains(
+        containsPair('window', 'evening'),
+      ),
+    );
+    expect(timePatterns.first, containsPair('expenseKobo', 120000));
+    expect(
+      categoryTimePatterns,
+      contains(
+        allOf(
+          containsPair('category', 'Food & Snacks'),
+          containsPair('window', 'evening'),
+          containsPair('expenseKobo', 120000),
+        ),
+      ),
+    );
+
     final recentTransactions = payload['recentTransactions'] as List<Object?>;
     expect(recentTransactions.first, containsPair('source', 'sms'));
     expect(

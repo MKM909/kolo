@@ -133,6 +133,38 @@ const chatSchema = z.object({
         daysSinceLastGig: z.number().nullable().optional(),
       })
       .optional(),
+    spendingPatterns: z
+      .object({
+        byWeekday: z
+          .array(
+            z.object({
+              weekday: z.string(),
+              expenseKobo: z.number(),
+              transactionCount: z.number(),
+            }),
+          )
+          .optional(),
+        byTimeOfDay: z
+          .array(
+            z.object({
+              window: z.string(),
+              expenseKobo: z.number(),
+              transactionCount: z.number(),
+            }),
+          )
+          .optional(),
+        byCategoryTimeOfDay: z
+          .array(
+            z.object({
+              category: z.string(),
+              window: z.string(),
+              expenseKobo: z.number(),
+              transactionCount: z.number(),
+            }),
+          )
+          .optional(),
+      })
+      .optional(),
   }),
 });
 

@@ -58,6 +58,24 @@ export type KoloAiContext = {
     totalThisYearKobo: number;
     daysSinceLastGig?: number | null;
   };
+  spendingPatterns?: {
+    byWeekday?: Array<{
+      weekday: string;
+      expenseKobo: number;
+      transactionCount: number;
+    }>;
+    byTimeOfDay?: Array<{
+      window: string;
+      expenseKobo: number;
+      transactionCount: number;
+    }>;
+    byCategoryTimeOfDay?: Array<{
+      category: string;
+      window: string;
+      expenseKobo: number;
+      transactionCount: number;
+    }>;
+  };
 };
 
 export function nairaFromKobo(kobo: number): string {
@@ -76,6 +94,24 @@ export function buildChatPrompt(message: string, context: KoloAiContext): string
     `Vault-protected money: ${nairaFromKobo(context.vaultProtectionKobo ?? 0)}.`,
     `Period totals: income ${nairaFromKobo(context.periodTotals?.incomeKobo ?? 0)}, expenses ${nairaFromKobo(context.periodTotals?.expenseKobo ?? 0)}, savings ${nairaFromKobo(context.periodTotals?.savingsKobo ?? 0)}.`,
     `Days since last income: ${context.daysSinceLastIncome ?? "unknown"}.`,
+    `Spending patterns: ${(context.spendingPatterns?.byWeekday ?? [])
+      .map(
+        (pattern) =>
+          `${pattern.weekday} ${nairaFromKobo(pattern.expenseKobo)} across ${pattern.transactionCount} expense${pattern.transactionCount === 1 ? "" : "s"}`,
+      )
+      .join(", ") || "none"}.`,
+    `Time windows: ${(context.spendingPatterns?.byTimeOfDay ?? [])
+      .map(
+        (pattern) =>
+          `${pattern.window} ${nairaFromKobo(pattern.expenseKobo)} across ${pattern.transactionCount} expense${pattern.transactionCount === 1 ? "" : "s"}`,
+      )
+      .join(", ") || "none"}.`,
+    `Category time patterns: ${(context.spendingPatterns?.byCategoryTimeOfDay ?? [])
+      .map(
+        (pattern) =>
+          `${pattern.category} ${pattern.window} ${nairaFromKobo(pattern.expenseKobo)} across ${pattern.transactionCount} expense${pattern.transactionCount === 1 ? "" : "s"}`,
+      )
+      .join(", ") || "none"}.`,
     `Budget categories: ${context.budgetCategories
       .map(
         (category) =>

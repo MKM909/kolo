@@ -83,6 +83,30 @@ test("buildChatPrompt includes rich financial context signals", () => {
       totalThisYearKobo: 2500000,
       daysSinceLastGig: 4,
     },
+    spendingPatterns: {
+      byWeekday: [
+        {
+          weekday: "Sunday",
+          expenseKobo: 120000,
+          transactionCount: 1,
+        },
+      ],
+      byTimeOfDay: [
+        {
+          window: "evening",
+          expenseKobo: 120000,
+          transactionCount: 1,
+        },
+      ],
+      byCategoryTimeOfDay: [
+        {
+          category: "Food & Snacks",
+          window: "evening",
+          expenseKobo: 120000,
+          transactionCount: 1,
+        },
+      ],
+    },
   });
 
   assert.match(prompt, /Spendable balance: .*95,000.00/);
@@ -92,5 +116,8 @@ test("buildChatPrompt includes rich financial context signals", () => {
   assert.match(prompt, /Owings: Timi owes you .*12,000.00.*due 2026-05-28/);
   assert.match(prompt, /Bills: Rent .*in 12 days; Netflix .*paused/);
   assert.match(prompt, /Gig income: .*25,000.00 this month/);
+  assert.match(prompt, /Spending patterns: Sunday .*1,200.00/);
+  assert.match(prompt, /Time windows: evening .*1,200.00/);
+  assert.match(prompt, /Category time patterns: Food & Snacks evening .*1,200.00/);
   assert.match(prompt, /Days since last income: 4/);
 });
