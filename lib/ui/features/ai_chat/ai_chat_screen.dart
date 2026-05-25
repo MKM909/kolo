@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kolo/app/providers.dart';
 import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/services/ai_failure_message.dart';
+import 'package:kolo/domain/services/money_formatter.dart';
 import 'package:kolo/ui/core/theme/kolo_theme.dart';
 import 'package:kolo/ui/core/widgets/kolo_scaffold.dart';
 import 'package:kolo/ui/core/widgets/kolo_liquid_aether_orb.dart';
@@ -20,6 +21,8 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
   final TextEditingController _controller = TextEditingController();
   final List<AiMessage> _localMessages = [];
   String? _seededPrompt;
+  BudgetPlan? _budgetPreview;
+  bool _generatingBudget = false;
 
   @override
   void initState() {
@@ -55,6 +58,12 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                 reverse: true,
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                 children: [
+                  if (_budgetPreview != null)
+                    _BudgetReplanPreview(
+                      budget: _budgetPreview!,
+                      onAccept: _acceptBudgetPreview,
+                    ),
+                  if (_generatingBudget) const _GeneratingBudgetBubble(),
                   for (final message in _localMessages)
                     _ChatBubble(message: message),
                   for (final message in state.aiMessages)
@@ -103,6 +112,11 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
   Future<void> _sendMessage(String rawText) async {
     final text = rawText.trim();
     if (text.isEmpty) return;
+    if (_isBudgetReplanRequest(text)) {
+      await _previewBudgetReplan(text);
+      if (rawText == _controller.text) _controller.clear();
+      return;
+    }
     try {
       await ref.read(koloRepositoryProvider).sendAiMessage(text);
     } on Object {
@@ -129,11 +143,239 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     if (rawText == _controller.text) _controller.clear();
   }
 
+  Future<void> _previewBudgetReplan(String text) async {
+    final dashboard = ref
+        .read(dashboardProvider)
+        .when(
+          data: (state) => state,
+          error: (_, _) => null,
+          loading: () => null,
+        );
+    if (dashboard == null) {
+      await _sendPlainChatFallback(text);
+      return;
+    }
+
+    final now = DateTime.now();
+    setState(() {
+      _generatingBudget = true;
+      _localMessages.insert(
+        0,
+        AiMessage(
+          id: 'local-user-budget-replan-${now.microsecondsSinceEpoch}',
+          role: AiRole.user,
+          content: text,
+          timestamp: now,
+          context: 'budget_replan',
+        ),
+      );
+    });
+
+    try {
+      final budget = await ref
+          .read(koloRepositoryProvider)
+          .generateBudget(_answersFromDashboard(dashboard));
+      if (!mounted) return;
+      setState(() {
+        _budgetPreview = budget;
+        _localMessages.insert(
+          0,
+          AiMessage(
+            id: 'local-ai-budget-replan-${now.microsecondsSinceEpoch}',
+            role: AiRole.assistant,
+            content:
+                'I drafted a new budget preview. Check the split before we save it.',
+            timestamp: DateTime.now(),
+            context: 'budget_replan',
+          ),
+        );
+      });
+    } on Object {
+      if (!mounted) return;
+      setState(() {
+        _localMessages.insert(
+          0,
+          AiMessage(
+            id: 'local-ai-budget-replan-failure-${now.microsecondsSinceEpoch}',
+            role: AiRole.assistant,
+            content: AiFailureMessage.chat,
+            timestamp: DateTime.now(),
+            context: 'budget_replan_failure',
+          ),
+        );
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _generatingBudget = false);
+      }
+    }
+  }
+
+  Future<void> _sendPlainChatFallback(String text) async {
+    try {
+      await ref.read(koloRepositoryProvider).sendAiMessage(text);
+    } on Object {
+      final now = DateTime.now();
+      setState(() {
+        _localMessages.insert(
+          0,
+          AiMessage(
+            id: 'local-ai-fallback-failure-${now.microsecondsSinceEpoch}',
+            role: AiRole.assistant,
+            content: AiFailureMessage.chat,
+            timestamp: now,
+            context: 'chat_failure',
+          ),
+        );
+      });
+    }
+  }
+
+  Future<void> _acceptBudgetPreview() async {
+    final budget = _budgetPreview;
+    if (budget == null) return;
+    await ref.read(koloRepositoryProvider).updateBudget(budget);
+    final now = DateTime.now();
+    if (!mounted) return;
+    setState(() {
+      _budgetPreview = null;
+      _localMessages.insert(
+        0,
+        AiMessage(
+          id: 'local-ai-budget-accepted-${now.microsecondsSinceEpoch}',
+          role: AiRole.assistant,
+          content:
+              'Budget updated. I will use this new split for spending checks.',
+          timestamp: now,
+          context: 'budget_replan',
+        ),
+      );
+    });
+  }
+
+  bool _isBudgetReplanRequest(String text) {
+    final lowerText = text.toLowerCase();
+    return lowerText.contains('redo my budget') ||
+        lowerText.contains('re-plan') ||
+        lowerText.contains('replan');
+  }
+
+  OnboardingAnswers _answersFromDashboard(DashboardState state) {
+    final gigIncomeKobo = state.gigs.fold(
+      0,
+      (total, gig) => total + gig.amountKobo,
+    );
+    return OnboardingAnswers(
+      incomeSource: gigIncomeKobo > 0
+          ? 'Gig work and existing tracked income'
+          : 'Existing tracked income',
+      incomeFrequency: state.budgetPlan.incomeType,
+      currentBalanceKobo: state.balanceKobo,
+      biggestProblem: 'Adjusting budget from recent spending and bills',
+      savingsGoal: state.budgetPlan.savingsGoal,
+    );
+  }
+
   void _seedPrompt() {
     final prompt = widget.initialPrompt?.trim();
     if (prompt == null || prompt.isEmpty || prompt == _seededPrompt) return;
     _controller.text = prompt;
     _seededPrompt = prompt;
+  }
+}
+
+class _GeneratingBudgetBubble extends StatelessWidget {
+  const _GeneratingBudgetBubble();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Align(
+      alignment: Alignment.centerLeft,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            KoloLiquidAetherOrb(size: 28),
+            SizedBox(width: 8),
+            Flexible(
+              child: KoloCard(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Text(
+                  'I am drafting a cleaner budget from your current balance and spending.',
+                  style: TextStyle(color: KoloColors.textPrimary),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BudgetReplanPreview extends StatelessWidget {
+  const _BudgetReplanPreview({required this.budget, required this.onAccept});
+
+  final BudgetPlan budget;
+  final VoidCallback onAccept;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: KoloCard(
+        key: const Key('ai_budget_replan_preview'),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'New budget preview',
+              style: TextStyle(
+                fontFamily: 'Sora',
+                fontWeight: FontWeight.w800,
+                fontSize: 18,
+                color: KoloColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Income estimate ${MoneyFormatter.formatKobo(budget.monthlyIncomeKobo)}, savings ${MoneyFormatter.formatKobo(budget.savingsTargetKobo)}',
+              style: const TextStyle(color: KoloColors.textSecondary),
+            ),
+            const SizedBox(height: 12),
+            for (final category in budget.categories.take(4)) ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Flexible(
+                    child: Text(
+                      category.name,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  Text(MoneyFormatter.formatKobo(category.allocatedKobo)),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
+            if (budget.aiNotes.trim().isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                budget.aiNotes,
+                style: const TextStyle(color: KoloColors.textSecondary),
+              ),
+            ],
+            const SizedBox(height: 14),
+            FilledButton(
+              key: const Key('ai_accept_budget_replan'),
+              onPressed: onAccept,
+              child: const Text('Use this budget'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

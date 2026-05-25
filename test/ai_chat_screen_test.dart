@@ -56,6 +56,35 @@ void main() {
     expect(find.text(AiFailureMessage.chat), findsOneWidget);
     expect(find.text('Can I afford shawarma?'), findsOneWidget);
   });
+
+  testWidgets('AI chat previews and accepts a budget replan', (tester) async {
+    final repository = _BudgetPreviewRepository();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [koloRepositoryProvider.overrideWithValue(repository)],
+        child: MaterialApp(
+          theme: KoloTheme.light,
+          home: const Scaffold(body: AiChatScreen()),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Redo my budget, I just got a gig'));
+    await tester.pumpAndSettle();
+
+    expect(repository.generatedAnswers?.currentBalanceKobo, 2400000);
+    expect(find.byKey(const Key('ai_budget_replan_preview')), findsOneWidget);
+    expect(find.text('New budget preview'), findsOneWidget);
+    expect(find.text('Transport'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('ai_accept_budget_replan')));
+    await tester.pumpAndSettle();
+
+    expect(repository.updatedBudget?.savingsGoal, 'Laptop');
+    expect(find.byKey(const Key('ai_budget_replan_preview')), findsNothing);
+    expect(find.textContaining('Budget updated'), findsOneWidget);
+  });
 }
 
 class _FailingChatRepository implements KoloRepository {
@@ -156,6 +185,58 @@ class _FailingChatRepository implements KoloRepository {
 
   @override
   Future<void> upsertWatchedApp(WatchedApp app) async {}
+}
+
+class _BudgetPreviewRepository extends _FailingChatRepository {
+  OnboardingAnswers? generatedAnswers;
+  BudgetPlan? updatedBudget;
+  var _state = _dashboardState;
+
+  @override
+  Stream<DashboardState> watchDashboard() => Stream.value(_state);
+
+  @override
+  Future<BudgetPlan> generateBudget(OnboardingAnswers answers) async {
+    generatedAnswers = answers;
+    return const BudgetPlan(
+      monthlyIncomeKobo: 7000000,
+      incomeType: 'irregular',
+      categories: [
+        BudgetCategory(
+          name: 'Transport',
+          emoji: '*',
+          allocatedKobo: 1200000,
+          priority: 1,
+        ),
+        BudgetCategory(
+          name: 'Food & Snacks',
+          emoji: '*',
+          allocatedKobo: 900000,
+          priority: 2,
+        ),
+      ],
+      savingsTargetKobo: 1000000,
+      savingsGoal: 'Laptop',
+      aiNotes: 'I tightened snacks and protected gig income.',
+    );
+  }
+
+  @override
+  Future<void> updateBudget(BudgetPlan budget) async {
+    updatedBudget = budget;
+    _state = _state.copyWith(budgetPlan: budget);
+  }
+
+  @override
+  Future<AiMessage> sendAiMessage(String message) async {
+    return AiMessage(
+      id: 'ai-replan-chat',
+      role: AiRole.assistant,
+      content: 'I can rework that budget.',
+      timestamp: DateTime(2026, 5, 25),
+      context: 'chat',
+    );
+  }
 }
 
 final _dashboardState = DashboardState(
