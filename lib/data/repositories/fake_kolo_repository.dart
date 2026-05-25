@@ -604,13 +604,9 @@ class FakeKoloRepository implements KoloRepository {
     BudgetPlan? budget,
   }) async {
     final acceptedBudget = budget ?? await generateBudget(answers);
-    if (budget != null) {
-      _state = _state.copyWith(
-        balanceKobo: answers.currentBalanceKobo,
-        budgetPlan: acceptedBudget,
-      );
-    }
     _state = _state.copyWith(
+      balanceKobo: answers.currentBalanceKobo,
+      budgetPlan: acceptedBudget,
       profile: _state.profile.copyWith(onboardingComplete: true),
       aiMessages: [
         AiMessage(
@@ -667,11 +663,6 @@ class FakeKoloRepository implements KoloRepository {
         ),
       ],
     );
-    _state = _state.copyWith(
-      balanceKobo: answers.currentBalanceKobo,
-      budgetPlan: budget,
-    );
-    _controller.add(_state);
     return budget;
   }
 

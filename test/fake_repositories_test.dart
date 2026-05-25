@@ -490,6 +490,30 @@ void main() {
     expect(dashboard.aiMessages.length, greaterThanOrEqualTo(2));
   });
 
+  test('fake AI budget generation is side-effect-free until accepted', () async {
+    final repository = FakeKoloRepository.seeded();
+    final initial = await repository.watchDashboard().first;
+
+    final budget = await repository.generateBudget(
+      const OnboardingAnswers(
+        incomeSource: 'Freelance design',
+        incomeFrequency: 'Irregular gigs',
+        currentBalanceKobo: 4200000,
+        biggestProblem: 'Impulse snacks',
+        savingsGoal: 'Laptop',
+      ),
+    );
+    final dashboard = await repository.watchDashboard().first;
+
+    expect(budget.savingsGoal, 'Laptop');
+    expect(dashboard.balanceKobo, initial.balanceKobo);
+    expect(dashboard.budgetPlan.aiNotes, initial.budgetPlan.aiNotes);
+    expect(
+      dashboard.profile.onboardingComplete,
+      initial.profile.onboardingComplete,
+    );
+  });
+
   test(
     'fake repository completes onboarding with balance and budget',
     () async {
