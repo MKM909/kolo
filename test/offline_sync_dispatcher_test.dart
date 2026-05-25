@@ -104,4 +104,41 @@ void main() {
     expect(bill.frequency, 'monthly');
     expect(bill.active, isTrue);
   });
+
+  test('retryPending upserts queued gig income and marks it synced', () async {
+    final repository = FakeKoloRepository.seeded();
+    final queue = OfflineSyncQueue();
+    await queue.enqueue(
+      PendingSyncOperation(
+        id: 'offline-gig',
+        kind: 'gig',
+        payload: {
+          'id': 'gig-offline-brand',
+          'client': 'Muna Foods',
+          'amountKobo': 2500000,
+          'date': DateTime(2026, 5, 22).toIso8601String(),
+          'projectType': 'Brand kit',
+          'note': 'Logged after offline meeting',
+        },
+        createdAt: DateTime(2026, 5, 24),
+      ),
+    );
+
+    final synced = await OfflineSyncDispatcher(
+      queue: queue,
+      repository: repository,
+    ).retryPending();
+    final pending = await queue.watchPendingOperations().first;
+    final dashboard = await repository.watchDashboard().first;
+    final gig = dashboard.gigs.firstWhere(
+      (gig) => gig.id == 'gig-offline-brand',
+    );
+
+    expect(synced, 1);
+    expect(pending, isEmpty);
+    expect(gig.client, 'Muna Foods');
+    expect(gig.amountKobo, 2500000);
+    expect(gig.projectType, 'Brand kit');
+    expect(gig.note, 'Logged after offline meeting');
+  });
 }

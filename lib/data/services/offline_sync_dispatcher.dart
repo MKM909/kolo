@@ -28,6 +28,11 @@ class OfflineSyncDispatcher {
         if (bill == null) return false;
         await _repository.upsertBill(bill);
         return true;
+      case 'gig':
+        final gig = _gigFromPayload(operation.payload);
+        if (gig == null) return false;
+        await _repository.upsertGig(gig);
+        return true;
       default:
         return false;
     }
@@ -76,6 +81,25 @@ class OfflineSyncDispatcher {
       frequency: _string(payload['frequency']) ?? 'monthly',
       nextDue: nextDue,
       active: _bool(payload['active']) ?? true,
+    );
+  }
+
+  GigRecord? _gigFromPayload(Map<String, Object?> payload) {
+    final id = _string(payload['id']);
+    final client = _string(payload['client']);
+    final amountKobo = _int(payload['amountKobo']);
+    final date = DateTime.tryParse(_string(payload['date']) ?? '');
+    if (id == null || client == null || amountKobo == null || date == null) {
+      return null;
+    }
+
+    return GigRecord(
+      id: id,
+      client: client,
+      amountKobo: amountKobo,
+      date: date,
+      projectType: _string(payload['projectType']) ?? 'Gig work',
+      note: _string(payload['note']),
     );
   }
 
