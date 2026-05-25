@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:kolo/app/providers.dart';
 import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/services/ai_override_tone.dart';
+import 'package:kolo/domain/services/bill_protection_advisor.dart';
 import 'package:kolo/domain/services/bill_reminder_schedule.dart';
 import 'package:kolo/domain/services/financial_calculator.dart';
 import 'package:kolo/domain/services/money_formatter.dart';
@@ -656,8 +657,12 @@ class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
         dashboard.balanceKobo > 0 &&
         amountKobo >= (dashboard.balanceKobo * 0.25).round();
     final vaultWarning = _vaultProtectionWarning(amountKobo);
+    final billWarning = _billProtectionWarning(amountKobo);
 
-    return overBudget || largeAgainstBalance || vaultWarning.dipsIntoVault;
+    return overBudget ||
+        largeAgainstBalance ||
+        vaultWarning.dipsIntoVault ||
+        billWarning.risksDueBills;
   }
 
   String _justificationPromptText() {
@@ -668,6 +673,13 @@ class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
     if (vaultWarning != null && vaultWarning.dipsIntoVault) {
       final vaultName = vaultWarning.primaryVaultName ?? 'a vault';
       return 'This spend would touch ${MoneyFormatter.formatKobo(vaultWarning.shortfallKobo)} of protected vault money for $vaultName. What is this for?';
+    }
+    final billWarning = amountKobo == null
+        ? null
+        : _billProtectionWarning(amountKobo);
+    if (billWarning != null && billWarning.risksDueBills) {
+      final billName = billWarning.primaryBillName ?? 'a bill';
+      return 'This spend would leave you ${MoneyFormatter.formatKobo(billWarning.shortfallKobo)} short for $billName, a bill due soon. What is this for?';
     }
 
     return 'This pushes past your $_category budget. What is this for?';
@@ -698,6 +710,12 @@ class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
       return '${adjustedTonePrefix}Caution - $justification. This would touch ${MoneyFormatter.formatKobo(vaultWarning.shortfallKobo)} of protected vault money for $vaultName.';
     }
 
+    final billWarning = _billProtectionWarning(amountKobo);
+    if (billWarning.risksDueBills) {
+      final billName = billWarning.primaryBillName ?? 'a bill';
+      return '${adjustedTonePrefix}Caution - $justification. This would leave you ${MoneyFormatter.formatKobo(billWarning.shortfallKobo)} short for $billName, a bill due soon.';
+    }
+
     return '${adjustedTonePrefix}Approved - $justification. Kolo reviewed it against your current balance.';
   }
 
@@ -715,6 +733,23 @@ class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
       balanceKobo: dashboard.balanceKobo,
       expenseKobo: amountKobo,
       vaults: dashboard.vaults,
+    );
+  }
+
+  BillProtectionWarning _billProtectionWarning(int amountKobo) {
+    final dashboard = _dashboard();
+    if (dashboard == null) {
+      return const BillProtectionWarning(
+        risksDueBills: false,
+        reservedKobo: 0,
+        shortfallKobo: 0,
+      );
+    }
+
+    return BillProtectionAdvisor.check(
+      balanceKobo: dashboard.balanceKobo,
+      expenseKobo: amountKobo,
+      bills: dashboard.bills,
     );
   }
 

@@ -115,14 +115,50 @@ void main() {
     expect(find.textContaining('protected vault money'), findsOneWidget);
     expect(find.textContaining('New Phone'), findsOneWidget);
   });
+
+  testWidgets('manual expense prompts before risking a due bill', (
+    tester,
+  ) async {
+    await _pumpHome(tester, _dashboardForBillProtection());
+
+    await tester.tap(find.text('Log Expense'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('transaction_amount')), '3000');
+    await tester.enterText(
+      find.byKey(const Key('transaction_description')),
+      'Late lunch',
+    );
+    await tester.ensureVisible(find.byKey(const Key('save_transaction')));
+    await tester.tap(find.byKey(const Key('save_transaction')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('spending_justification_prompt')),
+      findsOneWidget,
+    );
+    final prompt = find.byKey(const Key('spending_justification_prompt'));
+    expect(
+      find.descendant(
+        of: prompt,
+        matching: find.textContaining('bill due soon'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: prompt,
+        matching: find.textContaining('Data renewal'),
+      ),
+      findsOneWidget,
+    );
+  });
 }
 
 Future<void> _pumpHome(WidgetTester tester, DashboardState state) async {
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [
-        dashboardProvider.overrideWith((ref) => Stream.value(state)),
-      ],
+      overrides: [dashboardProvider.overrideWith((ref) => Stream.value(state))],
       child: MaterialApp(theme: KoloTheme.light, home: const HomeScreen()),
     ),
   );
@@ -194,5 +230,35 @@ DashboardState _dashboardForVaultProtection() {
         currentKobo: 1800000,
       ),
     ],
+  );
+}
+
+DashboardState _dashboardForBillProtection() {
+  final now = DateTime.now();
+  return _dashboardWithBills([
+    BillReminder(
+      id: 'bill-data',
+      name: 'Data renewal',
+      amountKobo: 1800000,
+      frequency: 'Monthly',
+      nextDue: now.add(const Duration(days: 2)),
+    ),
+  ]).copyWith(
+    balanceKobo: 2000000,
+    budgetPlan: const BudgetPlan(
+      monthlyIncomeKobo: 5000000,
+      incomeType: 'irregular',
+      categories: [
+        BudgetCategory(
+          name: 'Food & Snacks',
+          emoji: '*',
+          allocatedKobo: 1000000,
+          priority: 1,
+        ),
+      ],
+      savingsTargetKobo: 500000,
+      savingsGoal: 'Emergency buffer',
+      aiNotes: 'Keep due bills protected.',
+    ),
   );
 }
