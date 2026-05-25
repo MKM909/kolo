@@ -188,6 +188,14 @@ class _RecordingKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<void> updateTransactionCategory({
+    required String transactionId,
+    required String category,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
   Future<void> recordAiMessage(AiMessage message) {
     throw UnimplementedError();
   }

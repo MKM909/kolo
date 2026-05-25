@@ -496,6 +496,49 @@ class FakeKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<void> updateTransactionCategory({
+    required String transactionId,
+    required String category,
+  }) async {
+    final target = _state.transactions
+        .where((transaction) => transaction.id == transactionId)
+        .firstOrNull;
+    if (target == null || target.category == category) return;
+
+    final updatedTransactions = [
+      for (final transaction in _state.transactions)
+        transaction.id == transactionId
+            ? TransactionRecord(
+                id: transaction.id,
+                amountKobo: transaction.amountKobo,
+                type: transaction.type,
+                category: category,
+                description: transaction.description,
+                date: transaction.date,
+                source: transaction.source,
+                merchantName: transaction.merchantName,
+                aiApproved: transaction.aiApproved,
+                aiNote: transaction.aiNote,
+              )
+            : transaction,
+    ];
+    _state = _state.copyWith(
+      transactions: updatedTransactions,
+      aiMessages: [
+        AiMessage(
+          id: 'ai-category-$transactionId-${DateTime.now().microsecondsSinceEpoch}',
+          role: AiRole.assistant,
+          content: '${target.description} moved to $category.',
+          timestamp: DateTime.now(),
+          context: 'transaction_category',
+        ),
+        ..._state.aiMessages,
+      ],
+    );
+    _controller.add(_state);
+  }
+
+  @override
   Future<void> recordAiMessage(AiMessage message) async {
     _state = _state.copyWith(aiMessages: [message, ..._state.aiMessages]);
     _controller.add(_state);

@@ -228,6 +228,17 @@ class FirebaseKoloRepository implements KoloRepository {
   }
 
   @override
+  Future<void> updateTransactionCategory({
+    required String transactionId,
+    required String category,
+  }) async {
+    await _userDoc.collection('transactions').doc(transactionId).set({
+      'category': category,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  @override
   Future<void> recordAiMessage(AiMessage message) async {
     await _userDoc.collection('aiMessages').doc(message.id).set({
       ...FirebaseKoloMapper.aiMessageToJson(message),

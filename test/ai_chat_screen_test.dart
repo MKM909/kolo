@@ -100,6 +100,12 @@ class _FailingChatRepository implements KoloRepository {
   Future<void> logTransaction(TransactionRecord transaction) async {}
 
   @override
+  Future<void> updateTransactionCategory({
+    required String transactionId,
+    required String category,
+  }) async {}
+
+  @override
   Future<PartnerSafeSummary?> publishPartnerSummary(PartnerShare share) async {
     return null;
   }

@@ -48,6 +48,30 @@ void main() {
     );
   });
 
+  test(
+    'fake repository updates transaction category without changing balance',
+    () async {
+      final repository = FakeKoloRepository.seeded();
+      final initial = await repository.watchDashboard().first;
+
+      await repository.updateTransactionCategory(
+        transactionId: 'tx-food',
+        category: 'Transport',
+      );
+
+      final updated = await repository.watchDashboard().first;
+
+      expect(updated.balanceKobo, initial.balanceKobo);
+      expect(
+        updated.transactions
+            .singleWhere((transaction) => transaction.id == 'tx-food')
+            .category,
+        'Transport',
+      );
+      expect(updated.aiMessages.first.context, 'transaction_category');
+    },
+  );
+
   test('fake repository records balance adjustments', () async {
     final repository = FakeKoloRepository.seeded();
     final initial = await repository.watchDashboard().first;

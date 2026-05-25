@@ -15,6 +15,10 @@ abstract class KoloRepository {
   Future<PartnerSafeSummary?> publishPartnerSummary(PartnerShare share);
   Future<void> upsertWatchedApp(WatchedApp app);
   Future<void> logTransaction(TransactionRecord transaction);
+  Future<void> updateTransactionCategory({
+    required String transactionId,
+    required String category,
+  });
   Future<void> recordAiMessage(AiMessage message);
   Future<void> clearAiMessages();
   Future<String> draftOwingReminder(Owing owing);
