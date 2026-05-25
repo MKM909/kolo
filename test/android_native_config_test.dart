@@ -57,6 +57,15 @@ void main() {
     }
   });
 
+  test('SMS receiver forwards sender metadata with the message body', () {
+    final smsReceiver = File(
+      'android/app/src/main/kotlin/com/example/kolo/KoloSmsReceiver.kt',
+    ).readAsStringSync();
+
+    expect(smsReceiver, contains('displayOriginatingAddress'));
+    expect(smsReceiver, contains('"sender" to sender'));
+  });
+
   test('Android manifest declares notification runtime permission', () {
     final manifest = File(
       'android/app/src/main/AndroidManifest.xml',
