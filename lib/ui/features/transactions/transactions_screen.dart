@@ -211,108 +211,211 @@ class _Metric extends StatelessWidget {
   }
 }
 
-class _TransactionDetailSheet extends StatelessWidget {
+const _transactionCategoryOptions = [
+  'Food & Snacks',
+  'Transport',
+  'Data & Airtime',
+  'Entertainment',
+  'Utilities & Bills',
+  'Gig Income',
+  'Family/Gift Income',
+  'Savings',
+  'Miscellaneous',
+];
+
+class _TransactionDetailSheet extends ConsumerStatefulWidget {
   const _TransactionDetailSheet({required this.transaction});
 
   final TransactionRecord transaction;
 
   @override
+  ConsumerState<_TransactionDetailSheet> createState() =>
+      _TransactionDetailSheetState();
+}
+
+class _TransactionDetailSheetState
+    extends ConsumerState<_TransactionDetailSheet> {
+  late String _category;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _category = widget.transaction.category;
+  }
+
+  List<String> get _categoryOptions {
+    if (_transactionCategoryOptions.contains(widget.transaction.category)) {
+      return _transactionCategoryOptions;
+    }
+    return [widget.transaction.category, ..._transactionCategoryOptions];
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final transaction = widget.transaction;
     final isIncome = transaction.type == TransactionType.income;
     final signedAmount =
         '${isIncome ? '+' : '-'}${MoneyFormatter.formatKobo(transaction.amountKobo)}';
 
-    return Container(
-      key: const Key('transaction_detail_sheet'),
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-      decoration: const BoxDecoration(
-        color: Color(0xF0FFFFFF),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        boxShadow: [
-          BoxShadow(
-            color: Color(0x20000000),
-            blurRadius: 40,
-            offset: Offset(0, -8),
-          ),
-        ],
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                height: 4,
-                width: 42,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE5E7EB),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              ),
+      child: Container(
+        key: const Key('transaction_detail_sheet'),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.86,
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+        decoration: const BoxDecoration(
+          color: Color(0xF0FFFFFF),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          boxShadow: [
+            BoxShadow(
+              color: Color(0x20000000),
+              blurRadius: 40,
+              offset: Offset(0, -8),
             ),
-            const SizedBox(height: 20),
-            Row(
+          ],
+        ),
+        child: SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CircleAvatar(
-                  radius: 22,
-                  backgroundColor: KoloColors.primaryPastel,
-                  child: Text(isIncome ? '+' : _emojiFor(transaction.category)),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        transaction.description,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      Text(
-                        transaction.merchantName ?? transaction.category,
-                        style: Theme.of(context).textTheme.labelMedium,
-                      ),
-                    ],
+                Center(
+                  child: Container(
+                    height: 4,
+                    width: 42,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE5E7EB),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
                   ),
                 ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 22,
+                      backgroundColor: KoloColors.primaryPastel,
+                      child: Text(isIncome ? '+' : _emojiFor(_category)),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            transaction.description,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          Text(
+                            transaction.merchantName ?? transaction.category,
+                            style: Theme.of(context).textTheme.labelMedium,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      signedAmount,
+                      style: TextStyle(
+                        color: isIncome
+                            ? KoloColors.income
+                            : KoloColors.expense,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 18,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                _DetailRow(label: 'Category', value: transaction.category),
+                _DetailRow(label: 'Source', value: transaction.source.name),
+                _DetailRow(label: 'Type', value: transaction.type.name),
+                _DetailRow(label: 'Date', value: _dateInput(transaction.date)),
+                const SizedBox(height: 12),
                 Text(
-                  signedAmount,
-                  style: TextStyle(
-                    color: isIncome ? KoloColors.income : KoloColors.expense,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 18,
-                  ),
+                  'Correct category',
+                  style: Theme.of(context).textTheme.titleMedium,
                 ),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<String>(
+                  key: const Key('transaction_category_dropdown'),
+                  initialValue: _category,
+                  decoration: const InputDecoration(labelText: 'Category'),
+                  items: [
+                    for (final category in _categoryOptions)
+                      DropdownMenuItem(value: category, child: Text(category)),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() {
+                      _category = value;
+                      _error = null;
+                    });
+                  },
+                ),
+                if (_error != null) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    _error!,
+                    style: const TextStyle(color: KoloColors.expense),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  key: const Key('save_transaction_category'),
+                  onPressed: _category == transaction.category
+                      ? null
+                      : _saveCategory,
+                  icon: const Icon(Icons.category_outlined),
+                  label: const Text('Save category'),
+                ),
+                if (transaction.aiNote != null) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: KoloColors.primaryPastel,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Text(
+                      transaction.aiNote!,
+                      style: const TextStyle(
+                        color: KoloColors.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
-            const SizedBox(height: 18),
-            _DetailRow(label: 'Category', value: transaction.category),
-            _DetailRow(label: 'Source', value: transaction.source.name),
-            _DetailRow(label: 'Type', value: transaction.type.name),
-            _DetailRow(label: 'Date', value: _dateInput(transaction.date)),
-            if (transaction.aiNote != null) ...[
-              const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: KoloColors.primaryPastel,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Text(
-                  transaction.aiNote!,
-                  style: const TextStyle(
-                    color: KoloColors.primary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ],
+          ),
         ),
       ),
     );
+  }
+
+  Future<void> _saveCategory() async {
+    try {
+      await ref
+          .read(koloRepositoryProvider)
+          .updateTransactionCategory(
+            transactionId: widget.transaction.id,
+            category: _category,
+          );
+      if (mounted) Navigator.of(context).pop();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Could not save that category. Try again.';
+      });
+    }
   }
 
   String _emojiFor(String category) {

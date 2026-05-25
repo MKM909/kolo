@@ -243,6 +243,34 @@ void main() {
     expect(find.text('sms'), findsOneWidget);
   });
 
+  testWidgets('transaction detail sheet corrects category', (tester) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.receipt_long_outlined));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Chicken Republic'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('transaction_detail_sheet')), findsOneWidget);
+    expect(
+      find.byKey(const Key('transaction_category_dropdown')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const Key('transaction_category_dropdown')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Transport').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('save_transaction_category')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('transaction_detail_sheet')), findsNothing);
+    expect(find.text('Transport'), findsOneWidget);
+  });
+
   testWidgets('transaction history filters income and expense rows', (
     tester,
   ) async {
