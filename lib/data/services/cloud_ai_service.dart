@@ -99,6 +99,28 @@ class CloudAiService
     }
   }
 
+  Future<bool> onSmsReceived({
+    required String rawText,
+    String? sender,
+    DateTime? receivedAt,
+    required DashboardState context,
+    String? modelName,
+  }) async {
+    try {
+      final callable = _functions.httpsCallable('onSmsReceived');
+      final response = await callable.call<Map<String, dynamic>>({
+        'rawText': rawText,
+        'sender': sender,
+        'receivedAt': receivedAt?.toUtc().toIso8601String(),
+        'context': _contextPayload(context),
+        'model': _resolvedModel(modelName),
+      });
+      return (response.data['transactionId'] as String?)?.isNotEmpty ?? false;
+    } on Object catch (_) {
+      return false;
+    }
+  }
+
   Future<String> draftReminder({
     required Owing owing,
     required DashboardState context,

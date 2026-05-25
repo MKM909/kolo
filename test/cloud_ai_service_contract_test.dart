@@ -14,6 +14,7 @@ void main() {
       'generateBudget',
       'interventionMessage',
       'categorizeTransaction',
+      'onSmsReceived',
       'draftReminder',
       'analyzeSpending',
     ]) {
@@ -22,6 +23,7 @@ void main() {
 
     expect(source, contains('Future<String> interventionMessage'));
     expect(source, contains('Future<TransactionDraft?> categorizeTransaction'));
+    expect(source, contains('Future<bool> onSmsReceived'));
     expect(source, contains('Future<String> draftReminder'));
     expect(source, contains('Future<WeeklyInsight> analyzeSpending'));
     expect(source, contains("this.modelName = defaultGeminiModelName"));
