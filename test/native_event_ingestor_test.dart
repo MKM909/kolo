@@ -528,6 +528,9 @@ class _FakeOverlayBubbleService implements OverlayBubbleService {
   int showCalls = 0;
 
   @override
+  Future<bool> isPermissionGranted() async => true;
+
+  @override
   Future<bool> showKoloBubble() async {
     showCalls += 1;
     return true;

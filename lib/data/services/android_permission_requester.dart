@@ -15,6 +15,28 @@ class AndroidPermissionRequester implements PermissionRequester {
   final OverlayBubbleService _overlayBubble;
 
   @override
+  Future<PermissionGrantState> status(KoloPermission permission) async {
+    switch (permission) {
+      case KoloPermission.sms:
+        return _fromStatus(await Permission.sms.status);
+      case KoloPermission.notifications:
+        return await _capabilities.isNotificationListenerEnabled()
+            ? PermissionGrantState.granted
+            : PermissionGrantState.denied;
+      case KoloPermission.overlay:
+        return await _overlayBubble.isPermissionGranted()
+            ? PermissionGrantState.granted
+            : PermissionGrantState.denied;
+      case KoloPermission.accessibility:
+        return await _capabilities.isAccessibilityServiceEnabled()
+            ? PermissionGrantState.granted
+            : PermissionGrantState.denied;
+      case KoloPermission.backgroundService:
+        return PermissionGrantState.notRequested;
+    }
+  }
+
+  @override
   Future<PermissionGrantState> request(KoloPermission permission) async {
     switch (permission) {
       case KoloPermission.sms:

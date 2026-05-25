@@ -67,8 +67,12 @@ class OverlayBubbleService {
 
   final OverlayWindowPlatform _platform;
 
+  Future<bool> isPermissionGranted() {
+    return _platform.isPermissionGranted();
+  }
+
   Future<bool> showKoloBubble() async {
-    final hasPermission = await _platform.isPermissionGranted();
+    final hasPermission = await isPermissionGranted();
     if (!hasPermission) {
       return false;
     }

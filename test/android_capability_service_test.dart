@@ -138,13 +138,62 @@ void main() {
     expect(overlayBubble.requestPermissionCalls, 1);
     expect(state, PermissionGrantState.granted);
   });
+
+  test('overlay status reports denied when overlay permission was revoked', () async {
+    final overlayBubble = _FakeOverlayBubbleService(
+      requestResult: false,
+      permissionGranted: false,
+    );
+    final requester = AndroidPermissionRequester(
+      capabilities: _FakeAndroidCapabilities(
+        notificationListenerEnabled: false,
+      ),
+      overlayBubble: overlayBubble,
+    );
+
+    final state = await requester.status(KoloPermission.overlay);
+
+    expect(state, PermissionGrantState.denied);
+    expect(overlayBubble.permissionChecks, 1);
+    expect(overlayBubble.requestPermissionCalls, 0);
+  });
+
+  test('status reads Android listener and accessibility settings', () async {
+    final capabilities = _FakeAndroidCapabilities(
+      notificationListenerEnabled: true,
+      accessibilityServiceEnabled: false,
+    );
+    final requester = AndroidPermissionRequester(capabilities: capabilities);
+
+    expect(
+      await requester.status(KoloPermission.notifications),
+      PermissionGrantState.granted,
+    );
+    expect(
+      await requester.status(KoloPermission.accessibility),
+      PermissionGrantState.denied,
+    );
+    expect(capabilities.openedNotificationSettings, isFalse);
+    expect(capabilities.openedAccessibilitySettings, isFalse);
+  });
 }
 
 class _FakeOverlayBubbleService implements OverlayBubbleService {
-  _FakeOverlayBubbleService({required this.requestResult});
+  _FakeOverlayBubbleService({
+    required this.requestResult,
+    this.permissionGranted = true,
+  });
 
   final bool requestResult;
+  final bool permissionGranted;
+  int permissionChecks = 0;
   int requestPermissionCalls = 0;
+
+  @override
+  Future<bool> isPermissionGranted() async {
+    permissionChecks += 1;
+    return permissionGranted;
+  }
 
   @override
   Future<bool> requestPermission() async {

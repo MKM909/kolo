@@ -99,6 +99,12 @@ class _RecordingPermissionRequester implements PermissionRequester {
   KoloPermission? permission;
 
   @override
+  Future<PermissionGrantState> status(KoloPermission permission) async {
+    this.permission = permission;
+    return result;
+  }
+
+  @override
   Future<PermissionGrantState> request(KoloPermission permission) async {
     this.permission = permission;
     return result;
