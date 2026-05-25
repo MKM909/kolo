@@ -91,6 +91,29 @@ const chatSchema = z.object({
         deadline: z.string().nullable().optional(),
       }),
     ),
+    owings: z
+      .array(
+        z.object({
+          person: z.string(),
+          amountKobo: z.number(),
+          type: z.string(),
+          settled: z.boolean(),
+          dueDate: z.string().nullable().optional(),
+        }),
+      )
+      .optional(),
+    bills: z
+      .array(
+        z.object({
+          name: z.string(),
+          amountKobo: z.number(),
+          frequency: z.string(),
+          nextDue: z.string(),
+          active: z.boolean(),
+          daysUntilDue: z.number(),
+        }),
+      )
+      .optional(),
     dueBills: z
       .array(
         z.object({

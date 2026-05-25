@@ -41,6 +41,33 @@ test("buildChatPrompt includes rich financial context signals", () => {
         deadline: "2026-08-01T00:00:00.000",
       },
     ],
+    owings: [
+      {
+        person: "Timi",
+        amountKobo: 1200000,
+        type: "theyOweMe",
+        settled: false,
+        dueDate: "2026-05-28T00:00:00.000",
+      },
+    ],
+    bills: [
+      {
+        name: "Rent",
+        amountKobo: 3500000,
+        frequency: "monthly",
+        nextDue: "2026-06-05T00:00:00.000",
+        active: true,
+        daysUntilDue: 12,
+      },
+      {
+        name: "Netflix",
+        amountKobo: 750000,
+        frequency: "monthly",
+        nextDue: "2026-05-30T00:00:00.000",
+        active: false,
+        daysUntilDue: 6,
+      },
+    ],
     dueBills: [
       {
         name: "Data renewal",
@@ -62,6 +89,8 @@ test("buildChatPrompt includes rich financial context signals", () => {
   assert.match(prompt, /Vault-protected money: .*5,000.00/);
   assert.match(prompt, /Food & Snacks .*spent .*1,200.00.*remaining .*800.00/);
   assert.match(prompt, /Due bills: Data renewal .*in 2 days/);
+  assert.match(prompt, /Owings: Timi owes you .*12,000.00.*due 2026-05-28/);
+  assert.match(prompt, /Bills: Rent .*in 12 days; Netflix .*paused/);
   assert.match(prompt, /Gig income: .*25,000.00 this month/);
   assert.match(prompt, /Days since last income: 4/);
 });

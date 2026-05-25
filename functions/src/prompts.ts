@@ -30,6 +30,21 @@ export type KoloAiContext = {
     currentKobo: number;
     deadline?: string | null;
   }>;
+  owings?: Array<{
+    person: string;
+    amountKobo: number;
+    type: string;
+    settled: boolean;
+    dueDate?: string | null;
+  }>;
+  bills?: Array<{
+    name: string;
+    amountKobo: number;
+    frequency: string;
+    nextDue: string;
+    active: boolean;
+    daysUntilDue: number;
+  }>;
   dueBills?: Array<{
     name: string;
     amountKobo: number;
@@ -79,6 +94,18 @@ export function buildChatPrompt(message: string, context: KoloAiContext): string
           `${vault.name} ${nairaFromKobo(vault.currentKobo)} saved of ${nairaFromKobo(vault.targetKobo)}`,
       )
       .join(", ")}.`,
+    `Owings: ${(context.owings ?? [])
+      .map(
+        (owing) =>
+          `${owing.person} ${owing.type === "theyOweMe" ? "owes you" : "is owed"} ${nairaFromKobo(owing.amountKobo)}${owing.settled ? " settled" : ""}${owing.dueDate ? ` due ${owing.dueDate.slice(0, 10)}` : ""}`,
+      )
+      .join("; ") || "none"}.`,
+    `Bills: ${(context.bills ?? [])
+      .map(
+        (bill) =>
+          `${bill.name} ${nairaFromKobo(bill.amountKobo)} ${bill.active ? `in ${bill.daysUntilDue} days` : "paused"}`,
+      )
+      .join("; ") || "none"}.`,
     `Due bills: ${(context.dueBills ?? [])
       .map((bill) => `${bill.name} ${nairaFromKobo(bill.amountKobo)} in ${bill.daysUntilDue} days`)
       .join(", ") || "none"}.`,
