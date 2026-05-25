@@ -1171,6 +1171,36 @@ void main() {
     expect(tester.widget<SwitchListTile>(opayToggle).value, isTrue);
   });
 
+  testWidgets('watched apps sheet prompts for accessibility permission', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.person_outline));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Watched Apps'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const Key('open_watched_apps')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('watched_apps_accessibility_prompt')),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const Key('enable_accessibility_from_watched_apps')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Accessibility service ready'), findsOneWidget);
+  });
+
   testWidgets('profile refresh imports suggested watched apps disabled', (
     tester,
   ) async {

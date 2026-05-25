@@ -2415,19 +2415,111 @@ class _WatchedAppsSheetState extends ConsumerState<_WatchedAppsSheet> {
               dashboard.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (error, _) => Text('Could not load apps: $error'),
-                data: (state) => Column(
-                  children: [
-                    for (final app in state.watchedApps)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: _WatchedAppToggle(app: app),
+                data: (state) {
+                  final accessibilityState =
+                      state.permissions[KoloPermission.accessibility] ??
+                      PermissionGrantState.notRequested;
+                  return Column(
+                    children: [
+                      _WatchedAppsAccessibilityPrompt(
+                        state: accessibilityState,
+                        onGrant: () => ref
+                            .read(koloRepositoryProvider)
+                            .updatePermission(
+                              KoloPermission.accessibility,
+                              PermissionGrantState.granted,
+                            ),
                       ),
-                  ],
-                ),
+                      const SizedBox(height: 12),
+                      for (final app in state.watchedApps)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _WatchedAppToggle(app: app),
+                        ),
+                    ],
+                  );
+                },
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _WatchedAppsAccessibilityPrompt extends StatelessWidget {
+  const _WatchedAppsAccessibilityPrompt({
+    required this.state,
+    required this.onGrant,
+  });
+
+  final PermissionGrantState state;
+  final Future<void> Function() onGrant;
+
+  @override
+  Widget build(BuildContext context) {
+    final granted = state == PermissionGrantState.granted;
+    return Container(
+      key: const Key('watched_apps_accessibility_prompt'),
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 20,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            backgroundColor: KoloColors.primaryPastel,
+            child: Icon(
+              granted
+                  ? Icons.verified_user_outlined
+                  : Icons.accessibility_new_outlined,
+              color: KoloColors.primary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  granted
+                      ? 'Accessibility service ready'
+                      : 'Enable Accessibility Service',
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  granted
+                      ? 'Kolo can react when watched banking apps open.'
+                      : 'Kolo needs this to detect when a watched banking app comes to the front.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: KoloColors.textSecondary,
+                  ),
+                ),
+                if (!granted) ...[
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    key: const Key('enable_accessibility_from_watched_apps'),
+                    onPressed: onGrant,
+                    icon: const Icon(Icons.settings_accessibility, size: 18),
+                    label: const Text('Enable'),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
