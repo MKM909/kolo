@@ -13,5 +13,11 @@ test("Gemini callable exports use typed AI contract schemas", () => {
   assert.match(source, /interventionMessageSchema/);
   assert.match(source, /reminderDraftSchema/);
   assert.match(source, /weeklyInsightSchema/);
+  assert.match(source, /smsReceivedInputSchema/);
+  assert.match(source, /smsReceivedOutputSchema/);
+  assert.match(source, /getFirestore\(\)/);
+  assert.match(source, /collection\("transactions"\)/);
+  assert.match(source, /collection\("aiMessages"\)/);
+  assert.match(source, /export const onSmsReceived = onCallGenkit/);
   assert.doesNotMatch(source, /simpleTextFlow/);
 });

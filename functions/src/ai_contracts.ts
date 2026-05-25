@@ -23,6 +23,27 @@ export type TransactionCategorization = z.infer<
   typeof transactionCategorizationSchema
 >;
 
+export const smsReceivedInputSchema = z.object({
+  rawText: z.string().min(1).max(2000),
+  sender: z.string().optional().nullable(),
+  receivedAt: z.string().optional().nullable(),
+  context: z.record(z.string(), z.unknown()).optional(),
+});
+
+export const smsReceivedOutputSchema = z.object({
+  transactionId: z.string().min(1),
+  aiMessageId: z.string().min(1),
+  transaction: transactionCategorizationSchema,
+  aiMessage: z.object({
+    content: z.string().min(1),
+    severity: z.enum(["safe", "caution", "stop"]),
+    suggestedAction: z.string().min(1),
+  }),
+});
+
+export type SmsReceivedInput = z.infer<typeof smsReceivedInputSchema>;
+export type SmsReceivedOutput = z.infer<typeof smsReceivedOutputSchema>;
+
 export const interventionInputSchema = z.object({
   context: z.record(z.string(), z.unknown()).optional(),
 });

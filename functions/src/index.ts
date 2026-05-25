@@ -1,6 +1,8 @@
 import {genkit, z} from "genkit";
 import {googleAI} from "@genkit-ai/googleai";
 import {onCallGenkit} from "firebase-functions/https";
+import {getApps, initializeApp} from "firebase-admin/app";
+import {FieldValue, getFirestore, Timestamp} from "firebase-admin/firestore";
 import {
   fallbackInterventionMessage,
   fallbackReminderDraft,
@@ -10,6 +12,8 @@ import {
   interventionMessageSchema,
   reminderDraftSchema,
   reminderInputSchema,
+  smsReceivedInputSchema,
+  smsReceivedOutputSchema,
   transactionCategorizationInputSchema,
   transactionCategorizationSchema,
   weeklyInsightInputSchema,
@@ -26,6 +30,8 @@ const SUPPORTED_KOLO_GEMINI_MODELS = [
 ] as const;
 const modelNameSchema = z.enum(SUPPORTED_KOLO_GEMINI_MODELS);
 const geminiApiKey = process.env.GEMINI_API_KEY;
+if (getApps().length === 0) initializeApp();
+const firestore = getFirestore();
 
 const ai = genkit({
   plugins: [geminiApiKey ? googleAI({apiKey: geminiApiKey}) : googleAI()],
@@ -299,6 +305,81 @@ const categorizeTransactionFlow = ai.defineFlow(
   },
 );
 
+const onSmsReceivedFlow = ai.defineFlow(
+  {
+    name: "onSmsReceivedFlow",
+    inputSchema: smsReceivedInputSchema.extend({
+      model: modelNameSchema.optional(),
+    }),
+    outputSchema: smsReceivedOutputSchema,
+  },
+  async (input, {context: flowContext}) => {
+    const uid = requireCallableAuth(flowContext);
+    const response = await ai.generate({
+      model: selectedGeminiModel(input.model),
+      prompt: [
+        "Parse this Nigerian bank SMS for Kolo and return a transaction draft.",
+        "Use kobo for amountKobo. Choose income for credits and expense for debits.",
+        `Sender: ${input.sender ?? "unknown"}.`,
+        `Raw SMS: ${input.rawText}`,
+        `Context JSON: ${JSON.stringify(input.context ?? {})}`,
+      ].join("\n"),
+      output: {schema: transactionCategorizationSchema},
+    });
+    const transaction =
+      response.output ??
+      fallbackTransactionCategorization({
+        rawText: input.rawText,
+        source: "sms",
+        context: input.context,
+      });
+    const receivedAt = parseDateOrNow(input.receivedAt);
+    const userRef = firestore.collection("users").doc(uid);
+    const transactionRef = userRef.collection("transactions").doc();
+    const aiMessageRef = userRef.collection("aiMessages").doc();
+    const deltaKobo =
+      transaction.type === "income"
+        ? transaction.amountKobo
+        : -transaction.amountKobo;
+    const aiMessage = smsAiMessage(transaction);
+
+    await firestore.runTransaction(async (dbTransaction) => {
+      dbTransaction.set(transactionRef, {
+        amountKobo: transaction.amountKobo,
+        type: transaction.type,
+        category: transaction.category,
+        description: transaction.description,
+        source: "sms",
+        date: Timestamp.fromDate(receivedAt),
+        merchantName: transaction.merchantName ?? null,
+        aiApproved: null,
+        aiNote: transaction.reason,
+        rawText: input.rawText,
+        sender: input.sender ?? null,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+      dbTransaction.set(aiMessageRef, {
+        role: "assistant",
+        content: aiMessage.content,
+        timestamp: Timestamp.fromDate(new Date()),
+        context: "sms_transaction",
+      });
+      dbTransaction.set(
+        userRef,
+        {balance: FieldValue.increment(deltaKobo)},
+        {merge: true},
+      );
+    });
+
+    return {
+      transactionId: transactionRef.id,
+      aiMessageId: aiMessageRef.id,
+      transaction,
+      aiMessage,
+    };
+  },
+);
+
 const draftReminderFlow = ai.defineFlow(
   {
     name: "draftReminderFlow",
@@ -351,5 +432,29 @@ export const chatWithKolo = onCallGenkit(chatFlow);
 export const generateBudget = onCallGenkit(generateBudgetFlow);
 export const interventionMessage = onCallGenkit(interventionMessageFlow);
 export const categorizeTransaction = onCallGenkit(categorizeTransactionFlow);
+export const onSmsReceived = onCallGenkit(onSmsReceivedFlow);
 export const draftReminder = onCallGenkit(draftReminderFlow);
 export const analyzeSpending = onCallGenkit(analyzeSpendingFlow);
+
+function parseDateOrNow(value?: string | null): Date {
+  if (!value) return new Date();
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return new Date();
+  return parsed;
+}
+
+function smsAiMessage(transaction: z.infer<typeof transactionCategorizationSchema>) {
+  const verb = transaction.type === "income" ? "credit" : "debit";
+  const amount = `NGN ${(transaction.amountKobo / 100).toLocaleString("en-NG", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+  return {
+    content: `SMS ${verb} noted: ${amount} for ${transaction.description}.`,
+    severity: transaction.type === "expense" ? "caution" as const : "safe" as const,
+    suggestedAction:
+      transaction.type === "expense"
+        ? "Review the category if this was not right."
+        : "Consider assigning this income to your current budget.",
+  };
+}

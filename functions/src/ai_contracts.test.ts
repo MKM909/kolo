@@ -3,6 +3,8 @@ import test from "node:test";
 import {
   fallbackInterventionMessage,
   fallbackReminderDraft,
+  smsReceivedInputSchema,
+  smsReceivedOutputSchema,
   fallbackTransactionCategorization,
   fallbackWeeklyInsight,
   transactionCategorizationSchema,
@@ -35,6 +37,43 @@ test("transactionCategorizationSchema rejects unsafe confidence values", () => {
       confidence: 2,
       reason: "Too confident.",
     }).success,
+    false,
+  );
+});
+
+test("sms received contracts include raw alert text and logged outputs", () => {
+  const input = smsReceivedInputSchema.parse({
+    rawText: "GTBank debit NGN 1,250 at Chicken Republic",
+    sender: "GTBank",
+    receivedAt: "2026-05-25T10:00:00.000Z",
+  });
+  const output = smsReceivedOutputSchema.parse({
+    transactionId: "tx-1",
+    aiMessageId: "ai-1",
+    transaction: {
+      amountKobo: 125000,
+      type: "expense",
+      category: "Food & Snacks",
+      description: "Chicken Republic",
+      merchantName: "Chicken Republic",
+      confidence: 0.9,
+      reason: "SMS mentions a known food merchant.",
+    },
+    aiMessage: {
+      content: "GTBank debit noted.",
+      severity: "safe",
+      suggestedAction: "Keep an eye on food spending.",
+    },
+  });
+
+  assert.equal(input.sender, "GTBank");
+  assert.equal(output.transaction.type, "expense");
+  assert.equal(output.transactionId, "tx-1");
+});
+
+test("sms received contracts reject empty SMS text", () => {
+  assert.equal(
+    smsReceivedInputSchema.safeParse({rawText: ""}).success,
     false,
   );
 });
