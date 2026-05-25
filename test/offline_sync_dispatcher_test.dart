@@ -245,6 +245,33 @@ void main() {
     expect(vault.deadline, DateTime(2026, 8, 1));
   });
 
+  test('retryPending deletes queued vaults and marks them synced', () async {
+    final repository = FakeKoloRepository.seeded();
+    final queue = OfflineSyncQueue();
+    await queue.enqueue(
+      PendingSyncOperation(
+        id: 'offline-delete-vault',
+        kind: 'deleteVault',
+        payload: const {'id': 'vault-phone'},
+        createdAt: DateTime(2026, 5, 24),
+      ),
+    );
+
+    final synced = await OfflineSyncDispatcher(
+      queue: queue,
+      repository: repository,
+    ).retryPending();
+    final pending = await queue.watchPendingOperations().first;
+    final dashboard = await repository.watchDashboard().first;
+
+    expect(synced, 1);
+    expect(pending, isEmpty);
+    expect(
+      dashboard.vaults.where((vault) => vault.id == 'vault-phone'),
+      isEmpty,
+    );
+  });
+
   test(
     'retryPending upserts queued watched apps and marks them synced',
     () async {

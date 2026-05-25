@@ -48,6 +48,11 @@ class OfflineSyncDispatcher {
         if (vault == null) return false;
         await _repository.upsertVault(vault);
         return true;
+      case 'deleteVault':
+        final vaultId = _string(operation.payload['id']);
+        if (vaultId == null) return false;
+        await _repository.deleteVault(vaultId);
+        return true;
       case 'watchedApp':
         final app = _watchedAppFromPayload(operation.payload);
         if (app == null) return false;
