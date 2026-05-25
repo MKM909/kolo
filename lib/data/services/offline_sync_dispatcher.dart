@@ -43,6 +43,11 @@ class OfflineSyncDispatcher {
         if (vault == null) return false;
         await _repository.upsertVault(vault);
         return true;
+      case 'watchedApp':
+        final app = _watchedAppFromPayload(operation.payload);
+        if (app == null) return false;
+        await _repository.upsertWatchedApp(app);
+        return true;
       default:
         return false;
     }
@@ -159,6 +164,18 @@ class OfflineSyncDispatcher {
       targetKobo: targetKobo,
       currentKobo: currentKobo,
       deadline: deadlineText == null ? null : DateTime.tryParse(deadlineText),
+    );
+  }
+
+  WatchedApp? _watchedAppFromPayload(Map<String, Object?> payload) {
+    final packageName = _string(payload['packageName']);
+    final displayName = _string(payload['displayName']);
+    if (packageName == null || displayName == null) return null;
+
+    return WatchedApp(
+      packageName: packageName,
+      displayName: displayName,
+      enabled: _bool(payload['enabled']) ?? false,
     );
   }
 

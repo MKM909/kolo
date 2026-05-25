@@ -220,4 +220,39 @@ void main() {
     expect(vault.currentKobo, 500000);
     expect(vault.deadline, DateTime(2026, 8, 1));
   });
+
+  test(
+    'retryPending upserts queued watched apps and marks them synced',
+    () async {
+      final repository = FakeKoloRepository.seeded();
+      final queue = OfflineSyncQueue();
+      await queue.enqueue(
+        PendingSyncOperation(
+          id: 'offline-watched-app',
+          kind: 'watchedApp',
+          payload: const {
+            'packageName': 'com.kuda.app',
+            'displayName': 'Kuda',
+            'enabled': true,
+          },
+          createdAt: DateTime(2026, 5, 24),
+        ),
+      );
+
+      final synced = await OfflineSyncDispatcher(
+        queue: queue,
+        repository: repository,
+      ).retryPending();
+      final pending = await queue.watchPendingOperations().first;
+      final dashboard = await repository.watchDashboard().first;
+      final app = dashboard.watchedApps.firstWhere(
+        (app) => app.packageName == 'com.kuda.app',
+      );
+
+      expect(synced, 1);
+      expect(pending, isEmpty);
+      expect(app.displayName, 'Kuda');
+      expect(app.enabled, isTrue);
+    },
+  );
 }
