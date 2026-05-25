@@ -38,4 +38,13 @@ void main() {
       contains('categorizer: ref.watch(transactionCategorizerProvider)'),
     );
   });
+
+  test('due bill processor is wired into startup', () {
+    final providersSource = File('lib/app/providers.dart').readAsStringSync();
+    final appSource = File('lib/app/kolo_app.dart').readAsStringSync();
+
+    expect(providersSource, contains('dueBillProcessorProvider'));
+    expect(providersSource, contains('DueBillProcessor('));
+    expect(appSource, contains('ref.watch(dueBillProcessorProvider)'));
+  });
 }

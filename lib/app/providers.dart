@@ -9,6 +9,7 @@ import 'package:kolo/data/services/android_capability_service.dart';
 import 'package:kolo/data/services/biometric_session_lock.dart';
 import 'package:kolo/data/services/biometric_unlock_service.dart';
 import 'package:kolo/data/services/cloud_ai_service.dart';
+import 'package:kolo/data/services/due_bill_processor.dart';
 import 'package:kolo/data/services/firebase_bootstrap.dart';
 import 'package:kolo/data/services/android_permission_requester.dart';
 import 'package:kolo/data/services/native_event_ingestor.dart';
@@ -94,6 +95,18 @@ final koloRepositoryProvider = Provider<KoloRepository>((ref) {
 
 final dashboardProvider = StreamProvider<DashboardState>((ref) {
   return ref.watch(koloRepositoryProvider).watchDashboard();
+});
+
+final dueBillProcessorProvider = FutureProvider<int>((ref) async {
+  final bootstrap = ref.watch(firebaseBootstrapResultProvider);
+  final authUser = ref
+      .watch(authStateProvider)
+      .when(data: (user) => user, error: (_, _) => null, loading: () => null);
+  if (bootstrap.initialized && authUser == null) return 0;
+
+  return DueBillProcessor(
+    repository: ref.watch(koloRepositoryProvider),
+  ).process();
 });
 
 final nativeEventIngestorProvider = Provider<NativeEventIngestor>((ref) {
