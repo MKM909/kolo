@@ -5,5 +5,6 @@ abstract class TransactionCategorizer {
     required String rawText,
     required TransactionSource source,
     required DashboardState context,
+    String? modelName,
   });
 }

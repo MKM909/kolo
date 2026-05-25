@@ -76,6 +76,7 @@ class NativeEventIngestor {
       rawText: rawText,
       source: _sourceFor(event),
       context: context,
+      modelName: context.profile.preferredAiModel,
     );
   }
 

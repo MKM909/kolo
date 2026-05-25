@@ -251,6 +251,7 @@ void main() {
           });
 
       final repository = FakeKoloRepository.seeded();
+      await repository.updatePreferredAiModel('gemini-3.1-pro');
       final overlayBubble = _FakeOverlayBubbleService();
       final categorizer = _FakeTransactionCategorizer(
         draft: const TransactionDraft(
@@ -277,6 +278,7 @@ void main() {
       expect(categorizer.calls, 1);
       expect(categorizer.lastSource, TransactionSource.notification);
       expect(categorizer.lastContext?.balanceKobo, 5080000);
+      expect(categorizer.lastModelName, 'gemini-3.1-pro');
       expect(dashboard.transactions.first.id, 'native-notif-ai-1');
       expect(dashboard.transactions.first.merchantName, 'Shoprite');
       expect(dashboard.transactions.first.amountKobo, 200000);
@@ -369,16 +371,19 @@ class _FakeTransactionCategorizer implements TransactionCategorizer {
   int calls = 0;
   TransactionSource? lastSource;
   DashboardState? lastContext;
+  String? lastModelName;
 
   @override
   Future<TransactionDraft?> categorizeTransaction({
     required String rawText,
     required TransactionSource source,
     required DashboardState context,
+    String? modelName,
   }) async {
     calls += 1;
     lastSource = source;
     lastContext = context;
+    lastModelName = modelName;
     return draft;
   }
 }
