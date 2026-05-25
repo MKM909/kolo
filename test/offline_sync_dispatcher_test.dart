@@ -68,42 +68,45 @@ void main() {
     expect(pending.single.id, 'offline-unknown');
   });
 
-  test('retryPending upserts queued bill reminders and marks them synced', () async {
-    final repository = FakeKoloRepository.seeded();
-    final queue = OfflineSyncQueue();
-    await queue.enqueue(
-      PendingSyncOperation(
-        id: 'offline-bill',
-        kind: 'bill',
-        payload: {
-          'id': 'bill-offline-data',
-          'name': 'Data renewal',
-          'amountKobo': 150000,
-          'frequency': 'monthly',
-          'nextDue': DateTime(2026, 5, 27).toIso8601String(),
-          'active': true,
-        },
-        createdAt: DateTime(2026, 5, 24),
-      ),
-    );
+  test(
+    'retryPending upserts queued bill reminders and marks them synced',
+    () async {
+      final repository = FakeKoloRepository.seeded();
+      final queue = OfflineSyncQueue();
+      await queue.enqueue(
+        PendingSyncOperation(
+          id: 'offline-bill',
+          kind: 'bill',
+          payload: {
+            'id': 'bill-offline-data',
+            'name': 'Data renewal',
+            'amountKobo': 150000,
+            'frequency': 'monthly',
+            'nextDue': DateTime(2026, 5, 27).toIso8601String(),
+            'active': true,
+          },
+          createdAt: DateTime(2026, 5, 24),
+        ),
+      );
 
-    final synced = await OfflineSyncDispatcher(
-      queue: queue,
-      repository: repository,
-    ).retryPending();
-    final pending = await queue.watchPendingOperations().first;
-    final dashboard = await repository.watchDashboard().first;
-    final bill = dashboard.bills.firstWhere(
-      (bill) => bill.id == 'bill-offline-data',
-    );
+      final synced = await OfflineSyncDispatcher(
+        queue: queue,
+        repository: repository,
+      ).retryPending();
+      final pending = await queue.watchPendingOperations().first;
+      final dashboard = await repository.watchDashboard().first;
+      final bill = dashboard.bills.firstWhere(
+        (bill) => bill.id == 'bill-offline-data',
+      );
 
-    expect(synced, 1);
-    expect(pending, isEmpty);
-    expect(bill.name, 'Data renewal');
-    expect(bill.amountKobo, 150000);
-    expect(bill.frequency, 'monthly');
-    expect(bill.active, isTrue);
-  });
+      expect(synced, 1);
+      expect(pending, isEmpty);
+      expect(bill.name, 'Data renewal');
+      expect(bill.amountKobo, 150000);
+      expect(bill.frequency, 'monthly');
+      expect(bill.active, isTrue);
+    },
+  );
 
   test('retryPending upserts queued gig income and marks it synced', () async {
     final repository = FakeKoloRepository.seeded();
@@ -140,5 +143,45 @@ void main() {
     expect(gig.amountKobo, 2500000);
     expect(gig.projectType, 'Brand kit');
     expect(gig.note, 'Logged after offline meeting');
+  });
+
+  test('retryPending upserts queued owings and marks them synced', () async {
+    final repository = FakeKoloRepository.seeded();
+    final queue = OfflineSyncQueue();
+    await queue.enqueue(
+      PendingSyncOperation(
+        id: 'offline-owing',
+        kind: 'owing',
+        payload: {
+          'id': 'owing-offline-timi',
+          'type': 'theyOweMe',
+          'person': 'Timi',
+          'amountKobo': 1200000,
+          'date': DateTime(2026, 5, 18).toIso8601String(),
+          'settled': false,
+          'note': 'Lunch and transport',
+          'dueDate': DateTime(2026, 5, 30).toIso8601String(),
+        },
+        createdAt: DateTime(2026, 5, 24),
+      ),
+    );
+
+    final synced = await OfflineSyncDispatcher(
+      queue: queue,
+      repository: repository,
+    ).retryPending();
+    final pending = await queue.watchPendingOperations().first;
+    final dashboard = await repository.watchDashboard().first;
+    final owing = dashboard.owings.firstWhere(
+      (owing) => owing.id == 'owing-offline-timi',
+    );
+
+    expect(synced, 1);
+    expect(pending, isEmpty);
+    expect(owing.type, OwingType.theyOweMe);
+    expect(owing.person, 'Timi');
+    expect(owing.amountKobo, 1200000);
+    expect(owing.note, 'Lunch and transport');
+    expect(owing.dueDate, DateTime(2026, 5, 30));
   });
 }

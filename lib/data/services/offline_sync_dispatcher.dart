@@ -33,6 +33,11 @@ class OfflineSyncDispatcher {
         if (gig == null) return false;
         await _repository.upsertGig(gig);
         return true;
+      case 'owing':
+        final owing = _owingFromPayload(operation.payload);
+        if (owing == null) return false;
+        await _repository.upsertOwing(owing);
+        return true;
       default:
         return false;
     }
@@ -100,6 +105,33 @@ class OfflineSyncDispatcher {
       date: date,
       projectType: _string(payload['projectType']) ?? 'Gig work',
       note: _string(payload['note']),
+    );
+  }
+
+  Owing? _owingFromPayload(Map<String, Object?> payload) {
+    final id = _string(payload['id']);
+    final type = _enumByName(OwingType.values, payload['type']);
+    final person = _string(payload['person']);
+    final amountKobo = _int(payload['amountKobo']);
+    final date = DateTime.tryParse(_string(payload['date']) ?? '');
+    if (id == null ||
+        type == null ||
+        person == null ||
+        amountKobo == null ||
+        date == null) {
+      return null;
+    }
+
+    final dueDateText = _string(payload['dueDate']);
+    return Owing(
+      id: id,
+      type: type,
+      person: person,
+      amountKobo: amountKobo,
+      date: date,
+      settled: _bool(payload['settled']) ?? false,
+      note: _string(payload['note']),
+      dueDate: dueDateText == null ? null : DateTime.tryParse(dueDateText),
     );
   }
 
