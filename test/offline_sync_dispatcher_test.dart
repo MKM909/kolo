@@ -184,4 +184,40 @@ void main() {
     expect(owing.note, 'Lunch and transport');
     expect(owing.dueDate, DateTime(2026, 5, 30));
   });
+
+  test('retryPending upserts queued vaults and marks them synced', () async {
+    final repository = FakeKoloRepository.seeded();
+    final queue = OfflineSyncQueue();
+    await queue.enqueue(
+      PendingSyncOperation(
+        id: 'offline-vault',
+        kind: 'vault',
+        payload: {
+          'id': 'vault-offline-rent',
+          'name': 'Rent buffer',
+          'targetKobo': 3000000,
+          'currentKobo': 500000,
+          'deadline': DateTime(2026, 8, 1).toIso8601String(),
+        },
+        createdAt: DateTime(2026, 5, 24),
+      ),
+    );
+
+    final synced = await OfflineSyncDispatcher(
+      queue: queue,
+      repository: repository,
+    ).retryPending();
+    final pending = await queue.watchPendingOperations().first;
+    final dashboard = await repository.watchDashboard().first;
+    final vault = dashboard.vaults.firstWhere(
+      (vault) => vault.id == 'vault-offline-rent',
+    );
+
+    expect(synced, 1);
+    expect(pending, isEmpty);
+    expect(vault.name, 'Rent buffer');
+    expect(vault.targetKobo, 3000000);
+    expect(vault.currentKobo, 500000);
+    expect(vault.deadline, DateTime(2026, 8, 1));
+  });
 }

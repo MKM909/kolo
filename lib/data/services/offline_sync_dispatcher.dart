@@ -38,6 +38,11 @@ class OfflineSyncDispatcher {
         if (owing == null) return false;
         await _repository.upsertOwing(owing);
         return true;
+      case 'vault':
+        final vault = _vaultFromPayload(operation.payload);
+        if (vault == null) return false;
+        await _repository.upsertVault(vault);
+        return true;
       default:
         return false;
     }
@@ -132,6 +137,28 @@ class OfflineSyncDispatcher {
       settled: _bool(payload['settled']) ?? false,
       note: _string(payload['note']),
       dueDate: dueDateText == null ? null : DateTime.tryParse(dueDateText),
+    );
+  }
+
+  SavingsVault? _vaultFromPayload(Map<String, Object?> payload) {
+    final id = _string(payload['id']);
+    final name = _string(payload['name']);
+    final targetKobo = _int(payload['targetKobo']);
+    final currentKobo = _int(payload['currentKobo']);
+    if (id == null ||
+        name == null ||
+        targetKobo == null ||
+        currentKobo == null) {
+      return null;
+    }
+
+    final deadlineText = _string(payload['deadline']);
+    return SavingsVault(
+      id: id,
+      name: name,
+      targetKobo: targetKobo,
+      currentKobo: currentKobo,
+      deadline: deadlineText == null ? null : DateTime.tryParse(deadlineText),
     );
   }
 
