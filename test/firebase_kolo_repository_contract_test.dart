@@ -81,4 +81,39 @@ void main() {
     expect(body, contains('summaries.doc(doc.id)'));
     expect(body, contains("'status': ShareStatus.revoked.name"));
   });
+
+  test('Firebase refreshes active partner summaries after owner changes', () {
+    final source = File(
+      'lib/data/repositories/firebase_kolo_repository.dart',
+    ).readAsStringSync();
+
+    expect(source, contains('Future<void> _publishActivePartnerSummaries()'));
+    expect(source, contains('PartnerSummaryBuilder.build'));
+    expect(
+      source,
+      contains(".collection('partnerSummaries').doc(summary.shareId)"),
+    );
+
+    for (final method in [
+      'adjustBalance',
+      'upsertVault',
+      'upsertOwing',
+      'upsertGig',
+      'upsertBill',
+      'deleteBill',
+      'logTransaction',
+      'updateTransactionCategory',
+      'updateBudget',
+    ]) {
+      final body = RegExp(
+        'Future<[^>]+> $method\\([\\s\\S]*?\\n  @override',
+      ).firstMatch(source)?.group(0);
+
+      expect(
+        body,
+        contains('await _publishActivePartnerSummaries();'),
+        reason: '$method should keep accepted partner summaries fresh',
+      );
+    }
+  });
 }

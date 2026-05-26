@@ -89,6 +89,7 @@ class FirebaseKoloRepository implements KoloRepository {
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     });
+    await _publishActivePartnerSummaries();
   }
 
   @override
@@ -121,11 +122,13 @@ class FirebaseKoloRepository implements KoloRepository {
       });
     }
     await batch.commit();
+    await _publishActivePartnerSummaries();
   }
 
   @override
   Future<void> deleteVault(String vaultId) async {
     await _userDoc.collection('vaults').doc(vaultId).delete();
+    await _publishActivePartnerSummaries();
   }
 
   @override
@@ -134,11 +137,13 @@ class FirebaseKoloRepository implements KoloRepository {
       ...FirebaseKoloMapper.owingToJson(owing),
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+    await _publishActivePartnerSummaries();
   }
 
   @override
   Future<void> deleteOwing(String owingId) async {
     await _userDoc.collection('owings').doc(owingId).delete();
+    await _publishActivePartnerSummaries();
   }
 
   @override
@@ -179,6 +184,7 @@ class FirebaseKoloRepository implements KoloRepository {
       }, SetOptions(merge: true));
     }
     await batch.commit();
+    await _publishActivePartnerSummaries();
   }
 
   @override
@@ -187,11 +193,13 @@ class FirebaseKoloRepository implements KoloRepository {
       ...FirebaseKoloMapper.billToJson(bill),
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+    await _publishActivePartnerSummaries();
   }
 
   @override
   Future<void> deleteBill(String billId) async {
     await _userDoc.collection('bills').doc(billId).delete();
+    await _publishActivePartnerSummaries();
   }
 
   @override
@@ -239,6 +247,9 @@ class FirebaseKoloRepository implements KoloRepository {
     }
     batch.set(collection.doc(share.id), payload, SetOptions(merge: true));
     await batch.commit();
+    if (share.status == ShareStatus.active) {
+      await publishPartnerSummary(share);
+    }
   }
 
   @override
@@ -290,6 +301,7 @@ class FirebaseKoloRepository implements KoloRepository {
         'balanceKobo': current + transaction.signedKobo,
       }, SetOptions(merge: true));
     });
+    await _publishActivePartnerSummaries();
   }
 
   @override
@@ -301,6 +313,7 @@ class FirebaseKoloRepository implements KoloRepository {
       'category': category,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+    await _publishActivePartnerSummaries();
   }
 
   @override
@@ -354,6 +367,7 @@ class FirebaseKoloRepository implements KoloRepository {
       ...FirebaseKoloMapper.insightToJson(insight),
       'serverCreatedAt': FieldValue.serverTimestamp(),
     });
+    await _publishActivePartnerSummaries();
     return insight;
   }
 
@@ -451,6 +465,7 @@ class FirebaseKoloRepository implements KoloRepository {
     await _userDoc.set({
       'budgetPlan': FirebaseKoloMapper.budgetToJson(budget),
     }, SetOptions(merge: true));
+    await _publishActivePartnerSummaries();
   }
 
   @override
@@ -552,6 +567,38 @@ class FirebaseKoloRepository implements KoloRepository {
     return koloAiModelNameOrDefault(
       snapshot.data()?['preferredAiModel'] as String?,
     );
+  }
+
+  Future<void> _publishActivePartnerSummaries() async {
+    final dashboard = await _loadDashboard();
+    final activeShares = dashboard.partnerShares.where(
+      (share) => share.status == ShareStatus.active,
+    );
+    final batch = _firestore.batch();
+    final generatedAt = DateTime.now();
+    var hasWrites = false;
+
+    for (final share in activeShares) {
+      final summary = PartnerSummaryBuilder.build(
+        dashboard: dashboard,
+        share: share,
+        generatedAt: generatedAt,
+      );
+      if (summary == null) continue;
+
+      batch.set(
+        _userDoc.collection('partnerSummaries').doc(summary.shareId),
+        {
+          ...summary.toJson(),
+          'ownerUid': _uid,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+      hasWrites = true;
+    }
+
+    if (hasWrites) await batch.commit();
   }
 
   Future<DashboardState> _loadDashboard() async {
