@@ -123,6 +123,34 @@ void main() {
     expect(manifest, contains('android:host="app"'));
   });
 
+  test('Android launch branding uses Kolo label adaptive icon and splash', () {
+    final manifest = File(
+      'android/app/src/main/AndroidManifest.xml',
+    ).readAsStringSync();
+    final launchBackground = File(
+      'android/app/src/main/res/drawable/launch_background.xml',
+    ).readAsStringSync();
+
+    expect(manifest, contains('android:label="@string/app_name"'));
+    expect(manifest, contains('android:roundIcon="@mipmap/ic_launcher_round"'));
+    expect(
+      File('android/app/src/main/res/values/colors.xml').existsSync(),
+      isTrue,
+    );
+    expect(
+      File('android/app/src/main/res/drawable/ic_launcher_foreground.xml')
+          .existsSync(),
+      isTrue,
+    );
+    expect(
+      File('android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml')
+          .existsSync(),
+      isTrue,
+    );
+    expect(launchBackground, contains('@color/kolo_splash_start'));
+    expect(launchBackground, contains('@drawable/ic_launcher_foreground'));
+  });
+
   test('MainActivity suggests every v1 fintech app from the PRD', () {
     final mainActivity = File(
       'android/app/src/main/kotlin/com/micah/kolo/MainActivity.kt',
