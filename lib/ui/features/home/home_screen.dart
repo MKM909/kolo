@@ -1255,12 +1255,14 @@ class _VaultsSheet extends ConsumerStatefulWidget {
 class _VaultsSheetState extends ConsumerState<_VaultsSheet> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _targetController = TextEditingController();
+  final TextEditingController _deadlineController = TextEditingController();
   String? _error;
 
   @override
   void dispose() {
     _nameController.dispose();
     _targetController.dispose();
+    _deadlineController.dispose();
     super.dispose();
   }
 
@@ -1356,6 +1358,16 @@ class _VaultsSheetState extends ConsumerState<_VaultsSheet> {
                     prefixText: '\u20A6 ',
                   ),
                 ),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const Key('new_vault_deadline'),
+                  controller: _deadlineController,
+                  keyboardType: TextInputType.datetime,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(
+                    labelText: 'Deadline (optional)',
+                  ),
+                ),
                 if (_error != null) ...[
                   const SizedBox(height: 10),
                   Text(
@@ -1382,8 +1394,16 @@ class _VaultsSheetState extends ConsumerState<_VaultsSheet> {
     final targetKobo = MoneyFormatter.parseNairaToKobo(
       _targetController.text.trim(),
     );
+    final deadlineText = _deadlineController.text.trim();
+    final deadline = deadlineText.isEmpty
+        ? null
+        : DateTime.tryParse(deadlineText);
     if (name.isEmpty || targetKobo == null || targetKobo <= 0) {
       setState(() => _error = 'Enter a vault name and target.');
+      return;
+    }
+    if (deadlineText.isNotEmpty && deadline == null) {
+      setState(() => _error = 'Enter the deadline as YYYY-MM-DD.');
       return;
     }
 
@@ -1395,10 +1415,12 @@ class _VaultsSheetState extends ConsumerState<_VaultsSheet> {
             name: name,
             targetKobo: targetKobo,
             currentKobo: 0,
+            deadline: deadline,
           ),
         );
     _nameController.clear();
     _targetController.clear();
+    _deadlineController.clear();
     if (mounted) setState(() => _error = null);
   }
 
@@ -1487,11 +1509,26 @@ class _VaultCard extends StatelessWidget {
                 fontWeight: FontWeight.w700,
               ),
             ),
+            if (vault.deadline != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Deadline ${_vaultDateInput(vault.deadline!)}',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: KoloColors.textSecondary,
+                ),
+              ),
+            ],
           ],
         ),
       ),
     );
   }
+}
+
+String _vaultDateInput(DateTime date) {
+  final month = date.month.toString().padLeft(2, '0');
+  final day = date.day.toString().padLeft(2, '0');
+  return '${date.year}-$month-$day';
 }
 
 class _VaultDetailSheet extends ConsumerStatefulWidget {

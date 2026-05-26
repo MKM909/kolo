@@ -473,11 +473,17 @@ void main() {
       'Trip fund',
     );
     await tester.enterText(find.byKey(const Key('new_vault_target')), '250000');
+    expect(find.byKey(const Key('new_vault_deadline')), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const Key('new_vault_deadline')),
+      '2026-12-20',
+    );
     await tester.ensureVisible(find.byKey(const Key('save_new_vault')));
     await tester.tap(find.byKey(const Key('save_new_vault')));
     await tester.pumpAndSettle();
 
     expect(find.text('Trip fund'), findsOneWidget);
+    expect(find.text('Deadline 2026-12-20'), findsOneWidget);
     expect(
       find.textContaining(MoneyFormatter.formatKobo(25000000)),
       findsOneWidget,
