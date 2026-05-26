@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:hive/hive.dart';
@@ -14,6 +17,7 @@ import 'package:kolo/data/services/android_capability_service.dart';
 import 'package:kolo/data/services/biometric_session_lock.dart';
 import 'package:kolo/data/services/biometric_unlock_service.dart';
 import 'package:kolo/data/services/cloud_ai_service.dart';
+import 'package:kolo/data/services/connectivity_sync_retry_service.dart';
 import 'package:kolo/data/services/due_bill_processor.dart';
 import 'package:kolo/data/services/firebase_bootstrap.dart';
 import 'package:kolo/data/services/android_permission_requester.dart';
@@ -204,6 +208,26 @@ final offlineSyncQueueProvider = Provider<OfflineSyncQueue>((ref) {
 final pendingSyncOperationsProvider =
     StreamProvider<List<PendingSyncOperation>>((ref) {
       return ref.watch(offlineSyncQueueProvider).watchPendingOperations();
+    });
+
+final connectivityChangesProvider = Provider<Stream<List<ConnectivityResult>>>((
+  ref,
+) {
+  return Connectivity().onConnectivityChanged;
+});
+
+final connectivitySyncRetryServiceProvider =
+    Provider<ConnectivitySyncRetryService>((ref) {
+      final service = ConnectivitySyncRetryService(
+        connectivityChanges: ref.watch(connectivityChangesProvider),
+        retryPending: () async {
+          ref.invalidate(offlineSyncRetryProvider);
+          return ref.read(offlineSyncRetryProvider.future);
+        },
+      );
+      service.start();
+      ref.onDispose(() => unawaited(service.dispose()));
+      return service;
     });
 
 final offlineSyncDispatcherProvider = Provider<OfflineSyncDispatcher>((ref) {

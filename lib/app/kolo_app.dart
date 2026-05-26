@@ -61,6 +61,7 @@ class _KoloMaterialAppState extends ConsumerState<_KoloMaterialApp>
     ref.watch(dueBillProcessorProvider);
     ref.watch(reminderSyncProvider);
     ref.watch(offlineSyncRetryProvider);
+    ref.watch(connectivitySyncRetryServiceProvider);
     ref.watch(nativeEventDrainProvider);
     final router = ref.watch(koloRouterProvider);
 
