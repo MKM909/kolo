@@ -58,10 +58,6 @@ class OverlayConversationBridge {
       return;
     }
     if (blockRequest?.blockLevel == 'hardLock') {
-      if (!_looksLikeSpendIntent(text) && _amountKoboFrom(text) == null) {
-        await _handleExplainBlockMessage(text, blockRequest!);
-        return;
-      }
       await _handleSpendMessage(text, blockRequest: blockRequest);
       return;
     }
@@ -102,12 +98,32 @@ class OverlayConversationBridge {
   }) async {
     final amountKobo = _amountKoboFrom(text);
     if (amountKobo == null || amountKobo <= 0) {
+      if (blockRequest?.blockLevel == 'hardLock') {
+        await _evaluateSpendMessage(
+          text,
+          amountKobo: 0,
+          blockRequest: blockRequest,
+        );
+        return;
+      }
       await _overlayBubble.sendAssistantMessageToOverlay(
         'Tell me the amount and what it is for, then I can check it against your Kolo budget.',
       );
       return;
     }
 
+    await _evaluateSpendMessage(
+      text,
+      amountKobo: amountKobo,
+      blockRequest: blockRequest,
+    );
+  }
+
+  Future<void> _evaluateSpendMessage(
+    String text, {
+    required int amountKobo,
+    _OverlayBlockRequest? blockRequest,
+  }) async {
     try {
       final dashboard = await _loadDashboard();
       final now = _now();

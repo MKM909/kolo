@@ -220,10 +220,16 @@ void main() {
   });
 
   test(
-    'hard lock non-spend messages log the reason and approve the gate',
+    'hard lock non-spend messages still use spending justification',
     () async {
       final platform = _FakeOverlayWindow();
-      final advisor = _RecordingSpendingAdvisor();
+      final advisor = _RecordingSpendingAdvisor(
+        decision: const SpendingJustificationDecision(
+          status: SpendingDecisionStatus.caution,
+          message: 'Checking balance is okay, avoid transfers for now.',
+          aiNote: 'Caution - no amount stated, banking app opened.',
+        ),
+      );
       final repository = _RecordingRepository();
       final bridge = OverlayConversationBridge(
         overlayBubble: OverlayBubbleService(platform: platform),
@@ -247,20 +253,22 @@ void main() {
       });
       await pumpEventQueue();
 
-      expect(advisor.transactions, isEmpty);
+      expect(advisor.transactions.single.amountKobo, 0);
+      expect(advisor.transactions.single.description, 'Just checking my balance.');
+      expect(advisor.justifications, ['Just checking my balance.']);
       expect(repository.recordedMessages.map((message) => message.content), [
         'Just checking my balance.',
-        'Reason logged for Kuda. You can continue now.',
+        'Checking balance is okay, avoid transfers for now.',
       ]);
       expect(platform.sharedData, [
         {
           'type': 'assistantMessage',
-          'text': 'Reason logged for Kuda. You can continue now.',
+          'text': 'Checking balance is okay, avoid transfers for now.',
         },
         {
           'type': 'blockDecision',
-          'status': 'approved',
-          'message': 'Reason logged for Kuda. You can continue now.',
+          'status': 'caution',
+          'message': 'Checking balance is okay, avoid transfers for now.',
           'appName': 'Kuda',
           'packageName': 'com.kuda.android',
           'blockLevel': 'hardLock',
