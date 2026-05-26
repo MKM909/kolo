@@ -201,6 +201,14 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                         ref,
                         budget: state.budgetPlan,
                         category: category,
+                        transactions: periodTransactions
+                            .where(
+                              (transaction) =>
+                                  transaction.type ==
+                                      TransactionType.expense &&
+                                  transaction.category == category.name,
+                            )
+                            .toList(growable: false),
                       ),
                     ),
                 ],
@@ -377,14 +385,19 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
     WidgetRef ref, {
     required BudgetPlan budget,
     required BudgetCategory category,
+    required List<TransactionRecord> transactions,
   }) {
     return showModalBottomSheet<void>(
       context: context,
       useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) =>
-          _BudgetCategorySheet(budget: budget, category: category, ref: ref),
+      builder: (context) => _BudgetCategorySheet(
+        budget: budget,
+        category: category,
+        transactions: transactions,
+        ref: ref,
+      ),
     );
   }
 }
@@ -522,11 +535,13 @@ class _BudgetCategorySheet extends StatefulWidget {
   const _BudgetCategorySheet({
     required this.budget,
     required this.category,
+    required this.transactions,
     required this.ref,
   });
 
   final BudgetPlan budget;
   final BudgetCategory category;
+  final List<TransactionRecord> transactions;
   final WidgetRef ref;
 
   @override
@@ -559,6 +574,9 @@ class _BudgetCategorySheetState extends State<_BudgetCategorySheet> {
       ),
       child: Container(
         key: const Key('budget_category_sheet'),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.78,
+        ),
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
         decoration: const BoxDecoration(
           color: Color(0xF0FFFFFF),
@@ -571,53 +589,62 @@ class _BudgetCategorySheetState extends State<_BudgetCategorySheet> {
             ),
           ],
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                height: 4,
-                width: 42,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE5E7EB),
-                  borderRadius: BorderRadius.circular(999),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  height: 4,
+                  width: 42,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE5E7EB),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              widget.category.name,
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Set the amount Kolo should reserve for this category.',
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: KoloColors.textSecondary),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              key: const Key('budget_category_amount'),
-              controller: _amountController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Monthly allocation',
-                prefixText: '\u20A6 ',
+              const SizedBox(height: 20),
+              Text(
+                widget.category.name,
+                style: Theme.of(context).textTheme.titleLarge,
               ),
-            ),
-            if (_error != null) ...[
-              const SizedBox(height: 10),
-              Text(_error!, style: const TextStyle(color: KoloColors.expense)),
+              const SizedBox(height: 6),
+              Text(
+                'Set the amount Kolo should reserve for this category.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: KoloColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 18),
+              _CategoryTransactionBreakdown(
+                transactions: widget.transactions,
+              ),
+              const SizedBox(height: 18),
+              TextField(
+                key: const Key('budget_category_amount'),
+                controller: _amountController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Monthly allocation',
+                  prefixText: '\u20A6 ',
+                ),
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  _error!,
+                  style: const TextStyle(color: KoloColors.expense),
+                ),
+              ],
+              const SizedBox(height: 18),
+              ElevatedButton(
+                key: const Key('save_budget_category'),
+                onPressed: _save,
+                child: const Text('Save allocation'),
+              ),
             ],
-            const SizedBox(height: 18),
-            ElevatedButton(
-              key: const Key('save_budget_category'),
-              onPressed: _save,
-              child: const Text('Save allocation'),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -658,4 +685,119 @@ class _BudgetCategorySheetState extends State<_BudgetCategorySheet> {
         );
     if (mounted) Navigator.of(context).pop();
   }
+}
+
+class _CategoryTransactionBreakdown extends StatelessWidget {
+  const _CategoryTransactionBreakdown({required this.transactions});
+
+  final List<TransactionRecord> transactions;
+
+  @override
+  Widget build(BuildContext context) {
+    final totalKobo = transactions.fold<int>(
+      0,
+      (total, transaction) => total + transaction.amountKobo,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Recent transactions',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+            ),
+            Text(
+              MoneyFormatter.formatKobo(totalKobo),
+              style: const TextStyle(
+                fontFamily: 'DM Mono',
+                fontWeight: FontWeight.w800,
+                color: KoloColors.expense,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        if (transactions.isEmpty)
+          Text(
+            'No spending in this period.',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: KoloColors.textSecondary),
+          )
+        else
+          for (final transaction in transactions)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _CategoryTransactionRow(transaction: transaction),
+            ),
+      ],
+    );
+  }
+}
+
+class _CategoryTransactionRow extends StatelessWidget {
+  const _CategoryTransactionRow({required this.transaction});
+
+  final TransactionRecord transaction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          height: 40,
+          width: 40,
+          decoration: BoxDecoration(
+            color: KoloColors.primaryPastel,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Icon(
+            Icons.receipt_long_outlined,
+            color: KoloColors.primary,
+            size: 20,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                transaction.description,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                _dateInput(transaction.date),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: KoloColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          '-${MoneyFormatter.formatKobo(transaction.amountKobo)}',
+          style: const TextStyle(
+            fontFamily: 'DM Mono',
+            fontWeight: FontWeight.w800,
+            color: KoloColors.expense,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+String _dateInput(DateTime date) {
+  final month = date.month.toString().padLeft(2, '0');
+  final day = date.day.toString().padLeft(2, '0');
+  return '${date.year}-$month-$day';
 }

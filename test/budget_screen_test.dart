@@ -36,6 +36,21 @@ void main() {
     expect(find.text('Savings'), findsOneWidget);
     expect(find.textContaining('4,500'), findsOneWidget);
   });
+
+  testWidgets('budget category detail lists matching transactions', (
+    tester,
+  ) async {
+    await _pumpBudget(tester, _dashboard);
+
+    await tester.tap(find.text('Food & Snacks').first);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('budget_category_sheet')), findsOneWidget);
+    expect(find.text('Recent transactions'), findsOneWidget);
+    expect(find.text('Lunch'), findsOneWidget);
+    expect(find.text('Dinner'), findsOneWidget);
+    expect(find.text('Old ride'), findsNothing);
+  });
 }
 
 Future<void> _pumpBudget(WidgetTester tester, DashboardState state) async {
