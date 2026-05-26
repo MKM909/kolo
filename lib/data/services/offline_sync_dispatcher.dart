@@ -23,6 +23,16 @@ class OfflineSyncDispatcher {
         if (transaction == null) return false;
         await _repository.logTransaction(transaction);
         return true;
+      case 'balanceAdjustment':
+        final adjustment = _balanceAdjustmentFromPayload(operation.payload);
+        if (adjustment == null) return false;
+        await _repository.adjustBalance(adjustment);
+        return true;
+      case 'budget':
+        final budget = _budgetFromPayload(operation.payload);
+        if (budget == null) return false;
+        await _repository.updateBudget(budget);
+        return true;
       case 'bill':
         final bill = _billFromPayload(operation.payload);
         if (bill == null) return false;
@@ -63,6 +73,20 @@ class OfflineSyncDispatcher {
         if (app == null) return false;
         await _repository.upsertWatchedApp(app);
         return true;
+      case 'partnerShare':
+        final share = _partnerShareFromPayload(operation.payload);
+        if (share == null) return false;
+        await _repository.upsertPartnerShare(share);
+        return true;
+      case 'transactionCategory':
+        final transactionId = _string(operation.payload['transactionId']);
+        final category = _string(operation.payload['category']);
+        if (transactionId == null || category == null) return false;
+        await _repository.updateTransactionCategory(
+          transactionId: transactionId,
+          category: category,
+        );
+        return true;
       default:
         return false;
     }
@@ -92,6 +116,73 @@ class OfflineSyncDispatcher {
           ? payload['aiApproved'] as bool
           : null,
       aiNote: _string(payload['aiNote']),
+    );
+  }
+
+  BalanceAdjustment? _balanceAdjustmentFromPayload(
+    Map<String, Object?> payload,
+  ) {
+    final id = _string(payload['id']);
+    final previousBalanceKobo = _int(payload['previousBalanceKobo']);
+    final newBalanceKobo = _int(payload['newBalanceKobo']);
+    final createdAt = DateTime.tryParse(_string(payload['createdAt']) ?? '');
+    if (id == null ||
+        previousBalanceKobo == null ||
+        newBalanceKobo == null ||
+        createdAt == null) {
+      return null;
+    }
+
+    return BalanceAdjustment(
+      id: id,
+      previousBalanceKobo: previousBalanceKobo,
+      newBalanceKobo: newBalanceKobo,
+      note: _string(payload['note']) ?? 'Offline balance adjustment',
+      createdAt: createdAt,
+    );
+  }
+
+  BudgetPlan? _budgetFromPayload(Map<String, Object?> payload) {
+    final monthlyIncomeKobo = _int(payload['monthlyIncomeKobo']);
+    final incomeType = _string(payload['incomeType']);
+    final savingsTargetKobo = _int(payload['savingsTargetKobo']);
+    if (monthlyIncomeKobo == null ||
+        incomeType == null ||
+        savingsTargetKobo == null) {
+      return null;
+    }
+
+    final rawCategories = payload['categories'];
+    final categories = rawCategories is Iterable
+        ? [
+            for (final rawCategory in rawCategories)
+              if (rawCategory is Map)
+                _budgetCategoryFromPayload(
+                  Map<String, Object?>.from(rawCategory),
+                ),
+          ].whereType<BudgetCategory>().toList()
+        : <BudgetCategory>[];
+
+    return BudgetPlan(
+      monthlyIncomeKobo: monthlyIncomeKobo,
+      incomeType: incomeType,
+      categories: categories,
+      savingsTargetKobo: savingsTargetKobo,
+      savingsGoal: _string(payload['savingsGoal']) ?? 'Savings',
+      aiNotes: _string(payload['aiNotes']) ?? '',
+    );
+  }
+
+  BudgetCategory? _budgetCategoryFromPayload(Map<String, Object?> payload) {
+    final name = _string(payload['name']);
+    final allocatedKobo = _int(payload['allocatedKobo']);
+    if (name == null || allocatedKobo == null) return null;
+
+    return BudgetCategory(
+      name: name,
+      emoji: _string(payload['emoji']) ?? '*',
+      allocatedKobo: allocatedKobo,
+      priority: _int(payload['priority']) ?? 9,
     );
   }
 
@@ -179,6 +270,37 @@ class OfflineSyncDispatcher {
       targetKobo: targetKobo,
       currentKobo: currentKobo,
       deadline: deadlineText == null ? null : DateTime.tryParse(deadlineText),
+      contributions: _vaultContributionsFromPayload(payload['contributions']),
+    );
+  }
+
+  List<VaultContribution> _vaultContributionsFromPayload(Object? value) {
+    if (value is! List) return const [];
+    return [
+      for (final item in value)
+        if (_vaultContributionFromPayload(item) != null)
+          _vaultContributionFromPayload(item)!,
+    ];
+  }
+
+  VaultContribution? _vaultContributionFromPayload(Object? value) {
+    if (value is! Map) return null;
+    final payload = {
+      for (final entry in value.entries) entry.key.toString(): entry.value,
+    };
+    final id = _string(payload['id']);
+    final amountKobo = _int(payload['amountKobo']);
+    final createdAtText = _string(payload['createdAt']);
+    final createdAt = createdAtText == null
+        ? null
+        : DateTime.tryParse(createdAtText);
+    if (id == null || amountKobo == null || createdAt == null) return null;
+
+    return VaultContribution(
+      id: id,
+      amountKobo: amountKobo,
+      createdAt: createdAt,
+      note: _string(payload['note']),
     );
   }
 
@@ -191,6 +313,37 @@ class OfflineSyncDispatcher {
       packageName: packageName,
       displayName: displayName,
       enabled: _bool(payload['enabled']) ?? false,
+      blockLevel:
+          _enumByName(WatchedAppBlockLevel.values, payload['blockLevel']) ??
+          WatchedAppBlockLevel.soft,
+    );
+  }
+
+  PartnerShare? _partnerShareFromPayload(Map<String, Object?> payload) {
+    final id = _string(payload['id']);
+    final partnerEmail = _string(payload['partnerEmail']);
+    final status = _enumByName(ShareStatus.values, payload['status']);
+    final createdAt = DateTime.tryParse(_string(payload['createdAt']) ?? '');
+    if (id == null ||
+        partnerEmail == null ||
+        status == null ||
+        createdAt == null) {
+      return null;
+    }
+
+    final revokedAtText = _string(payload['revokedAt']);
+    final rawPermissions = payload['permissions'];
+    return PartnerShare(
+      id: id,
+      partnerEmail: partnerEmail,
+      status: status,
+      permissions: rawPermissions is Iterable
+          ? rawPermissions.map((item) => item.toString()).toSet()
+          : const {},
+      createdAt: createdAt,
+      revokedAt: revokedAtText == null
+          ? null
+          : DateTime.tryParse(revokedAtText),
     );
   }
 

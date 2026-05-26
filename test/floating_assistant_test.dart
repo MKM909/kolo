@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kolo/app/kolo_app.dart';
 import 'package:kolo/app/providers.dart';
+import 'package:kolo/data/repositories/fake_kolo_repository.dart';
 import 'package:kolo/domain/models/models.dart';
+import 'package:kolo/ui/core/theme/kolo_theme.dart';
 import 'package:kolo/ui/core/widgets/kolo_liquid_aether_orb.dart';
 import 'package:kolo/ui/features/assistant/kolo_floating_assistant.dart';
 
@@ -98,7 +100,7 @@ void main() {
     expect(find.text('Tell me more about this money check.'), findsOneWidget);
   });
 
-  testWidgets('floating assistant can start category correction', (
+  testWidgets('floating assistant opens category correction', (
     tester,
   ) async {
     await tester.pumpWidget(const KoloApp());
@@ -113,9 +115,162 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.text('That transaction is in the wrong category.'),
+      find.byKey(const Key('kolo_assistant_category_sheet')),
       findsOneWidget,
     );
+  });
+
+  testWidgets('floating assistant Wrong category updates a transaction', (
+    tester,
+  ) async {
+    final repository = FakeKoloRepository.seeded();
+    await repository.logTransaction(
+      TransactionRecord.expense(
+        id: 'tx-wrong-category',
+        amountKobo: 180000,
+        category: 'Food & Snacks',
+        description: 'Bolt ride to campus',
+        date: DateTime(2026, 5, 26, 9),
+        source: TransactionSource.manual,
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [koloRepositoryProvider.overrideWithValue(repository)],
+        child: MaterialApp(
+          theme: KoloTheme.light,
+          home: const Scaffold(
+            body: Stack(children: [KoloFloatingAssistant()]),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('kolo_liquid_aether_orb')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('kolo_quick_wrong_category')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('kolo_assistant_category_sheet')),
+      findsOneWidget,
+    );
+    expect(find.text('Bolt ride to campus'), findsWidgets);
+
+    await tester.tap(
+      find.byKey(const Key('kolo_assistant_category_dropdown')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Transport').last);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byKey(const Key('kolo_assistant_category_save')),
+    );
+    await tester.tap(find.byKey(const Key('kolo_assistant_category_save')));
+    await tester.pumpAndSettle();
+
+    final dashboard = await repository.watchDashboard().first;
+    final transaction = dashboard.transactions.firstWhere(
+      (transaction) => transaction.id == 'tx-wrong-category',
+    );
+    expect(transaction.category, 'Transport');
+  });
+
+  testWidgets('floating assistant Log it records a manual expense', (
+    tester,
+  ) async {
+    final repository = FakeKoloRepository.seeded();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [koloRepositoryProvider.overrideWithValue(repository)],
+        child: MaterialApp(
+          theme: KoloTheme.light,
+          home: const Scaffold(
+            body: Stack(children: [KoloFloatingAssistant()]),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('kolo_liquid_aether_orb')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('kolo_quick_log_it')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('kolo_assistant_log_sheet')), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('kolo_assistant_log_amount')),
+      '2500',
+    );
+    await tester.enterText(
+      find.byKey(const Key('kolo_assistant_log_description')),
+      'Bolt ride to campus',
+    );
+    await tester.ensureVisible(find.byKey(const Key('kolo_assistant_log_save')));
+    await tester.tap(find.byKey(const Key('kolo_assistant_log_save')));
+    await tester.pumpAndSettle();
+
+    final dashboard = await repository.watchDashboard().first;
+    final transaction = dashboard.transactions.first;
+    expect(transaction.description, 'Bolt ride to campus');
+    expect(transaction.amountKobo, 250000);
+    expect(transaction.type, TransactionType.expense);
+    expect(transaction.source, TransactionSource.manual);
+  });
+
+  testWidgets('floating assistant Log it records income with a custom date', (
+    tester,
+  ) async {
+    final repository = FakeKoloRepository.seeded();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [koloRepositoryProvider.overrideWithValue(repository)],
+        child: MaterialApp(
+          theme: KoloTheme.light,
+          home: const Scaffold(
+            body: Stack(children: [KoloFloatingAssistant()]),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('kolo_liquid_aether_orb')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('kolo_quick_log_it')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('kolo_assistant_log_income')), findsOneWidget);
+    expect(find.byKey(const Key('kolo_assistant_log_date')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('kolo_assistant_log_income')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('kolo_assistant_log_amount')),
+      '75000',
+    );
+    await tester.enterText(
+      find.byKey(const Key('kolo_assistant_log_description')),
+      'Logo project payment',
+    );
+    await tester.enterText(
+      find.byKey(const Key('kolo_assistant_log_date')),
+      '2026-04-15',
+    );
+    await tester.ensureVisible(find.byKey(const Key('kolo_assistant_log_save')));
+    await tester.tap(find.byKey(const Key('kolo_assistant_log_save')));
+    await tester.pumpAndSettle();
+
+    final dashboard = await repository.watchDashboard().first;
+    final transaction = dashboard.transactions.first;
+    expect(transaction.description, 'Logo project payment');
+    expect(transaction.amountKobo, 7500000);
+    expect(transaction.type, TransactionType.income);
+    expect(transaction.date, DateTime(2026, 4, 15));
   });
 
   testWidgets('floating assistant warns when balance is negative', (

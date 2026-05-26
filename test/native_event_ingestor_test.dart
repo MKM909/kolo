@@ -51,7 +51,7 @@ void main() {
     expect(dashboard.transactions.first.id, 'native-sms-1');
     expect(dashboard.transactions.first.merchantName, 'Chicken Republic');
     expect(dashboard.transactions.first.amountKobo, 250000);
-    expect(dashboard.balanceKobo, 5080000 - 250000);
+    expect(dashboard.balanceKobo, 4750000);
     expect(overlayBubble.showCalls, 1);
   });
 
@@ -83,6 +83,43 @@ void main() {
 
     expect(dashboard.transactions.first.id, 'native-sms-date');
     expect(dashboard.transactions.first.date, DateTime(2026, 5, 23));
+  });
+
+  test('logs native SMS silently when transaction alerts are disabled', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          expect(call.method, 'drainNativeEvents');
+          return [
+            {
+              'id': 'sms-silent',
+              'type': 'sms_received',
+              'createdAt': DateTime(2026, 5, 24).millisecondsSinceEpoch,
+              'payload': {
+                'body':
+                    'GTBank Alert: Acct 0123456789 DR NGN2,500.00 at Chicken Republic. Bal: NGN47,500.00',
+              },
+            },
+          ];
+        });
+
+    final repository = FakeKoloRepository.seeded();
+    await repository.updateNotificationPreferences(
+      const NotificationPreferences(transactionAlerts: false),
+    );
+    final overlayBubble = _FakeOverlayBubbleService();
+    final ingestor = NativeEventIngestor(
+      capabilities: AndroidCapabilityService(channel: channel),
+      repository: repository,
+      overlayBubble: overlayBubble,
+    );
+
+    final processed = await ingestor.drainAndProcess();
+    final dashboard = await repository.watchDashboard().first;
+
+    expect(processed, 1);
+    expect(dashboard.transactions.first.id, 'native-sms-silent');
+    expect(dashboard.balanceKobo, 4750000);
+    expect(overlayBubble.showCalls, 0);
   });
 
   test('does not apply the same native event twice', () async {
@@ -127,7 +164,7 @@ void main() {
       dashboard.transactions.where((tx) => tx.id == 'native-sms-dupe'),
       hasLength(1),
     );
-    expect(dashboard.balanceKobo, 5080000 - 250000);
+    expect(dashboard.balanceKobo, 4750000);
     expect(overlayBubble.showCalls, 1);
   });
 
@@ -204,6 +241,39 @@ void main() {
     expect(dashboard.aiMessages.first.context, 'intervention');
   });
 
+  test('generates weekly insights from reminder native events', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          expect(call.method, 'drainNativeEvents');
+          return [
+            {
+              'id': 'weekly-reminder-1',
+              'type': 'reminder',
+              'createdAt': DateTime(2026, 5, 25, 9).millisecondsSinceEpoch,
+              'payload': {'kind': 'weeklyInsight'},
+            },
+          ];
+        });
+
+    final repository = FakeKoloRepository.seeded();
+    final overlayBubble = _FakeOverlayBubbleService();
+    final before = await repository.watchDashboard().first;
+    final ingestor = NativeEventIngestor(
+      capabilities: AndroidCapabilityService(channel: channel),
+      repository: repository,
+      overlayBubble: overlayBubble,
+    );
+
+    final processed = await ingestor.drainAndProcess();
+    final after = await repository.watchDashboard().first;
+
+    expect(processed, 1);
+    expect(after.insights, hasLength(before.insights.length + 1));
+    expect(after.insights.first.title, 'Kolo weekly spending check');
+    expect(overlayBubble.showCalls, 1);
+    expect(overlayBubble.assistantMessages.single, contains('weekly insight'));
+  });
+
   test('triggers the floating bubble for watched app interventions', () async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
@@ -230,6 +300,83 @@ void main() {
 
     expect(processed, 1);
     expect(overlayBubble.showCalls, 1);
+    expect(overlayBubble.expandCalls, 1);
+    expect(overlayBubble.assistantMessages.single, contains('Kuda'));
+  });
+
+  test('skips soft watched app bubbles when interventions are disabled', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          expect(call.method, 'drainNativeEvents');
+          return [
+            {
+              'id': 'app-bubble-off',
+              'type': 'foreground_app',
+              'createdAt': DateTime(2026, 5, 24, 10).millisecondsSinceEpoch,
+              'payload': {'packageName': 'com.kuda.android'},
+            },
+          ];
+        });
+
+    final repository = FakeKoloRepository.seeded();
+    await repository.updateNotificationPreferences(
+      const NotificationPreferences(bubbleInterventions: false),
+    );
+    final overlayBubble = _FakeOverlayBubbleService();
+    final ingestor = NativeEventIngestor(
+      capabilities: AndroidCapabilityService(channel: channel),
+      repository: repository,
+      overlayBubble: overlayBubble,
+    );
+
+    final processed = await ingestor.drainAndProcess();
+
+    expect(processed, 0);
+    expect(overlayBubble.showCalls, 0);
+    expect(overlayBubble.expandCalls, 0);
+  });
+
+  test('routes hard lock watched app events to a block overlay', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          expect(call.method, 'drainNativeEvents');
+          return [
+            {
+              'id': 'app-hard-lock-1',
+              'type': 'foreground_app',
+              'createdAt': DateTime(2026, 5, 24, 10).millisecondsSinceEpoch,
+              'payload': {'packageName': 'com.kuda.android'},
+            },
+          ];
+        });
+
+    final repository = FakeKoloRepository.seeded();
+    await repository.upsertWatchedApp(
+      const WatchedApp(
+        packageName: 'com.kuda.android',
+        displayName: 'Kuda',
+        enabled: true,
+        blockLevel: WatchedAppBlockLevel.hardLock,
+      ),
+    );
+    final overlayBubble = _FakeOverlayBubbleService();
+    final ingestor = NativeEventIngestor(
+      capabilities: AndroidCapabilityService(channel: channel),
+      repository: repository,
+      overlayBubble: overlayBubble,
+    );
+
+    final processed = await ingestor.drainAndProcess();
+
+    expect(processed, 1);
+    expect(overlayBubble.showCalls, 0);
+    expect(overlayBubble.expandCalls, 0);
+    expect(overlayBubble.blockOverlays.single.appName, 'Kuda');
+    expect(
+      overlayBubble.blockOverlays.single.blockLevel,
+      WatchedAppBlockLevel.hardLock,
+    );
+    expect(overlayBubble.blockOverlays.single.prompt, contains('Kuda'));
   });
 
   test(
@@ -290,6 +437,42 @@ void main() {
     },
   );
 
+  test('keeps locally parsed watched app notifications as notifications', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          expect(call.method, 'drainNativeEvents');
+          return [
+            {
+              'id': 'notif-local-source-1',
+              'type': 'notification_posted',
+              'createdAt': DateTime(2026, 5, 24, 11).millisecondsSinceEpoch,
+              'payload': {
+                'packageName': 'com.kuda.android',
+                'title': 'Debit alert',
+                'text':
+                    'Debit NGN2,500.00 at Chicken Republic. Bal: NGN47,500.00',
+              },
+            },
+          ];
+        });
+
+    final repository = FakeKoloRepository.seeded();
+    final ingestor = NativeEventIngestor(
+      capabilities: AndroidCapabilityService(channel: channel),
+      repository: repository,
+    );
+
+    final processed = await ingestor.drainAndProcess();
+    final dashboard = await repository.watchDashboard().first;
+    final transaction = dashboard.transactions.firstWhere(
+      (tx) => tx.id == 'native-notif-local-source-1',
+    );
+
+    expect(processed, 1);
+    expect(transaction.merchantName, 'Chicken Republic');
+    expect(transaction.source, TransactionSource.notification);
+  });
+
   test('uses server SMS ingestion before local logging when available', () async {
     final createdAt = DateTime(2026, 5, 24, 11);
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -327,6 +510,7 @@ void main() {
     expect(processed, 1);
     expect(handler.calls, 1);
     expect(handler.lastRawText, contains('Chicken Republic'));
+    expect(handler.lastSourceEventId, 'sms-server-1');
     expect(handler.lastSender, 'GTBank');
     expect(handler.lastReceivedAt, createdAt);
     expect(handler.lastContext?.balanceKobo, initial.balanceKobo);
@@ -370,7 +554,7 @@ void main() {
     expect(handler.calls, 1);
     expect(dashboard.transactions.first.id, 'native-sms-server-fallback');
     expect(dashboard.transactions.first.merchantName, 'Chicken Republic');
-    expect(dashboard.balanceKobo, 5080000 - 250000);
+    expect(dashboard.balanceKobo, 4750000);
     expect(overlayBubble.showCalls, 1);
   });
 
@@ -501,6 +685,7 @@ class _FakeSmsReceivedHandler implements SmsReceivedHandler {
   final bool accepted;
   int calls = 0;
   String? lastRawText;
+  String? lastSourceEventId;
   String? lastSender;
   DateTime? lastReceivedAt;
   DashboardState? lastContext;
@@ -509,6 +694,7 @@ class _FakeSmsReceivedHandler implements SmsReceivedHandler {
   @override
   Future<bool> onSmsReceived({
     required String rawText,
+    String? sourceEventId,
     String? sender,
     DateTime? receivedAt,
     required DashboardState context,
@@ -516,6 +702,7 @@ class _FakeSmsReceivedHandler implements SmsReceivedHandler {
   }) async {
     calls += 1;
     lastRawText = rawText;
+    lastSourceEventId = sourceEventId;
     lastSender = sender;
     lastReceivedAt = receivedAt;
     lastContext = context;
@@ -526,6 +713,17 @@ class _FakeSmsReceivedHandler implements SmsReceivedHandler {
 
 class _FakeOverlayBubbleService implements OverlayBubbleService {
   int showCalls = 0;
+  int expandCalls = 0;
+  final List<String> assistantMessages = [];
+  final List<
+    ({
+      String appName,
+      String packageName,
+      WatchedAppBlockLevel blockLevel,
+      String prompt,
+    })
+  >
+  blockOverlays = [];
 
   @override
   Future<bool> isPermissionGranted() async => true;
@@ -537,16 +735,50 @@ class _FakeOverlayBubbleService implements OverlayBubbleService {
   }
 
   @override
+  Future<bool> showBlockOverlay({
+    required String appName,
+    required String packageName,
+    required WatchedAppBlockLevel blockLevel,
+    required String prompt,
+  }) async {
+    blockOverlays.add((
+      appName: appName,
+      packageName: packageName,
+      blockLevel: blockLevel,
+      prompt: prompt,
+    ));
+    return true;
+  }
+
+  @override
   Future<bool> requestPermission() async => true;
 
   @override
-  Future<bool?> expandConversation() async => true;
+  Future<bool?> expandConversation() async {
+    expandCalls += 1;
+    return true;
+  }
 
   @override
   Future<bool?> collapseToBubble() async => true;
 
   @override
   Future<Object?> sendPromptToOverlay(String prompt) async => null;
+
+  @override
+  Future<Object?> sendAssistantMessageToOverlay(String message) async {
+    assistantMessages.add(message);
+    return null;
+  }
+
+  @override
+  Future<Object?> sendBlockDecisionToOverlay({
+    required String status,
+    required String message,
+    required String appName,
+    required String packageName,
+    required String blockLevel,
+  }) async => null;
 
   @override
   Stream<Object?> get overlayMessages => const Stream.empty();

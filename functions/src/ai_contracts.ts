@@ -12,6 +12,8 @@ export const transactionCategorizationSchema = z.object({
   category: z.string().min(1),
   description: z.string().min(1),
   merchantName: z.string().optional().nullable(),
+  occurredAt: z.string().optional().nullable(),
+  balanceAfterKobo: z.number().int().nonnegative().optional().nullable(),
   confidence: z.number().min(0).max(1),
   reason: z.string().min(1),
 });
@@ -25,6 +27,7 @@ export type TransactionCategorization = z.infer<
 
 export const smsReceivedInputSchema = z.object({
   rawText: z.string().min(1).max(2000),
+  sourceEventId: z.string().optional().nullable(),
   sender: z.string().optional().nullable(),
   receivedAt: z.string().optional().nullable(),
   context: z.record(z.string(), z.unknown()).optional(),

@@ -20,6 +20,7 @@ class KoloSmsReceiver : BroadcastReceiver() {
                     "sender" to sender
                 )
             )
+            KoloBackgroundStarter.nudge(context)
             Log.d("KoloSmsReceiver", "SMS received for parsing: $body")
         }
     }

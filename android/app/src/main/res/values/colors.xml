@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="kolo_launcher_background">#E8D5F5</color>
+    <color name="kolo_splash_start">#E8D5F5</color>
+    <color name="kolo_splash_end">#D4B8E0</color>
+    <color name="kolo_primary">#7C3AED</color>
+    <color name="kolo_primary_light">#9F67F5</color>
+    <color name="kolo_surface_dark">#1E1B4B</color>
+</resources>

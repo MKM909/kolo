@@ -79,12 +79,27 @@ void main() {
           'name': 'Laptop',
           'targetKobo': 30000000,
           'currentKobo': 700000,
+          'contributions': [
+            {
+              'id': 'contribution-1',
+              'amountKobo': 250000,
+              'createdAt': Timestamp.fromDate(DateTime(2026, 5, 20, 9)),
+              'note': 'May transfer',
+            },
+          ],
         },
       ],
       owings: const [],
       gigs: const [],
       bills: const [],
-      watchedApps: const [],
+      watchedApps: const [
+        {
+          'packageName': 'com.kuda.app',
+          'displayName': 'Kuda',
+          'enabled': true,
+          'blockLevel': 'hardLock',
+        },
+      ],
       partnerShares: const [],
       insights: const [],
       now: DateTime(2026, 5, 24),
@@ -106,6 +121,12 @@ void main() {
     expect(state.transactions.single.aiApproved, isFalse);
     expect(state.aiMessages.single.role, AiRole.assistant);
     expect(state.vaults.single.progress, closeTo(0.023, 0.001));
+    expect(state.vaults.single.contributions.single.amountKobo, 250000);
+    expect(
+      state.vaults.single.contributions.single.createdAt,
+      DateTime(2026, 5, 20, 9),
+    );
+    expect(state.watchedApps.single.blockLevel, WatchedAppBlockLevel.hardLock);
     expect(state.permissions[KoloPermission.sms], PermissionGrantState.granted);
     expect(
       state.permissions[KoloPermission.overlay],
@@ -158,6 +179,14 @@ void main() {
         targetKobo: 25000000,
         currentKobo: 750000,
         deadline: deadline,
+        contributions: [
+          VaultContribution(
+            id: 'contribution-trip-1',
+            amountKobo: 750000,
+            createdAt: DateTime(2026, 5, 26, 8, 30),
+            note: 'First stash',
+          ),
+        ],
       ),
     );
 
@@ -165,6 +194,15 @@ void main() {
     expect(payload['targetKobo'], 25000000);
     expect(payload['currentKobo'], 750000);
     expect((payload['deadline'] as Timestamp).toDate(), deadline);
+    final contributions =
+        payload['contributions']! as List<Map<String, Object?>>;
+    expect(contributions.single['id'], 'contribution-trip-1');
+    expect(contributions.single['amountKobo'], 750000);
+    expect(
+      (contributions.single['createdAt']! as Timestamp).toDate(),
+      DateTime(2026, 5, 26, 8, 30),
+    );
+    expect(contributions.single['note'], 'First stash');
   });
 
   test('serializes owings for Firebase persistence', () {
@@ -259,12 +297,14 @@ void main() {
         packageName: 'com.moniebank.personal',
         displayName: 'Moniepoint',
         enabled: true,
+        blockLevel: WatchedAppBlockLevel.explain,
       ),
     );
 
     expect(payload['packageName'], 'com.moniebank.personal');
     expect(payload['displayName'], 'Moniepoint');
     expect(payload['enabled'], isTrue);
+    expect(payload['blockLevel'], 'explain');
   });
 
   test('serializes weekly insights for Firebase persistence', () {

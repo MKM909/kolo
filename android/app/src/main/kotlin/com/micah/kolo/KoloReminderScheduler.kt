@@ -24,16 +24,7 @@ object KoloReminderScheduler {
             pendingIntentFlags()
         )
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            alarmManager.setExactAndAllowWhileIdle(
-                AlarmManager.RTC_WAKEUP,
-                scheduledAt,
-                pendingIntent
-            )
-        } else {
-            @Suppress("DEPRECATION")
-            alarmManager.setExact(AlarmManager.RTC_WAKEUP, scheduledAt, pendingIntent)
-        }
+        scheduleAlarm(alarmManager, scheduledAt, pendingIntent)
     }
 
     fun cancel(context: Context, id: String) {
@@ -52,6 +43,47 @@ object KoloReminderScheduler {
     private fun reminderIntent(context: Context, id: String): Intent {
         return Intent(context, KoloReminderReceiver::class.java).apply {
             action = "com.micah.kolo.REMINDER.$id"
+        }
+    }
+
+    private fun scheduleAlarm(
+        alarmManager: AlarmManager,
+        scheduledAt: Long,
+        pendingIntent: PendingIntent
+    ) {
+        if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+            !alarmManager.canScheduleExactAlarms()
+        ) {
+            alarmManager.setAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                scheduledAt,
+                pendingIntent
+            )
+            return
+        }
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setExactAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    scheduledAt,
+                    pendingIntent
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                alarmManager.setExact(AlarmManager.RTC_WAKEUP, scheduledAt, pendingIntent)
+            }
+        } catch (securityException: SecurityException) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    scheduledAt,
+                    pendingIntent
+                )
+            } else {
+                alarmManager.set(AlarmManager.RTC_WAKEUP, scheduledAt, pendingIntent)
+            }
         }
     }
 

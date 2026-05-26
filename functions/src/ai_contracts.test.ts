@@ -47,6 +47,7 @@ test("transactionCategorizationSchema rejects unsafe confidence values", () => {
 test("sms received contracts include raw alert text and logged outputs", () => {
   const input = smsReceivedInputSchema.parse({
     rawText: "GTBank debit NGN 1,250 at Chicken Republic",
+    sourceEventId: "native-sms-1",
     sender: "GTBank",
     receivedAt: "2026-05-25T10:00:00.000Z",
   });
@@ -59,6 +60,8 @@ test("sms received contracts include raw alert text and logged outputs", () => {
       category: "Food & Snacks",
       description: "Chicken Republic",
       merchantName: "Chicken Republic",
+      occurredAt: "2026-05-25T09:55:00.000Z",
+      balanceAfterKobo: 4750000,
       confidence: 0.9,
       reason: "SMS mentions a known food merchant.",
     },
@@ -70,7 +73,10 @@ test("sms received contracts include raw alert text and logged outputs", () => {
   });
 
   assert.equal(input.sender, "GTBank");
+  assert.equal(input.sourceEventId, "native-sms-1");
   assert.equal(output.transaction.type, "expense");
+  assert.equal(output.transaction.occurredAt, "2026-05-25T09:55:00.000Z");
+  assert.equal(output.transaction.balanceAfterKobo, 4750000);
   assert.equal(output.transactionId, "tx-1");
 });
 

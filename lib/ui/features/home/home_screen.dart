@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kolo/app/providers.dart';
+import 'package:kolo/data/services/offline_sync_queue.dart';
 import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/services/bill_protection_advisor.dart';
 import 'package:kolo/domain/services/bill_reminder_schedule.dart';
@@ -20,6 +23,7 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dashboard = ref.watch(dashboardProvider);
+    final syncState = ref.watch(pendingSyncOperationsProvider);
 
     return dashboard.when(
       loading: () => const KoloGradientScaffold(
@@ -50,13 +54,23 @@ class HomeScreen extends ConsumerWidget {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
             children: [
-              BalanceCard(
-                balanceKobo: state.balanceKobo,
-                name: state.profile.name,
-                onAdjust: () => _openBalanceAdjustmentSheet(
-                  context,
-                  currentBalanceKobo: state.balanceKobo,
-                ),
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  BalanceCard(
+                    balanceKobo: state.balanceKobo,
+                    name: state.profile.name,
+                    onAdjust: () => _openBalanceAdjustmentSheet(
+                      context,
+                      currentBalanceKobo: state.balanceKobo,
+                    ),
+                  ),
+                  Positioned(
+                    right: 14,
+                    bottom: -18,
+                    child: _HomeSyncStatusPill(syncState: syncState),
+                  ),
+                ],
               ),
               const SizedBox(height: 20),
               _QuickActions(
@@ -348,6 +362,89 @@ class _HomeOfflineState extends StatelessWidget {
   }
 }
 
+class _HomeSyncStatusPill extends StatelessWidget {
+  const _HomeSyncStatusPill({required this.syncState});
+
+  final AsyncValue<List<PendingSyncOperation>> syncState;
+
+  @override
+  Widget build(BuildContext context) {
+    final operations = syncState.value ?? const <PendingSyncOperation>[];
+    final hasPending = operations.isNotEmpty;
+    final hasError = syncState.hasError && !syncState.hasValue;
+    final statusColor = hasError
+        ? KoloColors.warning
+        : hasPending
+        ? KoloColors.warning
+        : KoloColors.income;
+    final title = hasError
+        ? 'Sync paused'
+        : hasPending
+        ? 'Waiting to sync'
+        : syncState.isLoading
+        ? 'Checking sync'
+        : 'All synced';
+    final countLabel = hasError
+        ? 'Retry soon'
+        : hasPending
+        ? '${operations.length} pending'
+        : syncState.isLoading
+        ? 'Checking'
+        : 'Clear';
+
+    return Container(
+      key: const Key('home_sync_status'),
+      constraints: const BoxConstraints(maxWidth: 174),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.76),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.72)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 20,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.cloud_sync_outlined, color: statusColor, size: 17),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: KoloColors.textPrimary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  countLabel,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _QuickActions extends StatelessWidget {
   const _QuickActions({
     required this.onLogIncome,
@@ -425,9 +522,13 @@ class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
       TextEditingController();
   final ScrollController _scrollController = ScrollController();
   String _category = 'Food & Snacks';
+  String? _suggestedCategory;
   String? _error;
   bool _needsJustification = false;
   bool _evaluatingJustification = false;
+  bool _suggestingCategory = false;
+  bool _categoryManuallyChanged = false;
+  Timer? _categorySuggestionDebounce;
   SpendingJustificationDecision? _spendingDecision;
   int? _pendingAmountKobo;
   String? _pendingDescription;
@@ -448,6 +549,7 @@ class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
     _descriptionController.dispose();
     _dateController.dispose();
     _justificationController.dispose();
+    _categorySuggestionDebounce?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
@@ -502,6 +604,7 @@ class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
               TextField(
                 key: const Key('transaction_description'),
                 controller: _descriptionController,
+                onChanged: _scheduleCategorySuggestion,
                 decoration: const InputDecoration(labelText: 'Description'),
               ),
               const SizedBox(height: 12),
@@ -519,29 +622,55 @@ class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
               DropdownButtonFormField<String>(
                 initialValue: _category,
                 items: [
-                  for (final category
-                      in _isIncome
-                          ? const [
-                              'Gig Income',
-                              'Family/Gift Income',
-                              'Miscellaneous',
-                            ]
-                          : const [
-                              'Food & Snacks',
-                              'Transport',
-                              'Data & Airtime',
-                              'Entertainment',
-                              'Utilities & Bills',
-                              'Miscellaneous',
-                            ])
+                  for (final category in _categoryOptions)
                     DropdownMenuItem(value: category, child: Text(category)),
                 ],
                 onChanged: (value) {
                   if (value == null) return;
-                  setState(() => _category = value);
+                  setState(() {
+                    _category = value;
+                    _categoryManuallyChanged = true;
+                  });
                 },
                 decoration: const InputDecoration(labelText: 'Category'),
               ),
+              if (_suggestingCategory || _suggestedCategory != null) ...[
+                const SizedBox(height: 10),
+                Container(
+                  key: const Key('transaction_category_suggestion'),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: KoloColors.primaryPastel,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.auto_awesome,
+                        size: 16,
+                        color: KoloColors.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          _suggestingCategory
+                              ? 'Kolo is checking the category...'
+                              : 'Kolo suggested $_suggestedCategory',
+                          style: const TextStyle(
+                            color: KoloColors.primary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               if (_needsJustification) ...[
                 const SizedBox(height: 14),
                 Container(
@@ -810,6 +939,70 @@ class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
     if (mounted) Navigator.of(context).pop();
   }
 
+  List<String> get _categoryOptions => _isIncome
+      ? const ['Gig Income', 'Family/Gift Income', 'Miscellaneous']
+      : const [
+          'Food & Snacks',
+          'Transport',
+          'Data & Airtime',
+          'Entertainment',
+          'Utilities & Bills',
+          'Miscellaneous',
+        ];
+
+  void _scheduleCategorySuggestion(String description) {
+    _categorySuggestionDebounce?.cancel();
+    final trimmed = description.trim();
+    if (trimmed.length < 3) {
+      setState(() {
+        _suggestedCategory = null;
+        _suggestingCategory = false;
+      });
+      return;
+    }
+
+    _categorySuggestionDebounce = Timer(const Duration(milliseconds: 450), () {
+      _suggestCategory(trimmed);
+    });
+  }
+
+  Future<void> _suggestCategory(String description) async {
+    final categorizer = widget.ref.read(transactionCategorizerProvider);
+    final dashboard = _dashboard();
+    if (categorizer == null || dashboard == null) return;
+
+    setState(() => _suggestingCategory = true);
+    try {
+      final draft = await categorizer.categorizeTransaction(
+        rawText: description,
+        source: TransactionSource.manual,
+        context: dashboard,
+        modelName: dashboard.profile.preferredAiModel,
+      );
+      if (!mounted || description != _descriptionController.text.trim()) return;
+
+      final suggested = _normalizeCategory(draft?.category);
+      setState(() {
+        _suggestedCategory = suggested;
+        if (suggested != null && !_categoryManuallyChanged) {
+          _category = suggested;
+        }
+      });
+    } finally {
+      if (mounted) setState(() => _suggestingCategory = false);
+    }
+  }
+
+  String? _normalizeCategory(String? category) {
+    if (category == null || category.trim().isEmpty) return null;
+    for (final option in _categoryOptions) {
+      if (option.toLowerCase() == category.trim().toLowerCase()) {
+        return option;
+      }
+    }
+    return null;
+  }
+
   bool _requiresJustification(int amountKobo) {
     final dashboard = _dashboard();
     if (dashboard == null) return false;
@@ -1062,12 +1255,14 @@ class _VaultsSheet extends ConsumerStatefulWidget {
 class _VaultsSheetState extends ConsumerState<_VaultsSheet> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _targetController = TextEditingController();
+  final TextEditingController _deadlineController = TextEditingController();
   String? _error;
 
   @override
   void dispose() {
     _nameController.dispose();
     _targetController.dispose();
+    _deadlineController.dispose();
     super.dispose();
   }
 
@@ -1163,6 +1358,16 @@ class _VaultsSheetState extends ConsumerState<_VaultsSheet> {
                     prefixText: '\u20A6 ',
                   ),
                 ),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const Key('new_vault_deadline'),
+                  controller: _deadlineController,
+                  keyboardType: TextInputType.datetime,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(
+                    labelText: 'Deadline (optional)',
+                  ),
+                ),
                 if (_error != null) ...[
                   const SizedBox(height: 10),
                   Text(
@@ -1189,8 +1394,16 @@ class _VaultsSheetState extends ConsumerState<_VaultsSheet> {
     final targetKobo = MoneyFormatter.parseNairaToKobo(
       _targetController.text.trim(),
     );
+    final deadlineText = _deadlineController.text.trim();
+    final deadline = deadlineText.isEmpty
+        ? null
+        : DateTime.tryParse(deadlineText);
     if (name.isEmpty || targetKobo == null || targetKobo <= 0) {
       setState(() => _error = 'Enter a vault name and target.');
+      return;
+    }
+    if (deadlineText.isNotEmpty && deadline == null) {
+      setState(() => _error = 'Enter the deadline as YYYY-MM-DD.');
       return;
     }
 
@@ -1202,10 +1415,12 @@ class _VaultsSheetState extends ConsumerState<_VaultsSheet> {
             name: name,
             targetKobo: targetKobo,
             currentKobo: 0,
+            deadline: deadline,
           ),
         );
     _nameController.clear();
     _targetController.clear();
+    _deadlineController.clear();
     if (mounted) setState(() => _error = null);
   }
 
@@ -1294,11 +1509,26 @@ class _VaultCard extends StatelessWidget {
                 fontWeight: FontWeight.w700,
               ),
             ),
+            if (vault.deadline != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Deadline ${_vaultDateInput(vault.deadline!)}',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: KoloColors.textSecondary,
+                ),
+              ),
+            ],
           ],
         ),
       ),
     );
   }
+}
+
+String _vaultDateInput(DateTime date) {
+  final month = date.month.toString().padLeft(2, '0');
+  final day = date.day.toString().padLeft(2, '0');
+  return '${date.year}-$month-$day';
 }
 
 class _VaultDetailSheet extends ConsumerStatefulWidget {
@@ -1352,105 +1582,113 @@ class _VaultDetailSheetState extends ConsumerState<_VaultDetailSheet> {
         ),
         child: SafeArea(
           top: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  height: 4,
-                  width: 42,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE5E7EB),
-                    borderRadius: BorderRadius.circular(999),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    height: 4,
+                    width: 42,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE5E7EB),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                widget.vault.name,
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 8),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${MoneyFormatter.formatKobo(widget.vault.currentKobo)} / ${MoneyFormatter.formatKobo(widget.vault.targetKobo)}',
-                      style: const TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                    const SizedBox(height: 10),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(999),
-                      child: LinearProgressIndicator(
-                        value: widget.vault.progress,
-                        minHeight: 8,
-                        backgroundColor: KoloColors.primaryPastel,
-                        color: KoloColors.primary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                key: const Key('vault_target_amount'),
-                controller: _targetController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Target amount',
-                  prefixText: '\u20A6 ',
-                ),
-              ),
-              const SizedBox(height: 10),
-              OutlinedButton.icon(
-                key: const Key('save_vault_target'),
-                onPressed: _saveTarget,
-                icon: const Icon(Icons.flag_outlined),
-                label: const Text('Save target'),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                key: const Key('vault_contribution_amount'),
-                controller: _amountController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Add funds',
-                  prefixText: '\u20A6 ',
-                ),
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: 10),
+                const SizedBox(height: 20),
                 Text(
-                  _error!,
-                  style: const TextStyle(color: KoloColors.expense),
+                  widget.vault.name,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${MoneyFormatter.formatKobo(widget.vault.currentKobo)} / ${MoneyFormatter.formatKobo(widget.vault.targetKobo)}',
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      const SizedBox(height: 10),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(999),
+                        child: LinearProgressIndicator(
+                          value: widget.vault.progress,
+                          minHeight: 8,
+                          backgroundColor: KoloColors.primaryPastel,
+                          color: KoloColors.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (widget.vault.contributions.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  _VaultContributionHistory(
+                    contributions: widget.vault.contributions,
+                  ),
+                ],
+                const SizedBox(height: 16),
+                TextField(
+                  key: const Key('vault_target_amount'),
+                  controller: _targetController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Target amount',
+                    prefixText: '\u20A6 ',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  key: const Key('save_vault_target'),
+                  onPressed: _saveTarget,
+                  icon: const Icon(Icons.flag_outlined),
+                  label: const Text('Save target'),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  key: const Key('vault_contribution_amount'),
+                  controller: _amountController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Add funds',
+                    prefixText: '\u20A6 ',
+                  ),
+                ),
+                if (_error != null) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    _error!,
+                    style: const TextStyle(color: KoloColors.expense),
+                  ),
+                ],
+                const SizedBox(height: 18),
+                ElevatedButton(
+                  key: const Key('save_vault_contribution'),
+                  onPressed: _save,
+                  child: const Text('Add to vault'),
+                ),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  key: const Key('delete_vault'),
+                  onPressed: _delete,
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('Delete vault'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: KoloColors.expense,
+                    side: const BorderSide(color: KoloColors.expense),
+                  ),
                 ),
               ],
-              const SizedBox(height: 18),
-              ElevatedButton(
-                key: const Key('save_vault_contribution'),
-                onPressed: _save,
-                child: const Text('Add to vault'),
-              ),
-              const SizedBox(height: 10),
-              OutlinedButton.icon(
-                key: const Key('delete_vault'),
-                onPressed: _delete,
-                icon: const Icon(Icons.delete_outline),
-                label: const Text('Delete vault'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: KoloColors.expense,
-                  side: const BorderSide(color: KoloColors.expense),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -1475,6 +1713,14 @@ class _VaultDetailSheetState extends ConsumerState<_VaultDetailSheet> {
             targetKobo: widget.vault.targetKobo,
             currentKobo: widget.vault.currentKobo + amountKobo,
             deadline: widget.vault.deadline,
+            contributions: [
+              VaultContribution(
+                id: 'contribution-${DateTime.now().microsecondsSinceEpoch}',
+                amountKobo: amountKobo,
+                createdAt: DateTime.now(),
+              ),
+              ...widget.vault.contributions,
+            ],
           ),
         );
     if (mounted) Navigator.of(context).pop();
@@ -1498,6 +1744,7 @@ class _VaultDetailSheetState extends ConsumerState<_VaultDetailSheet> {
             targetKobo: targetKobo,
             currentKobo: widget.vault.currentKobo,
             deadline: widget.vault.deadline,
+            contributions: widget.vault.contributions,
           ),
         );
     if (mounted) Navigator.of(context).pop();
@@ -1515,6 +1762,91 @@ class _VaultDetailSheetState extends ConsumerState<_VaultDetailSheet> {
       SnackBar(
         content: Text('${widget.vault.name} removed from protected funds'),
       ),
+    );
+  }
+}
+
+class _VaultContributionHistory extends StatelessWidget {
+  const _VaultContributionHistory({required this.contributions});
+
+  final List<VaultContribution> contributions;
+
+  @override
+  Widget build(BuildContext context) {
+    final latest = contributions.take(4).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Contribution history',
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 10),
+        for (final contribution in latest) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x14000000),
+                  blurRadius: 20,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  height: 34,
+                  width: 34,
+                  decoration: BoxDecoration(
+                    color: KoloColors.primaryPastel,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.savings_outlined,
+                    color: KoloColors.primary,
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        contribution.note ?? 'Vault top-up',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _vaultDateInput(contribution.createdAt),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: KoloColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  '+${MoneyFormatter.formatKobo(contribution.amountKobo)}',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: KoloColors.income,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (contribution != latest.last) const SizedBox(height: 8),
+        ],
+      ],
     );
   }
 }

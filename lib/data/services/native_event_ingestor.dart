@@ -48,6 +48,11 @@ class NativeEventIngestor {
         continue;
       }
 
+      if (event.type == 'reminder') {
+        if (await _processReminder(event)) processed += 1;
+        continue;
+      }
+
       if (event.type == 'notification_posted' &&
           !await _isEnabledWatchedApp(event)) {
         continue;
@@ -58,7 +63,7 @@ class NativeEventIngestor {
 
       if (event.type == 'sms_received' &&
           await _processServerSms(event, rawText)) {
-        await _overlayBubble?.showKoloBubble();
+        await _surfaceTransactionAlert();
         processed += 1;
         continue;
       }
@@ -67,13 +72,14 @@ class NativeEventIngestor {
           TransactionParser.parse(rawText) ?? await _aiDraft(event, rawText);
       if (draft == null) {
         await _recordUnrecognizedTransaction(event);
-        await _overlayBubble?.showKoloBubble();
+        await _surfaceTransactionAlert();
         processed += 1;
         continue;
       }
 
       await _repository.logTransaction(_transactionFromDraft(event, draft));
-      await _overlayBubble?.showKoloBubble();
+      await _reconcileParsedBalance(event, draft);
+      await _surfaceTransactionAlert();
       processed += 1;
     }
 
@@ -90,6 +96,7 @@ class NativeEventIngestor {
     final context = await _repository.watchDashboard().first;
     return smsReceivedHandler.onSmsReceived(
       rawText: rawText,
+      sourceEventId: event.id,
       sender: event.payload['sender'] as String?,
       receivedAt: event.createdAt,
       context: context,
@@ -149,6 +156,10 @@ class NativeEventIngestor {
       }
     }
     if (watchedApp == null || !watchedApp.enabled) return false;
+    if (watchedApp.blockLevel == WatchedAppBlockLevel.soft &&
+        !dashboard.profile.notificationPreferences.bubbleInterventions) {
+      return false;
+    }
 
     final content = await _interventionMessage(
       dashboard: dashboard,
@@ -164,8 +175,49 @@ class NativeEventIngestor {
         context: 'intervention',
       ),
     );
-    await _overlayBubble?.showKoloBubble();
+    await _surfaceOverlayIntervention(content, watchedApp);
     return true;
+  }
+
+  Future<bool> _processReminder(NativeAndroidEvent event) async {
+    if (event.payload['kind'] != 'weeklyInsight') return false;
+
+    try {
+      final insight = await _repository.generateWeeklyInsight();
+      final message = 'Your weekly insight is ready: ${insight.title}.';
+      await _overlayBubble?.showKoloBubble();
+      await _overlayBubble?.sendAssistantMessageToOverlay(message);
+      return true;
+    } on Object {
+      return false;
+    }
+  }
+
+  Future<void> _surfaceOverlayIntervention(
+    String content,
+    WatchedApp watchedApp,
+  ) async {
+    final overlayBubble = _overlayBubble;
+    if (overlayBubble == null) return;
+
+    try {
+      if (watchedApp.blockLevel != WatchedAppBlockLevel.soft) {
+        await overlayBubble.showBlockOverlay(
+          appName: watchedApp.displayName,
+          packageName: watchedApp.packageName,
+          blockLevel: watchedApp.blockLevel,
+          prompt: content,
+        );
+        return;
+      }
+
+      await overlayBubble.showKoloBubble();
+      await overlayBubble.sendAssistantMessageToOverlay(content);
+      await overlayBubble.expandConversation();
+    } on Object {
+      // Native event processing should not fail just because the overlay
+      // channel is unavailable or permission was revoked.
+    }
   }
 
   Future<String> _interventionMessage({
@@ -185,6 +237,16 @@ class NativeEventIngestor {
       // Keep native interventions useful if Functions or Gemini is unavailable.
     }
     return _fallbackIntervention(dashboard, watchedApp);
+  }
+
+  Future<void> _surfaceTransactionAlert() async {
+    final overlayBubble = _overlayBubble;
+    if (overlayBubble == null) return;
+
+    final dashboard = await _repository.watchDashboard().first;
+    if (!dashboard.profile.notificationPreferences.transactionAlerts) return;
+
+    await overlayBubble.showKoloBubble();
   }
 
   String _fallbackIntervention(
@@ -213,11 +275,33 @@ class NativeEventIngestor {
     };
   }
 
+  Future<void> _reconcileParsedBalance(
+    NativeAndroidEvent event,
+    TransactionDraft draft,
+  ) async {
+    final balanceAfterKobo = draft.balanceAfterKobo;
+    if (balanceAfterKobo == null) return;
+
+    final dashboard = await _repository.watchDashboard().first;
+    if (dashboard.balanceKobo == balanceAfterKobo) return;
+
+    await _repository.adjustBalance(
+      BalanceAdjustment(
+        id: 'native-balance-${event.id}',
+        previousBalanceKobo: dashboard.balanceKobo,
+        newBalanceKobo: balanceAfterKobo,
+        note: 'Reconciled to the bank alert balance after native ingestion.',
+        createdAt: draft.occurredAt ?? event.createdAt,
+      ),
+    );
+  }
+
   TransactionRecord _transactionFromDraft(
     NativeAndroidEvent event,
     TransactionDraft draft,
   ) {
     final id = 'native-${event.id}';
+    final source = _sourceFor(event);
     final description = draft.merchantName.isEmpty
         ? 'Native transaction'
         : draft.merchantName;
@@ -229,7 +313,7 @@ class NativeEventIngestor {
             category: draft.category,
             description: description,
             date: draft.occurredAt ?? event.createdAt,
-            source: draft.source,
+            source: source,
             merchantName: draft.merchantName,
           )
         : TransactionRecord.expense(
@@ -238,7 +322,7 @@ class NativeEventIngestor {
             category: draft.category,
             description: description,
             date: draft.occurredAt ?? event.createdAt,
-            source: draft.source,
+            source: source,
             merchantName: draft.merchantName,
           );
   }

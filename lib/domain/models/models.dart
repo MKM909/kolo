@@ -10,6 +10,8 @@ enum OwingType { theyOweMe, iOweThem }
 
 enum ShareStatus { pending, active, revoked }
 
+enum WatchedAppBlockLevel { soft, explain, hardLock }
+
 enum KoloPermission {
   sms,
   notifications,
@@ -46,11 +48,7 @@ class SpendingJustificationDecision {
   bool get requiresOverride => !approved;
 
   Map<String, Object?> toJson() {
-    return {
-      'status': status.name,
-      'message': message,
-      'aiNote': aiNote,
-    };
+    return {'status': status.name, 'message': message, 'aiNote': aiNote};
   }
 
   static SpendingDecisionStatus _statusFromJson(Object? value) {
@@ -72,17 +70,18 @@ class PartnerInviteRef {
       scheme: 'kolo',
       host: 'app',
       path: '/partner/invite',
-      queryParameters: {
-        'ownerUid': ownerUid,
-        'shareId': shareId,
-      },
+      queryParameters: {'ownerUid': ownerUid, 'shareId': shareId},
     );
   }
 
   static PartnerInviteRef? fromUri(Uri uri) {
-    if (uri.scheme != 'kolo' ||
-        uri.host != 'app' ||
-        uri.path != '/partner/invite') {
+    final isDeepLink =
+        uri.scheme == 'kolo' &&
+        uri.host == 'app' &&
+        uri.path == '/partner/invite';
+    final isInAppRoute =
+        uri.scheme.isEmpty && uri.host.isEmpty && uri.path == '/partner/invite';
+    if (!isDeepLink && !isInAppRoute) {
       return null;
     }
     final ownerUid = uri.queryParameters['ownerUid'];
@@ -185,10 +184,7 @@ class CachedDashboardMetadata {
 }
 
 class CachedDashboardEntry {
-  const CachedDashboardEntry({
-    required this.dashboard,
-    required this.metadata,
-  });
+  const CachedDashboardEntry({required this.dashboard, required this.metadata});
 
   final DashboardState dashboard;
   final CachedDashboardMetadata metadata;
@@ -481,6 +477,20 @@ class AiMessage {
   final String context;
 }
 
+class VaultContribution {
+  const VaultContribution({
+    required this.id,
+    required this.amountKobo,
+    required this.createdAt,
+    this.note,
+  });
+
+  final String id;
+  final int amountKobo;
+  final DateTime createdAt;
+  final String? note;
+}
+
 class SavingsVault {
   const SavingsVault({
     required this.id,
@@ -488,6 +498,7 @@ class SavingsVault {
     required this.targetKobo,
     required this.currentKobo,
     this.deadline,
+    this.contributions = const [],
   });
 
   final String id;
@@ -495,6 +506,7 @@ class SavingsVault {
   final int targetKobo;
   final int currentKobo;
   final DateTime? deadline;
+  final List<VaultContribution> contributions;
 
   double get progress =>
       targetKobo <= 0 ? 0 : (currentKobo / targetKobo).clamp(0, 1).toDouble();
@@ -563,11 +575,13 @@ class WatchedApp {
     required this.packageName,
     required this.displayName,
     this.enabled = false,
+    this.blockLevel = WatchedAppBlockLevel.soft,
   });
 
   final String packageName;
   final String displayName;
   final bool enabled;
+  final WatchedAppBlockLevel blockLevel;
 }
 
 class NativeAndroidEvent {

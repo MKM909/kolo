@@ -71,6 +71,21 @@ class FirebaseKoloMapper {
       'deadline': vault.deadline == null
           ? null
           : Timestamp.fromDate(vault.deadline!),
+      'contributions': [
+        for (final contribution in vault.contributions)
+          _vaultContributionToJson(contribution),
+      ],
+    };
+  }
+
+  static Map<String, Object?> _vaultContributionToJson(
+    VaultContribution contribution,
+  ) {
+    return {
+      'id': contribution.id,
+      'amountKobo': contribution.amountKobo,
+      'createdAt': Timestamp.fromDate(contribution.createdAt),
+      'note': contribution.note,
     };
   }
 
@@ -125,6 +140,7 @@ class FirebaseKoloMapper {
       'packageName': app.packageName,
       'displayName': app.displayName,
       'enabled': app.enabled,
+      'blockLevel': app.blockLevel.name,
     };
   }
 
@@ -267,6 +283,19 @@ class FirebaseKoloMapper {
       targetKobo: _int(map['targetKobo']),
       currentKobo: _int(map['currentKobo']),
       deadline: map.containsKey('deadline') ? _date(map['deadline']) : null,
+      contributions: [
+        for (final contribution in _listOfMaps(map['contributions']))
+          _vaultContribution(contribution),
+      ],
+    );
+  }
+
+  static VaultContribution _vaultContribution(Map<String, dynamic> map) {
+    return VaultContribution(
+      id: _string(map['id'], fallback: 'contribution'),
+      amountKobo: _int(map['amountKobo']),
+      createdAt: _date(map['createdAt']),
+      note: map['note'] as String?,
     );
   }
 
@@ -310,6 +339,11 @@ class FirebaseKoloMapper {
       packageName: _string(map['packageName']),
       displayName: _string(map['displayName'], fallback: 'App'),
       enabled: _bool(map['enabled']),
+      blockLevel: _enumByName(
+        WatchedAppBlockLevel.values,
+        map['blockLevel'],
+        WatchedAppBlockLevel.soft,
+      ),
     );
   }
 
@@ -356,6 +390,14 @@ class FirebaseKoloMapper {
     if (value is Map<String, dynamic>) return value;
     if (value is Map<Object?, Object?>) return Map<String, dynamic>.from(value);
     return const {};
+  }
+
+  static List<Map<String, dynamic>> _listOfMaps(Object? value) {
+    if (value is! List) return const [];
+    return [
+      for (final item in value)
+        if (item is Map) _map(item),
+    ];
   }
 
   static String _string(Object? value, {String fallback = ''}) {

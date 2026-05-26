@@ -38,7 +38,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
           transactions: periodTransactions,
           vaults: state.vaults,
         );
-        final weeklyExpenses = _weeklyExpenseTotals(state.transactions);
+        final weeklyTotals = _weeklyTransactionTotals(state.transactions);
         final categoryItemCounts = _categoryExpenseCounts(periodTransactions);
 
         return KoloGradientScaffold(
@@ -201,6 +201,14 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                         ref,
                         budget: state.budgetPlan,
                         category: category,
+                        transactions: periodTransactions
+                            .where(
+                              (transaction) =>
+                                  transaction.type ==
+                                      TransactionType.expense &&
+                                  transaction.category == category.name,
+                            )
+                            .toList(growable: false),
                       ),
                     ),
                 ],
@@ -229,7 +237,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                     SizedBox(
                       key: const Key('budget_weekly_bar_chart'),
                       height: 160,
-                      child: BarChart(_weeklyBarData(weeklyExpenses)),
+                      child: BarChart(_weeklyBarData(weeklyTotals)),
                     ),
                   ],
                 ),
@@ -262,19 +270,34 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
         .toList(growable: false);
   }
 
-  List<int> _weeklyExpenseTotals(List<TransactionRecord> transactions) {
-    if (transactions.isEmpty) return List<int>.filled(7, 0);
+  List<_WeeklyTransactionTotals> _weeklyTransactionTotals(
+    List<TransactionRecord> transactions,
+  ) {
+    if (transactions.isEmpty) {
+      return List<_WeeklyTransactionTotals>.filled(
+        7,
+        const _WeeklyTransactionTotals(),
+      );
+    }
 
     final anchor = _anchorDate(transactions);
     final start = _dateOnly(anchor).subtract(const Duration(days: 6));
-    final totals = List<int>.filled(7, 0);
+    final totals = List<_WeeklyTransactionTotals>.filled(
+      7,
+      const _WeeklyTransactionTotals(),
+    );
 
     for (final transaction in transactions) {
-      if (transaction.type != TransactionType.expense) continue;
       final date = _dateOnly(transaction.date);
       final index = date.difference(start).inDays;
       if (index < 0 || index >= totals.length) continue;
-      totals[index] += transaction.amountKobo;
+      totals[index] = transaction.type == TransactionType.income
+          ? totals[index].copyWith(
+              incomeKobo: totals[index].incomeKobo + transaction.amountKobo,
+            )
+          : totals[index].copyWith(
+              expenseKobo: totals[index].expenseKobo + transaction.amountKobo,
+            );
     }
 
     return totals;
@@ -295,12 +318,17 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
     return counts;
   }
 
-  BarChartData _weeklyBarData(List<int> expenses) {
-    final maxExpenseKobo = expenses.fold<int>(
+  BarChartData _weeklyBarData(List<_WeeklyTransactionTotals> totals) {
+    final maxKobo = totals.fold<int>(
       0,
-      (max, value) => value > max ? value : max,
+      (max, value) {
+        final dayMax = value.incomeKobo > value.expenseKobo
+            ? value.incomeKobo
+            : value.expenseKobo;
+        return dayMax > max ? dayMax : max;
+      },
     );
-    final maxY = maxExpenseKobo == 0 ? 1.0 : maxExpenseKobo * 1.2;
+    final maxY = maxKobo == 0 ? 1.0 : maxKobo * 1.2;
 
     return BarChartData(
       maxY: maxY,
@@ -342,16 +370,23 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
       ),
       barTouchData: BarTouchData(enabled: false),
       barGroups: [
-        for (var index = 0; index < expenses.length; index++)
+        for (var index = 0; index < totals.length; index++)
           BarChartGroupData(
             x: index,
+            barsSpace: 3,
             barRods: [
               BarChartRodData(
-                toY: expenses[index].toDouble(),
-                width: 20,
-                color: index == expenses.length - 1
-                    ? KoloColors.primary
-                    : KoloColors.primaryPastel,
+                toY: totals[index].incomeKobo.toDouble(),
+                width: 8,
+                color: KoloColors.primary,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(4),
+                ),
+              ),
+              BarChartRodData(
+                toY: totals[index].expenseKobo.toDouble(),
+                width: 8,
+                color: KoloColors.expense,
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(4),
                 ),
@@ -377,14 +412,33 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
     WidgetRef ref, {
     required BudgetPlan budget,
     required BudgetCategory category,
+    required List<TransactionRecord> transactions,
   }) {
     return showModalBottomSheet<void>(
       context: context,
       useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) =>
-          _BudgetCategorySheet(budget: budget, category: category, ref: ref),
+      builder: (context) => _BudgetCategorySheet(
+        budget: budget,
+        category: category,
+        transactions: transactions,
+        ref: ref,
+      ),
+    );
+  }
+}
+
+class _WeeklyTransactionTotals {
+  const _WeeklyTransactionTotals({this.incomeKobo = 0, this.expenseKobo = 0});
+
+  final int incomeKobo;
+  final int expenseKobo;
+
+  _WeeklyTransactionTotals copyWith({int? incomeKobo, int? expenseKobo}) {
+    return _WeeklyTransactionTotals(
+      incomeKobo: incomeKobo ?? this.incomeKobo,
+      expenseKobo: expenseKobo ?? this.expenseKobo,
     );
   }
 }
@@ -522,11 +576,13 @@ class _BudgetCategorySheet extends StatefulWidget {
   const _BudgetCategorySheet({
     required this.budget,
     required this.category,
+    required this.transactions,
     required this.ref,
   });
 
   final BudgetPlan budget;
   final BudgetCategory category;
+  final List<TransactionRecord> transactions;
   final WidgetRef ref;
 
   @override
@@ -559,6 +615,9 @@ class _BudgetCategorySheetState extends State<_BudgetCategorySheet> {
       ),
       child: Container(
         key: const Key('budget_category_sheet'),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.78,
+        ),
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
         decoration: const BoxDecoration(
           color: Color(0xF0FFFFFF),
@@ -571,53 +630,62 @@ class _BudgetCategorySheetState extends State<_BudgetCategorySheet> {
             ),
           ],
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                height: 4,
-                width: 42,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE5E7EB),
-                  borderRadius: BorderRadius.circular(999),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  height: 4,
+                  width: 42,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE5E7EB),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              widget.category.name,
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Set the amount Kolo should reserve for this category.',
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: KoloColors.textSecondary),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              key: const Key('budget_category_amount'),
-              controller: _amountController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Monthly allocation',
-                prefixText: '\u20A6 ',
+              const SizedBox(height: 20),
+              Text(
+                widget.category.name,
+                style: Theme.of(context).textTheme.titleLarge,
               ),
-            ),
-            if (_error != null) ...[
-              const SizedBox(height: 10),
-              Text(_error!, style: const TextStyle(color: KoloColors.expense)),
+              const SizedBox(height: 6),
+              Text(
+                'Set the amount Kolo should reserve for this category.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: KoloColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 18),
+              _CategoryTransactionBreakdown(
+                transactions: widget.transactions,
+              ),
+              const SizedBox(height: 18),
+              TextField(
+                key: const Key('budget_category_amount'),
+                controller: _amountController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Monthly allocation',
+                  prefixText: '\u20A6 ',
+                ),
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  _error!,
+                  style: const TextStyle(color: KoloColors.expense),
+                ),
+              ],
+              const SizedBox(height: 18),
+              ElevatedButton(
+                key: const Key('save_budget_category'),
+                onPressed: _save,
+                child: const Text('Save allocation'),
+              ),
             ],
-            const SizedBox(height: 18),
-            ElevatedButton(
-              key: const Key('save_budget_category'),
-              onPressed: _save,
-              child: const Text('Save allocation'),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -658,4 +726,119 @@ class _BudgetCategorySheetState extends State<_BudgetCategorySheet> {
         );
     if (mounted) Navigator.of(context).pop();
   }
+}
+
+class _CategoryTransactionBreakdown extends StatelessWidget {
+  const _CategoryTransactionBreakdown({required this.transactions});
+
+  final List<TransactionRecord> transactions;
+
+  @override
+  Widget build(BuildContext context) {
+    final totalKobo = transactions.fold<int>(
+      0,
+      (total, transaction) => total + transaction.amountKobo,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Recent transactions',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+            ),
+            Text(
+              MoneyFormatter.formatKobo(totalKobo),
+              style: const TextStyle(
+                fontFamily: 'DM Mono',
+                fontWeight: FontWeight.w800,
+                color: KoloColors.expense,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        if (transactions.isEmpty)
+          Text(
+            'No spending in this period.',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: KoloColors.textSecondary),
+          )
+        else
+          for (final transaction in transactions)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _CategoryTransactionRow(transaction: transaction),
+            ),
+      ],
+    );
+  }
+}
+
+class _CategoryTransactionRow extends StatelessWidget {
+  const _CategoryTransactionRow({required this.transaction});
+
+  final TransactionRecord transaction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          height: 40,
+          width: 40,
+          decoration: BoxDecoration(
+            color: KoloColors.primaryPastel,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Icon(
+            Icons.receipt_long_outlined,
+            color: KoloColors.primary,
+            size: 20,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                transaction.description,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                _dateInput(transaction.date),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: KoloColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          '-${MoneyFormatter.formatKobo(transaction.amountKobo)}',
+          style: const TextStyle(
+            fontFamily: 'DM Mono',
+            fontWeight: FontWeight.w800,
+            color: KoloColors.expense,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+String _dateInput(DateTime date) {
+  final month = date.month.toString().padLeft(2, '0');
+  final day = date.day.toString().padLeft(2, '0');
+  return '${date.year}-$month-$day';
 }

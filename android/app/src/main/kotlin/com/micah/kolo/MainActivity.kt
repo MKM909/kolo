@@ -2,6 +2,7 @@ package com.micah.kolo
 
 import android.content.ComponentName
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
@@ -16,6 +17,7 @@ class MainActivity : FlutterActivity() {
             "kolo/android_capabilities"
         ).setMethodCallHandler { call, result ->
             when (call.method) {
+                "getInstalledAppCandidates" -> result.success(getInstalledAppCandidates())
                 "getSuggestedBankingApps" -> result.success(getSuggestedBankingApps())
                 "enqueueNativeEvent" -> {
                     @Suppress("UNCHECKED_CAST")
@@ -35,6 +37,7 @@ class MainActivity : FlutterActivity() {
                 "isAccessibilityServiceEnabled" -> result.success(isAccessibilityServiceEnabled())
                 "isNotificationListenerEnabled" -> result.success(isNotificationListenerEnabled())
                 "startBackgroundWatcher" -> result.success(startBackgroundWatcher())
+                "performGlobalBack" -> result.success(KoloAccessibilityService.performGlobalBackAction())
                 else -> result.notImplemented()
             }
         }
@@ -60,13 +63,7 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun startBackgroundWatcher(): Boolean {
-        val serviceIntent = Intent(this, KoloForegroundService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(serviceIntent)
-        } else {
-            @Suppress("DEPRECATION")
-            startService(serviceIntent)
-        }
+        KoloBackgroundStarter.nudge(this)
         return true
     }
 
@@ -99,8 +96,19 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun getSuggestedBankingApps(): List<Map<String, Any>> {
-        val packageManager = packageManager
-        val knownApps = listOf(
+        return getInstalledAppCandidates()
+            .filter { it["isKnownFinancialApp"] as? Boolean ?: false }
+            .map { candidate ->
+                mapOf(
+                    "packageName" to candidate["packageName"].toString(),
+                    "displayName" to candidate["displayName"].toString(),
+                    "enabled" to (candidate["installed"] as? Boolean ?: false)
+                )
+            }
+    }
+
+    private fun getInstalledAppCandidates(): List<Map<String, Any>> {
+        val knownApps = mapOf(
             "com.kuda.android" to "Kuda",
             "team.opay.pay" to "Opay",
             "com.palmpay.android" to "Palmpay",
@@ -111,15 +119,73 @@ class MainActivity : FlutterActivity() {
             "ng.com.fairmoney.fairmoney" to "FairMoney"
         )
 
-        return knownApps.map { (packageName, displayName) ->
-            val installed = runCatching {
-                packageManager.getPackageInfo(packageName, 0)
-            }.isSuccess
-            mapOf(
+        val candidates = linkedMapOf<String, Map<String, Any>>()
+        val launcherIntent = Intent(Intent.ACTION_MAIN).apply {
+            addCategory(Intent.CATEGORY_LAUNCHER)
+        }
+        val launchableApps = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            packageManager.queryIntentActivities(
+                launcherIntent,
+                PackageManager.ResolveInfoFlags.of(0)
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            packageManager.queryIntentActivities(launcherIntent, 0)
+        }
+
+        for (resolveInfo in launchableApps) {
+            val packageName = resolveInfo.activityInfo?.packageName ?: continue
+            val label = resolveInfo.loadLabel(packageManager)?.toString()
+                ?.takeIf { it.isNotBlank() }
+                ?: knownApps[packageName]
+                ?: packageName
+            val isKnownFinancialApp = knownApps.containsKey(packageName)
+            candidates[packageName] = mapOf(
                 "packageName" to packageName,
-                "displayName" to displayName,
-                "enabled" to installed
+                "displayName" to (knownApps[packageName] ?: label),
+                "installed" to true,
+                "isKnownFinancialApp" to isKnownFinancialApp
             )
         }
+
+        for ((packageName, displayName) in knownApps) {
+            if (candidates.containsKey(packageName)) continue
+            candidates[packageName] = mapOf(
+                "packageName" to packageName,
+                "displayName" to displayName,
+                "installed" to isPackageInstalled(packageName),
+                "isKnownFinancialApp" to true
+            )
+        }
+
+        return candidates.values.sortedWith(
+            compareBy<Map<String, Any>> { candidateRank(it) }
+                .thenBy { it["displayName"].toString().lowercase() }
+        )
+    }
+
+    private fun candidateRank(candidate: Map<String, Any>): Int {
+        val installed = candidate["installed"] as? Boolean ?: false
+        val knownFinancial = candidate["isKnownFinancialApp"] as? Boolean ?: false
+        return when {
+            knownFinancial && installed -> 0
+            knownFinancial -> 1
+            installed -> 2
+            else -> 3
+        }
+    }
+
+    private fun isPackageInstalled(packageName: String): Boolean {
+        return runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                packageManager.getPackageInfo(
+                    packageName,
+                    PackageManager.PackageInfoFlags.of(0)
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                packageManager.getPackageInfo(packageName, 0)
+            }
+        }.isSuccess
     }
 }

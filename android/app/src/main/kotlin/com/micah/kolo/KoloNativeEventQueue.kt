@@ -3,16 +3,18 @@ package com.micah.kolo
 import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.UUID
 
 object KoloNativeEventQueue {
     private const val PREFS_NAME = "kolo_native_events"
     private const val EVENTS_KEY = "events"
 
     fun enqueue(context: Context, type: String, payload: Map<String, Any?>) {
+        val now = System.currentTimeMillis()
         val event = JSONObject()
-            .put("id", "${System.currentTimeMillis()}-$type")
+            .put("id", "$now-${UUID.randomUUID()}-$type")
             .put("type", type)
-            .put("createdAt", System.currentTimeMillis())
+            .put("createdAt", now)
             .put("payload", JSONObject(payload))
 
         appendJson(context, event)

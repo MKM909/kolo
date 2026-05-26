@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kolo/app/providers.dart';
 import 'package:kolo/data/services/offline_sync_queue.dart';
@@ -990,6 +991,9 @@ class _GigTrackerSheetState extends ConsumerState<_GigTrackerSheet> {
   final TextEditingController _clientController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _projectTypeController = TextEditingController();
+  final TextEditingController _dateController = TextEditingController(
+    text: _dateInput(DateTime.now()),
+  );
   final TextEditingController _noteController = TextEditingController();
   String? _error;
 
@@ -998,6 +1002,7 @@ class _GigTrackerSheetState extends ConsumerState<_GigTrackerSheet> {
     _clientController.dispose();
     _amountController.dispose();
     _projectTypeController.dispose();
+    _dateController.dispose();
     _noteController.dispose();
     super.dispose();
   }
@@ -1124,6 +1129,14 @@ class _GigTrackerSheetState extends ConsumerState<_GigTrackerSheet> {
                 ),
                 const SizedBox(height: 12),
                 TextField(
+                  key: const Key('new_gig_date'),
+                  controller: _dateController,
+                  keyboardType: TextInputType.datetime,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(labelText: 'Date received'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
                   controller: _noteController,
                   decoration: const InputDecoration(labelText: 'Note'),
                 ),
@@ -1154,9 +1167,13 @@ class _GigTrackerSheetState extends ConsumerState<_GigTrackerSheet> {
       _amountController.text.trim(),
     );
     final projectType = _projectTypeController.text.trim();
+    final receivedDate = DateTime.tryParse(_dateController.text.trim());
 
-    if (client.isEmpty || amountKobo == null || amountKobo <= 0) {
-      setState(() => _error = 'Enter a client and amount.');
+    if (client.isEmpty ||
+        amountKobo == null ||
+        amountKobo <= 0 ||
+        receivedDate == null) {
+      setState(() => _error = 'Enter a client, amount, and received date.');
       return;
     }
 
@@ -1168,7 +1185,7 @@ class _GigTrackerSheetState extends ConsumerState<_GigTrackerSheet> {
             id: 'gig-${now.microsecondsSinceEpoch}',
             client: client,
             amountKobo: amountKobo,
-            date: now,
+            date: receivedDate,
             projectType: projectType.isEmpty ? 'Gig' : projectType,
             note: _noteController.text.trim().isEmpty
                 ? null
@@ -1178,6 +1195,7 @@ class _GigTrackerSheetState extends ConsumerState<_GigTrackerSheet> {
     _clientController.clear();
     _amountController.clear();
     _projectTypeController.clear();
+    _dateController.text = _dateInput(DateTime.now());
     _noteController.clear();
     if (mounted) setState(() => _error = null);
   }
@@ -1319,6 +1337,13 @@ class _GigCard extends StatelessWidget {
                 Text(
                   gig.projectType,
                   style: Theme.of(context).textTheme.labelMedium,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _dateInput(gig.date),
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: KoloColors.textSecondary,
+                  ),
                 ),
               ],
             ),
@@ -2139,6 +2164,7 @@ class _PartnerSharingSheetState extends ConsumerState<_PartnerSharingSheet> {
                           padding: const EdgeInsets.only(bottom: 12),
                           child: _PartnerShareCard(
                             share: share,
+                            ownerUid: state.profile.uid,
                             onRevoke: () => _revoke(share),
                             onPublish: () => _publish(share),
                           ),
@@ -2254,11 +2280,13 @@ class _PartnerSharingSheetState extends ConsumerState<_PartnerSharingSheet> {
 class _PartnerShareCard extends StatelessWidget {
   const _PartnerShareCard({
     required this.share,
+    required this.ownerUid,
     required this.onRevoke,
     required this.onPublish,
   });
 
   final PartnerShare share;
+  final String ownerUid;
   final Future<void> Function() onRevoke;
   final Future<void> Function() onPublish;
 
@@ -2266,6 +2294,10 @@ class _PartnerShareCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final revoked = share.status == ShareStatus.revoked;
     final color = revoked ? KoloColors.textMuted : KoloColors.primary;
+    final inviteLink = PartnerInviteRef(
+      ownerUid: ownerUid,
+      shareId: share.id,
+    ).deepLink.toString();
     return Container(
       key: Key('partner_share_card_${share.id}'),
       width: double.infinity,
@@ -2321,6 +2353,45 @@ class _PartnerShareCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
+          if (!revoked) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: KoloColors.primaryPastel,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: SelectableText(
+                      inviteLink,
+                      key: Key('partner_invite_link_${share.id}'),
+                      style: const TextStyle(
+                        color: KoloColors.primary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    key: Key('copy_partner_invite_${share.id}'),
+                    tooltip: 'Copy invite link',
+                    onPressed: () async {
+                      await Clipboard.setData(ClipboardData(text: inviteLink));
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Invite link copied')),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.copy_rounded, size: 18),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
@@ -2363,6 +2434,8 @@ class _WatchedAppsSheet extends ConsumerStatefulWidget {
 class _WatchedAppsSheetState extends ConsumerState<_WatchedAppsSheet> {
   bool _refreshing = false;
   String? _refreshError;
+  String _searchQuery = '';
+  List<InstalledAppCandidate> _candidates = const [];
 
   Future<void> _refreshSuggestedApps() async {
     setState(() {
@@ -2373,30 +2446,12 @@ class _WatchedAppsSheetState extends ConsumerState<_WatchedAppsSheet> {
     try {
       final suggestions = await ref
           .read(androidCapabilityServiceProvider)
-          .getSuggestedBankingApps();
-      final currentState = ref
-          .read(dashboardProvider)
-          .maybeWhen(data: (state) => state, orElse: () => null);
-      final existingApps = {
-        for (final app in currentState?.watchedApps ?? const <WatchedApp>[])
-          app.packageName: app,
-      };
-
-      for (final suggestion in suggestions) {
-        final existing = existingApps[suggestion.packageName];
-        await ref
-            .read(koloRepositoryProvider)
-            .upsertWatchedApp(
-              WatchedApp(
-                packageName: suggestion.packageName,
-                displayName: suggestion.displayName,
-                enabled: existing?.enabled ?? false,
-              ),
-            );
-      }
+          .getInstalledAppCandidates();
 
       if (mounted && suggestions.isEmpty) {
         setState(() => _refreshError = 'No banking apps found yet.');
+      } else if (mounted) {
+        setState(() => _candidates = suggestions);
       }
     } catch (error) {
       if (mounted) setState(() => _refreshError = 'Could not refresh apps.');
@@ -2447,28 +2502,41 @@ class _WatchedAppsSheetState extends ConsumerState<_WatchedAppsSheet> {
                 'Watched Apps',
                 style: Theme.of(context).textTheme.titleLarge,
               ),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                key: const Key('refresh_watched_apps'),
-                onPressed: _refreshing ? null : _refreshSuggestedApps,
-                icon: _refreshing
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.refresh),
-                label: const Text('Refresh apps'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: KoloColors.primary,
-                  side: const BorderSide(color: KoloColors.primary),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
+              const SizedBox(height: 6),
+              Text(
+                'Pick the finance apps Kolo should watch. Installed banking apps appear first.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: KoloColors.textSecondary,
                 ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      key: const Key('watched_apps_search'),
+                      onChanged: (value) {
+                        setState(() => _searchQuery = value);
+                      },
+                      decoration: const InputDecoration(
+                        hintText: 'Search installed apps',
+                        prefixIcon: Icon(Icons.search),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  IconButton.filledTonal(
+                    key: const Key('refresh_watched_apps'),
+                    onPressed: _refreshing ? null : _refreshSuggestedApps,
+                    icon: _refreshing
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.refresh),
+                    tooltip: 'Refresh apps',
+                  ),
+                ],
               ),
               if (_refreshError != null) ...[
                 const SizedBox(height: 8),
@@ -2487,23 +2555,72 @@ class _WatchedAppsSheetState extends ConsumerState<_WatchedAppsSheet> {
                   final accessibilityState =
                       state.permissions[KoloPermission.accessibility] ??
                       PermissionGrantState.notRequested;
+                  final accessibilityGranted =
+                      accessibilityState == PermissionGrantState.granted;
+                  final visibleWatchedApps = _filterWatchedApps(
+                    state.watchedApps,
+                  );
+                  final candidateApps = _filterCandidates(state.watchedApps);
                   return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _WatchedAppsAccessibilityPrompt(
                         state: accessibilityState,
-                        onGrant: () => ref
-                            .read(koloRepositoryProvider)
-                            .updatePermission(
-                              KoloPermission.accessibility,
-                              PermissionGrantState.granted,
-                            ),
+                        onGrant: () async {
+                          final permissionState = await ref
+                              .read(permissionRequesterProvider)
+                              .request(KoloPermission.accessibility);
+                          await ref
+                              .read(koloRepositoryProvider)
+                              .updatePermission(
+                                KoloPermission.accessibility,
+                                permissionState,
+                              );
+                        },
                       ),
                       const SizedBox(height: 12),
-                      for (final app in state.watchedApps)
+                      if (visibleWatchedApps.isNotEmpty) ...[
+                        Text(
+                          'Watching',
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+                      for (final app in visibleWatchedApps)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 12),
-                          child: _WatchedAppToggle(app: app),
+                          child: _WatchedAppToggle(
+                            app: app,
+                            accessibilityGranted: accessibilityGranted,
+                          ),
                         ),
+                      if (candidateApps.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          'Add apps',
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
+                        const SizedBox(height: 10),
+                        for (final candidate in candidateApps)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: _InstalledAppCandidateTile(
+                              candidate: candidate,
+                            ),
+                          ),
+                      ],
+                      if (visibleWatchedApps.isEmpty &&
+                          candidateApps.isEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          _searchQuery.trim().isEmpty
+                              ? 'Refresh to discover installed apps.'
+                              : 'No apps match your search.',
+                          style: const TextStyle(
+                            color: KoloColors.textSecondary,
+                          ),
+                        ),
+                      ],
                     ],
                   );
                 },
@@ -2513,6 +2630,36 @@ class _WatchedAppsSheetState extends ConsumerState<_WatchedAppsSheet> {
         ),
       ),
     );
+  }
+
+  List<WatchedApp> _filterWatchedApps(List<WatchedApp> watchedApps) {
+    final query = _searchQuery.trim().toLowerCase();
+    if (query.isEmpty) return watchedApps;
+    return watchedApps.where((app) => _matchesWatchedApp(app, query)).toList();
+  }
+
+  List<InstalledAppCandidate> _filterCandidates(List<WatchedApp> watchedApps) {
+    final watchedPackages = {
+      for (final app in watchedApps) app.packageName.toLowerCase(),
+    };
+    final query = _searchQuery.trim().toLowerCase();
+    return _candidates.where((candidate) {
+      if (watchedPackages.contains(candidate.packageName.toLowerCase())) {
+        return false;
+      }
+      if (query.isEmpty) return true;
+      return _matchesCandidate(candidate, query);
+    }).toList();
+  }
+
+  bool _matchesWatchedApp(WatchedApp app, String query) {
+    return app.displayName.toLowerCase().contains(query) ||
+        app.packageName.toLowerCase().contains(query);
+  }
+
+  bool _matchesCandidate(InstalledAppCandidate candidate, String query) {
+    return candidate.displayName.toLowerCase().contains(query) ||
+        candidate.packageName.toLowerCase().contains(query);
   }
 }
 
@@ -2594,12 +2741,17 @@ class _WatchedAppsAccessibilityPrompt extends StatelessWidget {
 }
 
 class _WatchedAppToggle extends ConsumerWidget {
-  const _WatchedAppToggle({required this.app});
+  const _WatchedAppToggle({
+    required this.app,
+    required this.accessibilityGranted,
+  });
 
   final WatchedApp app;
+  final bool accessibilityGranted;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final canChange = accessibilityGranted || app.enabled;
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -2612,34 +2764,315 @@ class _WatchedAppToggle extends ConsumerWidget {
           ),
         ],
       ),
-      child: SwitchListTile(
-        key: Key('toggle_watched_app_${app.packageName}'),
-        value: app.enabled,
-        activeThumbColor: KoloColors.primary,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        secondary: CircleAvatar(
-          backgroundColor: KoloColors.primaryPastel,
+      child: Column(
+        children: [
+          SwitchListTile(
+            key: Key('toggle_watched_app_${app.packageName}'),
+            value: app.enabled,
+            activeThumbColor: KoloColors.primary,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 4,
+            ),
+            secondary: CircleAvatar(
+              backgroundColor: KoloColors.primaryPastel,
+              child: Icon(
+                Icons.visibility_outlined,
+                color: app.enabled ? KoloColors.primary : KoloColors.textMuted,
+              ),
+            ),
+            title: Text(
+              app.displayName,
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+            subtitle: Text(
+              app.enabled
+                  ? _blockLevelSummary(app.blockLevel)
+                  : canChange
+                  ? 'Off'
+                  : 'Grant Accessibility before enabling',
+            ),
+            onChanged: canChange
+                ? (enabled) async {
+                    await _saveWatchedApp(ref, enabled: enabled);
+                  }
+                : null,
+          ),
+          if (app.enabled) ...[
+            const Divider(height: 1, color: Color(0xFFEDE9FE)),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Block Level',
+                    style: TextStyle(
+                      color: KoloColors.textPrimary,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final level in WatchedAppBlockLevel.values)
+                        ChoiceChip(
+                          key: Key(
+                            'block_level_${app.packageName}_${level.name}',
+                          ),
+                          selected: app.blockLevel == level,
+                          label: Text(_blockLevelLabel(level)),
+                          selectedColor: KoloColors.primaryPastel,
+                          backgroundColor: const Color(0xFFF9FAFB),
+                          checkmarkColor: KoloColors.primary,
+                          labelStyle: TextStyle(
+                            color: app.blockLevel == level
+                                ? KoloColors.primary
+                                : KoloColors.textSecondary,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 12,
+                          ),
+                          side: BorderSide(
+                            color: app.blockLevel == level
+                                ? KoloColors.primaryLight
+                                : const Color(0xFFE5E7EB),
+                          ),
+                          onSelected: (_) async {
+                            await _selectBlockLevel(context, ref, level);
+                          },
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _blockLevelDescription(app.blockLevel),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: KoloColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _saveWatchedApp(
+    WidgetRef ref, {
+    bool? enabled,
+    WatchedAppBlockLevel? blockLevel,
+  }) {
+    return ref
+        .read(koloRepositoryProvider)
+        .upsertWatchedApp(
+          WatchedApp(
+            packageName: app.packageName,
+            displayName: app.displayName,
+            enabled: enabled ?? app.enabled,
+            blockLevel: blockLevel ?? app.blockLevel,
+          ),
+        );
+  }
+
+  Future<void> _selectBlockLevel(
+    BuildContext context,
+    WidgetRef ref,
+    WatchedAppBlockLevel level,
+  ) async {
+    if (level == WatchedAppBlockLevel.hardLock &&
+        app.blockLevel != WatchedAppBlockLevel.hardLock) {
+      final confirmedLevel = await showModalBottomSheet<WatchedAppBlockLevel>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => _HardLockOnboardingSheet(app: app),
+      );
+      if (confirmedLevel == null) return;
+      await _saveWatchedApp(ref, blockLevel: confirmedLevel);
+      return;
+    }
+
+    await _saveWatchedApp(ref, blockLevel: level);
+  }
+}
+
+String _blockLevelLabel(WatchedAppBlockLevel level) {
+  return switch (level) {
+    WatchedAppBlockLevel.soft => 'Soft',
+    WatchedAppBlockLevel.explain => 'Explain',
+    WatchedAppBlockLevel.hardLock => 'Hard Lock',
+  };
+}
+
+String _blockLevelSummary(WatchedAppBlockLevel level) {
+  return switch (level) {
+    WatchedAppBlockLevel.soft => 'Soft mode',
+    WatchedAppBlockLevel.explain => 'Explain mode',
+    WatchedAppBlockLevel.hardLock => 'Hard Lock mode',
+  };
+}
+
+String _blockLevelDescription(WatchedAppBlockLevel level) {
+  return switch (level) {
+    WatchedAppBlockLevel.soft =>
+      'Soft mode - Kolo shows a dismissible bubble when this app opens.',
+    WatchedAppBlockLevel.explain =>
+      'Explain mode - you must type a reason before Kolo lets you through.',
+    WatchedAppBlockLevel.hardLock =>
+      'Hard Lock mode - Kolo checks budget context before you proceed.',
+  };
+}
+
+class _HardLockOnboardingSheet extends StatelessWidget {
+  const _HardLockOnboardingSheet({required this.app});
+
+  final WatchedApp app;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('hard_lock_onboarding_sheet'),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+      decoration: const BoxDecoration(
+        color: Color(0xF5FFFFFF),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x20000000),
+            blurRadius: 40,
+            offset: Offset(0, -8),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                height: 4,
+                width: 42,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE5E7EB),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                const CircleAvatar(
+                  backgroundColor: KoloColors.primaryPastel,
+                  child: Icon(Icons.lock_outline, color: KoloColors.primary),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Hard Lock is serious',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'When you try to open ${app.displayName}, Kolo will review your spending context and decide if this is a good idea. You can always override. Kolo never truly locks you out, but you will have to explain yourself first.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: KoloColors.textSecondary,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 18),
+            FilledButton(
+              key: Key('confirm_hard_lock_${app.packageName}'),
+              onPressed: () {
+                Navigator.of(context).pop(WatchedAppBlockLevel.hardLock);
+              },
+              child: const Text('Got it, enable Hard Lock'),
+            ),
+            const SizedBox(height: 8),
+            Center(
+              child: TextButton(
+                key: Key('use_explain_mode_${app.packageName}'),
+                onPressed: () {
+                  Navigator.of(context).pop(WatchedAppBlockLevel.explain);
+                },
+                child: const Text('Use Explain Mode instead'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InstalledAppCandidateTile extends ConsumerWidget {
+  const _InstalledAppCandidateTile({required this.candidate});
+
+  final InstalledAppCandidate candidate;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final installed = candidate.installed;
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 20,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        leading: CircleAvatar(
+          backgroundColor: candidate.isKnownFinancialApp
+              ? KoloColors.primaryPastel
+              : const Color(0xFFF3F4F6),
           child: Icon(
-            Icons.visibility_outlined,
-            color: app.enabled ? KoloColors.primary : KoloColors.textMuted,
+            candidate.isKnownFinancialApp
+                ? Icons.account_balance_wallet_outlined
+                : Icons.apps_outlined,
+            color: candidate.isKnownFinancialApp
+                ? KoloColors.primary
+                : KoloColors.textSecondary,
           ),
         ),
         title: Text(
-          app.displayName,
+          candidate.displayName,
           style: const TextStyle(fontWeight: FontWeight.w800),
         ),
-        subtitle: Text(app.enabled ? 'On' : 'Off'),
-        onChanged: (enabled) async {
-          await ref
-              .read(koloRepositoryProvider)
-              .upsertWatchedApp(
-                WatchedApp(
-                  packageName: app.packageName,
-                  displayName: app.displayName,
-                  enabled: enabled,
-                ),
-              );
-        },
+        subtitle: Text(
+          installed
+              ? candidate.isKnownFinancialApp
+                    ? 'Installed finance app'
+                    : 'Installed app'
+              : 'Suggested finance app',
+        ),
+        trailing: OutlinedButton(
+          key: Key('add_watched_app_${candidate.packageName}'),
+          onPressed: installed
+              ? () async {
+                  await ref
+                      .read(koloRepositoryProvider)
+                      .upsertWatchedApp(candidate.toWatchedApp());
+                }
+              : null,
+          child: Text(installed ? 'Add' : 'Not installed'),
+        ),
       ),
     );
   }

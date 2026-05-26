@@ -1,4 +1,5 @@
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
+import 'package:kolo/domain/models/models.dart';
 
 abstract class OverlayWindowPlatform {
   Future<bool> isPermissionGranted();
@@ -24,6 +25,8 @@ abstract class OverlayWindowPlatform {
     required bool enableDrag,
   });
 
+  Future<bool?> closeOverlay();
+
   Future<Object?> shareData(Object? data);
 
   Stream<Object?> get overlayListener;
@@ -31,6 +34,10 @@ abstract class OverlayWindowPlatform {
 
 class FlutterOverlayWindowPlatform implements OverlayWindowPlatform {
   const FlutterOverlayWindowPlatform();
+
+  static final Stream<Object?> _overlayMessages = FlutterOverlayWindow
+      .overlayListener
+      .asBroadcastStream();
 
   @override
   Future<bool> isPermissionGranted() {
@@ -80,12 +87,17 @@ class FlutterOverlayWindowPlatform implements OverlayWindowPlatform {
   }
 
   @override
+  Future<bool?> closeOverlay() {
+    return FlutterOverlayWindow.closeOverlay();
+  }
+
+  @override
   Future<Object?> shareData(Object? data) {
     return FlutterOverlayWindow.shareData(data);
   }
 
   @override
-  Stream<Object?> get overlayListener => FlutterOverlayWindow.overlayListener;
+  Stream<Object?> get overlayListener => _overlayMessages;
 }
 
 class OverlayBubbleService {
@@ -122,6 +134,43 @@ class OverlayBubbleService {
     return true;
   }
 
+  Future<bool> showBlockOverlay({
+    required String appName,
+    required String packageName,
+    required WatchedAppBlockLevel blockLevel,
+    required String prompt,
+  }) async {
+    final hasPermission = await isPermissionGranted();
+    if (!hasPermission) {
+      return false;
+    }
+
+    final isActive = await _platform.isActive();
+    if (isActive) {
+      await _platform.closeOverlay();
+    }
+
+    await _platform.showOverlay(
+      height: WindowSize.fullCover,
+      width: WindowSize.fullCover,
+      alignment: OverlayAlignment.center,
+      flag: OverlayFlag.focusPointer,
+      overlayTitle: 'Kolo block overlay active',
+      overlayContent: 'Kolo is checking this app launch with you.',
+      enableDrag: false,
+      positionGravity: PositionGravity.none,
+    );
+
+    await _platform.shareData({
+      'type': 'blockOverlay',
+      'appName': appName,
+      'packageName': packageName,
+      'blockLevel': blockLevel.name,
+      'prompt': prompt,
+    });
+    return true;
+  }
+
   Future<bool> requestPermission() async {
     return await _platform.requestPermission() ?? false;
   }
@@ -140,6 +189,27 @@ class OverlayBubbleService {
 
   Future<Object?> sendPromptToOverlay(String prompt) {
     return _platform.shareData({'type': 'prompt', 'text': prompt});
+  }
+
+  Future<Object?> sendAssistantMessageToOverlay(String message) {
+    return _platform.shareData({'type': 'assistantMessage', 'text': message});
+  }
+
+  Future<Object?> sendBlockDecisionToOverlay({
+    required String status,
+    required String message,
+    required String appName,
+    required String packageName,
+    required String blockLevel,
+  }) {
+    return _platform.shareData({
+      'type': 'blockDecision',
+      'status': status,
+      'message': message,
+      'appName': appName,
+      'packageName': packageName,
+      'blockLevel': blockLevel,
+    });
   }
 
   Stream<Object?> get overlayMessages => _platform.overlayListener;

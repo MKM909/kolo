@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kolo/app/providers.dart';
+import 'package:kolo/data/services/offline_sync_queue.dart';
 import 'package:kolo/domain/models/models.dart';
+import 'package:kolo/domain/services/transaction_categorizer.dart';
 import 'package:kolo/ui/core/theme/kolo_theme.dart';
 import 'package:kolo/ui/features/home/home_screen.dart';
 
@@ -127,6 +129,25 @@ void main() {
     expect(find.text('₦8,000.00'), findsOneWidget);
   });
 
+  testWidgets('home surfaces pending sync status', (tester) async {
+    await _pumpHome(
+      tester,
+      _dashboardWithBills(const []),
+      pendingOperations: [
+        PendingSyncOperation(
+          id: 'pending-transaction',
+          kind: 'transaction',
+          payload: const {'id': 'tx-offline'},
+          createdAt: DateTime(2026, 5, 26, 10),
+        ),
+      ],
+    );
+
+    expect(find.byKey(const Key('home_sync_status')), findsOneWidget);
+    expect(find.text('Waiting to sync'), findsOneWidget);
+    expect(find.text('1 pending'), findsOneWidget);
+  });
+
   testWidgets('manual expense prompts before dipping into vault funds', (
     tester,
   ) async {
@@ -150,6 +171,42 @@ void main() {
     );
     expect(find.textContaining('protected vault money'), findsOneWidget);
     expect(find.textContaining('New Phone'), findsOneWidget);
+  });
+
+  testWidgets('manual expense asks Kolo to suggest a category', (tester) async {
+    final categorizer = _FakeTransactionCategorizer(
+      draft: const TransactionDraft(
+        amountKobo: 0,
+        type: TransactionType.expense,
+        merchantName: 'Bolt',
+        source: TransactionSource.manual,
+        rawText: 'Bolt ride to campus',
+        category: 'Transport',
+      ),
+    );
+    await _pumpHome(
+      tester,
+      _dashboardWithBills(const []),
+      categorizer: categorizer,
+    );
+
+    await tester.tap(find.text('Log Expense'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('transaction_description')),
+      'Bolt ride to campus',
+    );
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump();
+
+    expect(categorizer.lastRawText, 'Bolt ride to campus');
+    expect(categorizer.lastSource, TransactionSource.manual);
+    expect(
+      find.byKey(const Key('transaction_category_suggestion')),
+      findsOneWidget,
+    );
+    expect(find.text('Kolo suggested Transport'), findsOneWidget);
   });
 
   testWidgets('manual expense prompts before risking a due bill', (
@@ -191,14 +248,46 @@ void main() {
   });
 }
 
-Future<void> _pumpHome(WidgetTester tester, DashboardState state) async {
+Future<void> _pumpHome(
+  WidgetTester tester,
+  DashboardState state, {
+  List<PendingSyncOperation> pendingOperations = const [],
+  TransactionCategorizer? categorizer,
+}) async {
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [dashboardProvider.overrideWith((ref) => Stream.value(state))],
+      overrides: [
+        dashboardProvider.overrideWith((ref) => Stream.value(state)),
+        if (categorizer != null)
+          transactionCategorizerProvider.overrideWithValue(categorizer),
+        pendingSyncOperationsProvider.overrideWith(
+          (ref) => Stream.value(pendingOperations),
+        ),
+      ],
       child: MaterialApp(theme: KoloTheme.light, home: const HomeScreen()),
     ),
   );
   await tester.pumpAndSettle();
+}
+
+class _FakeTransactionCategorizer implements TransactionCategorizer {
+  _FakeTransactionCategorizer({required this.draft});
+
+  final TransactionDraft draft;
+  String? lastRawText;
+  TransactionSource? lastSource;
+
+  @override
+  Future<TransactionDraft?> categorizeTransaction({
+    required String rawText,
+    required TransactionSource source,
+    required DashboardState context,
+    String? modelName,
+  }) async {
+    lastRawText = rawText;
+    lastSource = source;
+    return draft;
+  }
 }
 
 DashboardState _dashboardWithBills(List<BillReminder> bills) {
