@@ -1,11 +1,12 @@
 import {genkit, z} from "genkit";
 import {googleAI} from "@genkit-ai/googleai";
-import {onCallGenkit} from "firebase-functions/https";
+import {HttpsError, onCall, onCallGenkit} from "firebase-functions/https";
 import {getApps, initializeApp} from "firebase-admin/app";
 import {FieldValue, getFirestore, Timestamp} from "firebase-admin/firestore";
 import {
   fallbackInterventionMessage,
   fallbackReminderDraft,
+  fallbackSpendingJustificationDecision,
   fallbackTransactionCategorization,
   fallbackWeeklyInsight,
   interventionInputSchema,
@@ -14,6 +15,8 @@ import {
   reminderInputSchema,
   smsReceivedInputSchema,
   smsReceivedOutputSchema,
+  spendingJustificationDecisionSchema,
+  spendingJustificationInputSchema,
   transactionCategorizationInputSchema,
   transactionCategorizationSchema,
   weeklyInsightInputSchema,
@@ -280,6 +283,31 @@ const interventionMessageFlow = ai.defineFlow(
   },
 );
 
+const evaluateSpendingJustificationFlow = ai.defineFlow(
+  {
+    name: "evaluateSpendingJustificationFlow",
+    inputSchema: spendingJustificationInputSchema.extend({
+      model: modelNameSchema.optional(),
+    }),
+    outputSchema: spendingJustificationDecisionSchema,
+  },
+  async (input, {context: flowContext}) => {
+    requireCallableAuth(flowContext);
+    const response = await ai.generate({
+      model: selectedGeminiModel(input.model),
+      prompt: [
+        "Evaluate this Kolo spending justification.",
+        "Return approved, caution, or advisedAgainst. Be warm, direct, and never shame the user.",
+        `Transaction JSON: ${JSON.stringify(input.transaction)}`,
+        `User justification: ${input.justification}`,
+        `Financial context JSON: ${JSON.stringify(input.context ?? {})}`,
+      ].join("\n"),
+      output: {schema: spendingJustificationDecisionSchema},
+    });
+    return response.output ?? fallbackSpendingJustificationDecision();
+  },
+);
+
 const categorizeTransactionFlow = ai.defineFlow(
   {
     name: "categorizeTransactionFlow",
@@ -431,10 +459,83 @@ const analyzeSpendingFlow = ai.defineFlow(
 export const chatWithKolo = onCallGenkit(chatFlow);
 export const generateBudget = onCallGenkit(generateBudgetFlow);
 export const interventionMessage = onCallGenkit(interventionMessageFlow);
+export const evaluateSpendingJustification = onCallGenkit(
+  evaluateSpendingJustificationFlow,
+);
 export const categorizeTransaction = onCallGenkit(categorizeTransactionFlow);
 export const onSmsReceived = onCallGenkit(onSmsReceivedFlow);
 export const draftReminder = onCallGenkit(draftReminderFlow);
 export const analyzeSpending = onCallGenkit(analyzeSpendingFlow);
+
+export const acceptPartnerShare = onCall(async (request) => {
+  if (!request.auth?.uid || !request.auth.token.email) {
+    throw new HttpsError("unauthenticated", "Sign in to accept a share.");
+  }
+  const uid = request.auth.uid;
+  const partnerEmail = request.auth.token.email;
+
+  const ownerUid = String(request.data?.ownerUid ?? "");
+  const shareId = String(request.data?.shareId ?? "");
+  if (!ownerUid || !shareId) {
+    throw new HttpsError("invalid-argument", "ownerUid and shareId are required.");
+  }
+  if (ownerUid === uid) {
+    throw new HttpsError("failed-precondition", "Owners cannot accept their own share.");
+  }
+
+  const ownerRef = firestore.collection("users").doc(ownerUid);
+  const shareRef = ownerRef.collection("partnerShares").doc(shareId);
+  const summaryRef = ownerRef.collection("partnerSummaries").doc(shareId);
+  const shareSnapshot = await shareRef.get();
+  if (!shareSnapshot.exists) {
+    throw new HttpsError("not-found", "Partner share not found.");
+  }
+
+  const share = shareSnapshot.data() ?? {};
+  const invitedEmail = String(share.partnerEmail ?? "").toLowerCase();
+  if (invitedEmail !== partnerEmail.toLowerCase()) {
+    throw new HttpsError("permission-denied", "This invite is for another email.");
+  }
+  if (share.status === "revoked") {
+    throw new HttpsError("failed-precondition", "This partner share was revoked.");
+  }
+
+  const permissions = Array.isArray(share.permissions) ? share.permissions : [];
+  const batch = firestore.batch();
+  batch.set(
+    shareRef,
+    {
+      status: "active",
+      acceptedByUid: uid,
+      acceptedAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    {merge: true},
+  );
+  batch.set(
+    summaryRef,
+    {
+      shareId,
+      ownerUid,
+      partnerEmail,
+      status: "active",
+      permissions,
+      sections: {},
+      generatedAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    {merge: true},
+  );
+  await batch.commit();
+
+  return {
+    ownerUid,
+    shareId,
+    status: "active",
+    partnerEmail,
+    permissions,
+  };
+});
 
 function parseDateOrNow(value?: string | null): Date {
   if (!value) return new Date();

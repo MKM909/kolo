@@ -56,6 +56,34 @@ export const interventionMessageSchema = z.object({
 
 export type InterventionMessage = z.infer<typeof interventionMessageSchema>;
 
+export const spendingJustificationInputSchema = z.object({
+  transaction: z.object({
+    amountKobo: z.number().int().nonnegative(),
+    type: z.enum(["income", "expense"]),
+    category: z.string().min(1),
+    description: z.string().min(1),
+    source: z
+      .enum(["sms", "notification", "manual", "watchedApp"])
+      .optional(),
+    merchantName: z.string().optional().nullable(),
+  }),
+  justification: z.string().min(1).max(2000),
+  context: z.record(z.string(), z.unknown()).optional(),
+});
+
+export const spendingJustificationDecisionSchema = z.object({
+  status: z.enum(["approved", "caution", "advisedAgainst"]),
+  message: z.string().min(1),
+  aiNote: z.string().min(1),
+});
+
+export type SpendingJustificationInput = z.infer<
+  typeof spendingJustificationInputSchema
+>;
+export type SpendingJustificationDecision = z.infer<
+  typeof spendingJustificationDecisionSchema
+>;
+
 export const reminderInputSchema = z.object({
   owing: z.object({
     person: z.string().min(1),
@@ -105,6 +133,16 @@ export function fallbackInterventionMessage(): InterventionMessage {
     content: "Pause for a moment and check your Kolo balance before spending.",
     severity: "caution",
     suggestedAction: "Open Kolo and review today's budget.",
+  };
+}
+
+export function fallbackSpendingJustificationDecision():
+  SpendingJustificationDecision {
+  return {
+    status: "caution",
+    message:
+      "I could not fully evaluate this right now. If it matters, log it with a note and I will keep it visible.",
+    aiNote: "Caution - Gemini unavailable, user explanation kept for history.",
   };
 }
 
