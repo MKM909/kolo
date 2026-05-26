@@ -14,7 +14,8 @@ void main() {
     expect(mainSource, contains('KoloLiquidAetherOrb'));
     expect(mainSource, contains('FlutterOverlayWindow.resizeOverlay'));
     expect(mainSource, contains('FlutterOverlayWindow.shareData'));
-    expect(mainSource, contains('FlutterOverlayWindow.overlayListener'));
+    expect(mainSource, contains('overlayListener'));
+    expect(mainSource, contains('asBroadcastStream'));
   });
 
   testWidgets('overlay bubble expands into a conversational panel', (
@@ -41,6 +42,34 @@ void main() {
 
     expect(find.text('Can I spend 5000 on food?'), findsOneWidget);
     expect(find.textContaining('I can help you pressure-test'), findsOneWidget);
+  });
+
+  testWidgets('overlay renders block mode with aether background and chat', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: KoloOverlayBubble(
+          initialOverlayData: {
+            'type': 'blockOverlay',
+            'appName': 'Kuda',
+            'packageName': 'com.kuda.android',
+            'blockLevel': 'hardLock',
+            'prompt': 'Hold on. You just opened Kuda. What is the plan?',
+          },
+        ),
+      ),
+    );
+
+    expect(find.byKey(const Key('kolo_block_overlay')), findsOneWidget);
+    expect(find.byKey(const Key('kolo_aether_background')), findsOneWidget);
+    expect(find.byKey(const Key('kolo_block_orb')), findsOneWidget);
+    expect(find.text('Kolo'), findsOneWidget);
+    expect(find.text('Hard Lock'), findsOneWidget);
+    expect(find.textContaining('opening Kuda'), findsOneWidget);
+    expect(find.textContaining('What is the plan?'), findsOneWidget);
+    expect(find.byKey(const Key('kolo_block_input')), findsOneWidget);
+    expect(find.byKey(const Key('kolo_block_cancel')), findsOneWidget);
   });
 
   test('Android manifest registers the overlay plugin service', () {

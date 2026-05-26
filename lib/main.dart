@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
@@ -37,13 +38,19 @@ void overlayMain() {
 }
 
 class KoloOverlayBubble extends StatefulWidget {
-  const KoloOverlayBubble({super.key});
+  const KoloOverlayBubble({super.key, this.initialOverlayData});
+
+  final Map<String, Object?>? initialOverlayData;
 
   @override
   State<KoloOverlayBubble> createState() => _KoloOverlayBubbleState();
 }
 
 class _KoloOverlayBubbleState extends State<KoloOverlayBubble> {
+  static final Stream<Object?> _overlayMessages = FlutterOverlayWindow
+      .overlayListener
+      .asBroadcastStream();
+
   final TextEditingController _controller = TextEditingController();
   final List<_OverlayChatMessage> _messages = [
     const _OverlayChatMessage.assistant(
@@ -51,14 +58,14 @@ class _KoloOverlayBubbleState extends State<KoloOverlayBubble> {
     ),
   ];
   StreamSubscription<Object?>? _overlaySubscription;
+  _OverlayBlockContext? _blockContext;
   bool _expanded = false;
 
   @override
   void initState() {
     super.initState();
-    _overlaySubscription = FlutterOverlayWindow.overlayListener.listen(
-      _handleOverlayMessage,
-    );
+    _overlaySubscription = _overlayMessages.listen(_handleOverlayMessage);
+    _handleOverlayMessage(widget.initialOverlayData);
   }
 
   @override
@@ -71,6 +78,19 @@ class _KoloOverlayBubbleState extends State<KoloOverlayBubble> {
   void _handleOverlayMessage(Object? message) {
     if (message is! Map) return;
     final type = message['type']?.toString();
+    if (type == 'blockOverlay') {
+      final blockContext = _OverlayBlockContext.fromMap(message);
+      if (blockContext == null) return;
+      setState(() {
+        _blockContext = blockContext;
+        _expanded = false;
+        _messages
+          ..clear()
+          ..add(_OverlayChatMessage.assistant(blockContext.prompt));
+      });
+      return;
+    }
+
     final prompt = message['text']?.toString().trim();
     if (prompt == null || prompt.isEmpty) return;
     if (type == 'assistantMessage') {
@@ -111,6 +131,7 @@ class _KoloOverlayBubbleState extends State<KoloOverlayBubble> {
   Future<void> _sendMessage() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
+    final blockContext = _blockContext;
     _controller.clear();
     setState(() {
       _messages.add(_OverlayChatMessage.user(text));
@@ -120,9 +141,34 @@ class _KoloOverlayBubbleState extends State<KoloOverlayBubble> {
       await FlutterOverlayWindow.shareData({
         'type': 'userMessage',
         'text': text,
+        if (blockContext != null) ...{
+          'packageName': blockContext.packageName,
+          'appName': blockContext.appName,
+          'blockLevel': blockContext.blockLevel,
+        },
       });
     } on Object {
       // The overlay remains usable even when the platform channel is absent.
+    }
+  }
+
+  Future<void> _cancelBlockOverlay() async {
+    final blockContext = _blockContext;
+    if (mounted) {
+      setState(() => _blockContext = null);
+    }
+    try {
+      await FlutterOverlayWindow.shareData({
+        'type': 'blockCancelled',
+        if (blockContext != null) ...{
+          'packageName': blockContext.packageName,
+          'appName': blockContext.appName,
+          'blockLevel': blockContext.blockLevel,
+        },
+      });
+      await FlutterOverlayWindow.closeOverlay();
+    } on Object {
+      // Tests and unsupported platforms do not have the Android overlay channel.
     }
   }
 
@@ -141,6 +187,17 @@ class _KoloOverlayBubbleState extends State<KoloOverlayBubble> {
 
   @override
   Widget build(BuildContext context) {
+    final blockContext = _blockContext;
+    if (blockContext != null) {
+      return _BlockOverlay(
+        contextData: blockContext,
+        controller: _controller,
+        messages: _messages,
+        onCancel: _cancelBlockOverlay,
+        onSend: _sendMessage,
+      );
+    }
+
     if (_expanded) {
       return _OverlayConversationPanel(
         controller: _controller,
@@ -217,6 +274,327 @@ class _KoloOverlayBubbleState extends State<KoloOverlayBubble> {
       ),
     );
   }
+}
+
+class _BlockOverlay extends StatelessWidget {
+  const _BlockOverlay({
+    required this.contextData,
+    required this.controller,
+    required this.messages,
+    required this.onCancel,
+    required this.onSend,
+  });
+
+  final _OverlayBlockContext contextData;
+  final TextEditingController controller;
+  final List<_OverlayChatMessage> messages;
+  final VoidCallback onCancel;
+  final VoidCallback onSend;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      key: const Key('kolo_block_overlay'),
+      color: Colors.transparent,
+      child: Stack(
+        children: [
+          const Positioned.fill(child: _AetherBackground()),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.12),
+              ),
+            ),
+          ),
+          Positioned(
+            top: MediaQuery.sizeOf(context).height * 0.17,
+            left: 0,
+            right: 0,
+            child: const Center(
+              child: KoloLiquidAetherOrb(key: Key('kolo_block_orb'), size: 82),
+            ),
+          ),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: _BlockChatPanel(
+              contextData: contextData,
+              controller: controller,
+              messages: messages,
+              onCancel: onCancel,
+              onSend: onSend,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BlockChatPanel extends StatelessWidget {
+  const _BlockChatPanel({
+    required this.contextData,
+    required this.controller,
+    required this.messages,
+    required this.onCancel,
+    required this.onSend,
+  });
+
+  final _OverlayBlockContext contextData;
+  final TextEditingController controller;
+  final List<_OverlayChatMessage> messages;
+  final VoidCallback onCancel;
+  final VoidCallback onSend;
+
+  @override
+  Widget build(BuildContext context) {
+    final panelHeight = MediaQuery.sizeOf(context).height * 0.62;
+    return Container(
+      height: panelHeight,
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        color: Color(0xF5FFFFFF),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x20000000),
+            blurRadius: 40,
+            offset: Offset(0, -8),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              height: 4,
+              width: 40,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE5E7EB),
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: Row(
+                children: [
+                  const Text(
+                    'Kolo',
+                    style: TextStyle(
+                      color: KoloColors.textPrimary,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 20,
+                    ),
+                  ),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 11,
+                      vertical: 7,
+                    ),
+                    decoration: BoxDecoration(
+                      color: KoloColors.primaryPastel,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      contextData.blockLevelLabel,
+                      style: const TextStyle(
+                        color: KoloColors.primary,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'You are opening ${contextData.appName}',
+                  style: const TextStyle(
+                    color: KoloColors.textSecondary,
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                reverse: true,
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+                child: Column(
+                  children: [
+                    for (final message in messages)
+                      _OverlayChatBubble(message: message),
+                  ],
+                ),
+              ),
+            ),
+            _BlockOverlayInput(controller: controller, onSend: onSend),
+            TextButton(
+              key: const Key('kolo_block_cancel'),
+              onPressed: onCancel,
+              child: const Text(
+                'Never mind, go back',
+                style: TextStyle(color: KoloColors.textMuted),
+              ),
+            ),
+            const SizedBox(height: 4),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BlockOverlayInput extends StatelessWidget {
+  const _BlockOverlayInput({required this.controller, required this.onSend});
+
+  final TextEditingController controller;
+  final VoidCallback onSend;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.78),
+        border: const Border(top: BorderSide(color: Color(0xFFEDE9FE))),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              key: const Key('kolo_block_input'),
+              controller: controller,
+              minLines: 1,
+              maxLines: 3,
+              textInputAction: TextInputAction.send,
+              onSubmitted: (_) => onSend(),
+              decoration: const InputDecoration(
+                hintText: "Tell Kolo what's up...",
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          IconButton.filled(
+            key: const Key('kolo_block_send'),
+            tooltip: 'Send to Kolo',
+            onPressed: onSend,
+            style: IconButton.styleFrom(
+              backgroundColor: KoloColors.primary,
+              foregroundColor: Colors.white,
+            ),
+            icon: const Icon(Icons.send_rounded, size: 18),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AetherBackground extends StatefulWidget {
+  const _AetherBackground();
+
+  @override
+  State<_AetherBackground> createState() => _AetherBackgroundState();
+}
+
+class _AetherBackgroundState extends State<_AetherBackground>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 14),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      key: const Key('kolo_aether_background'),
+      painter: _AetherPainter(_controller),
+    );
+  }
+}
+
+class _AetherPainter extends CustomPainter {
+  const _AetherPainter(this.animation) : super(repaint: animation);
+
+  final Animation<double> animation;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawRect(Offset.zero & size, Paint()..color = KoloColors.scaffold);
+    final t = animation.value * math.pi * 2;
+    _drawOrb(
+      canvas,
+      size,
+      center: Offset(
+        size.width * (0.28 + math.sin(t) * 0.10),
+        size.height * (0.32 + math.cos(t * 0.8) * 0.08),
+      ),
+      radius: size.shortestSide * 0.72,
+      color: KoloColors.backgroundStart.withValues(alpha: 0.68),
+    );
+    _drawOrb(
+      canvas,
+      size,
+      center: Offset(
+        size.width * (0.74 + math.sin(t * 0.7 + 1.8) * 0.12),
+        size.height * (0.26 + math.cos(t * 0.9 + 1.4) * 0.11),
+      ),
+      radius: size.shortestSide * 0.62,
+      color: KoloColors.backgroundEnd.withValues(alpha: 0.58),
+    );
+    _drawOrb(
+      canvas,
+      size,
+      center: Offset(
+        size.width * (0.58 + math.sin(t * 1.1 + 3.1) * 0.14),
+        size.height * (0.62 + math.cos(t * 0.6 + 2.2) * 0.10),
+      ),
+      radius: size.shortestSide * 0.52,
+      color: KoloColors.primaryLight.withValues(alpha: 0.34),
+    );
+  }
+
+  void _drawOrb(
+    Canvas canvas,
+    Size size, {
+    required Offset center,
+    required double radius,
+    required Color color,
+  }) {
+    final rect = Rect.fromCircle(center: center, radius: radius);
+    final paint = Paint()
+      ..shader = RadialGradient(
+        colors: [color, color.withValues(alpha: 0)],
+      ).createShader(rect);
+    canvas.drawCircle(center, radius, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _AetherPainter oldDelegate) => false;
 }
 
 class _OverlayConversationPanel extends StatelessWidget {
@@ -541,6 +919,59 @@ class _OverlayAlertBadge extends StatelessWidget {
       ),
       child: const SizedBox.square(dimension: 12),
     );
+  }
+}
+
+class _OverlayBlockContext {
+  const _OverlayBlockContext({
+    required this.appName,
+    required this.packageName,
+    required this.blockLevel,
+    required this.prompt,
+  });
+
+  final String appName;
+  final String packageName;
+  final String blockLevel;
+  final String prompt;
+
+  String get blockLevelLabel {
+    return switch (blockLevel) {
+      'hardLock' => 'Hard Lock',
+      'explain' => 'Explain',
+      _ => 'Block Mode',
+    };
+  }
+
+  static _OverlayBlockContext? fromMap(Map<Object?, Object?> map) {
+    final appName = map['appName']?.toString().trim();
+    final packageName = map['packageName']?.toString().trim();
+    final blockLevel = map['blockLevel']?.toString().trim();
+    final prompt = map['prompt']?.toString().trim();
+    if (appName == null ||
+        appName.isEmpty ||
+        packageName == null ||
+        packageName.isEmpty ||
+        blockLevel == null ||
+        blockLevel.isEmpty) {
+      return null;
+    }
+
+    return _OverlayBlockContext(
+      appName: appName,
+      packageName: packageName,
+      blockLevel: blockLevel,
+      prompt: prompt == null || prompt.isEmpty
+          ? _fallbackPrompt(appName, blockLevel)
+          : prompt,
+    );
+  }
+
+  static String _fallbackPrompt(String appName, String blockLevel) {
+    if (blockLevel == 'hardLock') {
+      return 'Hold on. You are opening $appName. What is the plan?';
+    }
+    return 'Before you go in, what is this for?';
   }
 }
 
