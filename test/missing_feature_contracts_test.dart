@@ -39,6 +39,12 @@ void main() {
       'kolo://app/partner/invite?ownerUid=owner-1&shareId=share-2',
     );
     expect(PartnerInviteRef.fromUri(invite.deepLink), invite);
+    expect(
+      PartnerInviteRef.fromUri(
+        Uri.parse('/partner/invite?ownerUid=owner-1&shareId=share-2'),
+      ),
+      invite,
+    );
     expect(PartnerInviteRef.fromUri(Uri.parse('kolo://app/ai')), isNull);
   });
 
@@ -73,13 +79,16 @@ void main() {
     expect(intent.payload['billId'], 'bill-data');
   });
 
-  test('missing feature service interfaces compile against stable contracts', () {
-    expect(_FakeSpendingAdvisor(), isA<SpendingJustificationAdvisor>());
-    expect(_FakePartnerRepository(), isA<PartnerRepository>());
-    expect(_FakeReminderScheduler(), isA<ReminderScheduler>());
-    expect(_FakeDashboardCacheStore(), isA<DashboardCacheStore>());
-    expect(_FakeNativeEventQueueStore(), isA<NativeEventQueueStore>());
-  });
+  test(
+    'missing feature service interfaces compile against stable contracts',
+    () {
+      expect(_FakeSpendingAdvisor(), isA<SpendingJustificationAdvisor>());
+      expect(_FakePartnerRepository(), isA<PartnerRepository>());
+      expect(_FakeReminderScheduler(), isA<ReminderScheduler>());
+      expect(_FakeDashboardCacheStore(), isA<DashboardCacheStore>());
+      expect(_FakeNativeEventQueueStore(), isA<NativeEventQueueStore>());
+    },
+  );
 }
 
 class _FakeSpendingAdvisor implements SpendingJustificationAdvisor {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kolo/app/providers.dart';
 import 'package:kolo/data/services/offline_sync_queue.dart';
@@ -2139,6 +2140,7 @@ class _PartnerSharingSheetState extends ConsumerState<_PartnerSharingSheet> {
                           padding: const EdgeInsets.only(bottom: 12),
                           child: _PartnerShareCard(
                             share: share,
+                            ownerUid: state.profile.uid,
                             onRevoke: () => _revoke(share),
                             onPublish: () => _publish(share),
                           ),
@@ -2254,11 +2256,13 @@ class _PartnerSharingSheetState extends ConsumerState<_PartnerSharingSheet> {
 class _PartnerShareCard extends StatelessWidget {
   const _PartnerShareCard({
     required this.share,
+    required this.ownerUid,
     required this.onRevoke,
     required this.onPublish,
   });
 
   final PartnerShare share;
+  final String ownerUid;
   final Future<void> Function() onRevoke;
   final Future<void> Function() onPublish;
 
@@ -2266,6 +2270,10 @@ class _PartnerShareCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final revoked = share.status == ShareStatus.revoked;
     final color = revoked ? KoloColors.textMuted : KoloColors.primary;
+    final inviteLink = PartnerInviteRef(
+      ownerUid: ownerUid,
+      shareId: share.id,
+    ).deepLink.toString();
     return Container(
       key: Key('partner_share_card_${share.id}'),
       width: double.infinity,
@@ -2321,6 +2329,45 @@ class _PartnerShareCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
+          if (!revoked) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: KoloColors.primaryPastel,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: SelectableText(
+                      inviteLink,
+                      key: Key('partner_invite_link_${share.id}'),
+                      style: const TextStyle(
+                        color: KoloColors.primary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    key: Key('copy_partner_invite_${share.id}'),
+                    tooltip: 'Copy invite link',
+                    onPressed: () async {
+                      await Clipboard.setData(ClipboardData(text: inviteLink));
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Invite link copied')),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.copy_rounded, size: 18),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [

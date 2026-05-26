@@ -46,11 +46,7 @@ class SpendingJustificationDecision {
   bool get requiresOverride => !approved;
 
   Map<String, Object?> toJson() {
-    return {
-      'status': status.name,
-      'message': message,
-      'aiNote': aiNote,
-    };
+    return {'status': status.name, 'message': message, 'aiNote': aiNote};
   }
 
   static SpendingDecisionStatus _statusFromJson(Object? value) {
@@ -72,17 +68,18 @@ class PartnerInviteRef {
       scheme: 'kolo',
       host: 'app',
       path: '/partner/invite',
-      queryParameters: {
-        'ownerUid': ownerUid,
-        'shareId': shareId,
-      },
+      queryParameters: {'ownerUid': ownerUid, 'shareId': shareId},
     );
   }
 
   static PartnerInviteRef? fromUri(Uri uri) {
-    if (uri.scheme != 'kolo' ||
-        uri.host != 'app' ||
-        uri.path != '/partner/invite') {
+    final isDeepLink =
+        uri.scheme == 'kolo' &&
+        uri.host == 'app' &&
+        uri.path == '/partner/invite';
+    final isInAppRoute =
+        uri.scheme.isEmpty && uri.host.isEmpty && uri.path == '/partner/invite';
+    if (!isDeepLink && !isInAppRoute) {
       return null;
     }
     final ownerUid = uri.queryParameters['ownerUid'];
@@ -185,10 +182,7 @@ class CachedDashboardMetadata {
 }
 
 class CachedDashboardEntry {
-  const CachedDashboardEntry({
-    required this.dashboard,
-    required this.metadata,
-  });
+  const CachedDashboardEntry({required this.dashboard, required this.metadata});
 
   final DashboardState dashboard;
   final CachedDashboardMetadata metadata;

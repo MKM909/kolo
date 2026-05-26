@@ -1079,6 +1079,7 @@ void main() {
 
     expect(find.text('ade@example.com'), findsWidgets);
     expect(find.text('pending'), findsWidgets);
+    expect(find.textContaining('kolo://app/partner/invite'), findsWidgets);
 
     await tester.tap(find.byKey(const Key('revoke_partner_share-1')));
     await tester.pumpAndSettle();

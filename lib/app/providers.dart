@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:kolo/app/backend_selector.dart';
 import 'package:kolo/data/repositories/fake_auth_repository.dart';
 import 'package:kolo/data/repositories/fake_kolo_repository.dart';
+import 'package:kolo/data/repositories/fake_partner_repository.dart';
 import 'package:kolo/data/repositories/firebase_auth_repository.dart';
 import 'package:kolo/data/repositories/firebase_kolo_repository.dart';
+import 'package:kolo/data/repositories/firebase_partner_repository.dart';
 import 'package:kolo/data/services/android_capability_service.dart';
 import 'package:kolo/data/services/biometric_session_lock.dart';
 import 'package:kolo/data/services/biometric_unlock_service.dart';
@@ -21,6 +23,7 @@ import 'package:kolo/data/services/reminder_sync_service.dart';
 import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/repositories/auth_repository.dart';
 import 'package:kolo/domain/repositories/kolo_repository.dart';
+import 'package:kolo/domain/repositories/partner_repository.dart';
 import 'package:kolo/domain/services/permission_requester.dart';
 import 'package:kolo/domain/services/local_spending_justification_advisor.dart';
 import 'package:kolo/domain/services/reminder_scheduler.dart';
@@ -118,6 +121,12 @@ final koloRepositoryProvider = Provider<KoloRepository>((ref) {
     fakeBuilder: FakeKoloRepository.seeded,
     firebaseBuilder: (uid) => FirebaseKoloRepository(uid: uid),
   );
+});
+
+final partnerRepositoryProvider = Provider<PartnerRepository>((ref) {
+  final bootstrap = ref.watch(firebaseBootstrapResultProvider);
+  if (bootstrap.initialized) return FirebasePartnerRepository();
+  return FakePartnerRepository();
 });
 
 final dashboardProvider = StreamProvider<DashboardState>((ref) {

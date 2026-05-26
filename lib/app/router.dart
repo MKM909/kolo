@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/ui/features/ai_chat/ai_chat_screen.dart';
 import 'package:kolo/ui/features/auth/auth_screens.dart';
 import 'package:kolo/ui/features/budget/budget_screen.dart';
 import 'package:kolo/ui/features/home/home_screen.dart';
+import 'package:kolo/ui/features/partner/partner_screens.dart';
 import 'package:kolo/ui/features/profile/profile_screen.dart';
 import 'package:kolo/ui/features/shell/kolo_shell.dart';
 import 'package:kolo/ui/features/transactions/transactions_screen.dart';
@@ -28,7 +30,8 @@ GoRouter buildKoloRouter({
           path == '/signup' ||
           path == '/splash' ||
           path == '/verify-email' ||
-          path == '/onboarding';
+          path == '/onboarding' ||
+          path == '/partner/invite';
 
       if (!signedIn && !isAuthRoute) return '/login';
       if (signedIn && !emailVerified && path != '/verify-email') {
@@ -81,6 +84,19 @@ GoRouter buildKoloRouter({
       GoRoute(
         path: '/lock',
         builder: (context, state) => const BiometricLockScreen(),
+      ),
+      GoRoute(
+        path: '/partner/invite',
+        builder: (context, state) =>
+            PartnerInviteScreen(invite: PartnerInviteRef.fromUri(state.uri)),
+      ),
+      GoRoute(
+        path: '/partner/dashboard',
+        builder: (context, state) => PartnerDashboardScreen(
+          invite: PartnerInviteRef.fromUri(
+            state.uri.replace(path: '/partner/invite'),
+          ),
+        ),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
