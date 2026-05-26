@@ -51,7 +51,7 @@ void main() {
     expect(dashboard.transactions.first.id, 'native-sms-1');
     expect(dashboard.transactions.first.merchantName, 'Chicken Republic');
     expect(dashboard.transactions.first.amountKobo, 250000);
-    expect(dashboard.balanceKobo, 5080000 - 250000);
+    expect(dashboard.balanceKobo, 4750000);
     expect(overlayBubble.showCalls, 1);
   });
 
@@ -127,7 +127,7 @@ void main() {
       dashboard.transactions.where((tx) => tx.id == 'native-sms-dupe'),
       hasLength(1),
     );
-    expect(dashboard.balanceKobo, 5080000 - 250000);
+    expect(dashboard.balanceKobo, 4750000);
     expect(overlayBubble.showCalls, 1);
   });
 
@@ -485,7 +485,7 @@ void main() {
     expect(handler.calls, 1);
     expect(dashboard.transactions.first.id, 'native-sms-server-fallback');
     expect(dashboard.transactions.first.merchantName, 'Chicken Republic');
-    expect(dashboard.balanceKobo, 5080000 - 250000);
+    expect(dashboard.balanceKobo, 4750000);
     expect(overlayBubble.showCalls, 1);
   });
 

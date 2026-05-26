@@ -78,6 +78,7 @@ class NativeEventIngestor {
       }
 
       await _repository.logTransaction(_transactionFromDraft(event, draft));
+      await _reconcileParsedBalance(event, draft);
       await _overlayBubble?.showKoloBubble();
       processed += 1;
     }
@@ -258,6 +259,27 @@ class NativeEventIngestor {
       ].whereType<String>().join(' ').trim(),
       _ => null,
     };
+  }
+
+  Future<void> _reconcileParsedBalance(
+    NativeAndroidEvent event,
+    TransactionDraft draft,
+  ) async {
+    final balanceAfterKobo = draft.balanceAfterKobo;
+    if (balanceAfterKobo == null) return;
+
+    final dashboard = await _repository.watchDashboard().first;
+    if (dashboard.balanceKobo == balanceAfterKobo) return;
+
+    await _repository.adjustBalance(
+      BalanceAdjustment(
+        id: 'native-balance-${event.id}',
+        previousBalanceKobo: dashboard.balanceKobo,
+        newBalanceKobo: balanceAfterKobo,
+        note: 'Reconciled to the bank alert balance after native ingestion.',
+        createdAt: draft.occurredAt ?? event.createdAt,
+      ),
+    );
   }
 
   TransactionRecord _transactionFromDraft(
