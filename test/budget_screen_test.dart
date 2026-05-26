@@ -1,3 +1,4 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -50,6 +51,45 @@ void main() {
     expect(find.text('Lunch'), findsOneWidget);
     expect(find.text('Dinner'), findsOneWidget);
     expect(find.text('Old ride'), findsNothing);
+  });
+
+  testWidgets('weekly analytics chart pairs income and expense rods', (
+    tester,
+  ) async {
+    await _pumpBudget(
+      tester,
+      _dashboard.copyWith(
+        transactions: [
+          ..._dashboard.transactions,
+          TransactionRecord.income(
+            id: 'tx-income-1',
+            amountKobo: 900000,
+            category: 'Gig Income',
+            description: 'Logo project',
+            date: _now,
+            source: TransactionSource.manual,
+          ),
+        ],
+      ),
+    );
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('budget_weekly_bar_chart')),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+
+    final chart = tester.widget<BarChart>(
+      find.descendant(
+        of: find.byKey(const Key('budget_weekly_bar_chart')),
+        matching: find.byType(BarChart),
+      ),
+    );
+    expect(
+      chart.data.barGroups.any((group) => group.barRods.length == 2),
+      isTrue,
+    );
   });
 }
 

@@ -38,7 +38,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
           transactions: periodTransactions,
           vaults: state.vaults,
         );
-        final weeklyExpenses = _weeklyExpenseTotals(state.transactions);
+        final weeklyTotals = _weeklyTransactionTotals(state.transactions);
         final categoryItemCounts = _categoryExpenseCounts(periodTransactions);
 
         return KoloGradientScaffold(
@@ -237,7 +237,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                     SizedBox(
                       key: const Key('budget_weekly_bar_chart'),
                       height: 160,
-                      child: BarChart(_weeklyBarData(weeklyExpenses)),
+                      child: BarChart(_weeklyBarData(weeklyTotals)),
                     ),
                   ],
                 ),
@@ -270,19 +270,34 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
         .toList(growable: false);
   }
 
-  List<int> _weeklyExpenseTotals(List<TransactionRecord> transactions) {
-    if (transactions.isEmpty) return List<int>.filled(7, 0);
+  List<_WeeklyTransactionTotals> _weeklyTransactionTotals(
+    List<TransactionRecord> transactions,
+  ) {
+    if (transactions.isEmpty) {
+      return List<_WeeklyTransactionTotals>.filled(
+        7,
+        const _WeeklyTransactionTotals(),
+      );
+    }
 
     final anchor = _anchorDate(transactions);
     final start = _dateOnly(anchor).subtract(const Duration(days: 6));
-    final totals = List<int>.filled(7, 0);
+    final totals = List<_WeeklyTransactionTotals>.filled(
+      7,
+      const _WeeklyTransactionTotals(),
+    );
 
     for (final transaction in transactions) {
-      if (transaction.type != TransactionType.expense) continue;
       final date = _dateOnly(transaction.date);
       final index = date.difference(start).inDays;
       if (index < 0 || index >= totals.length) continue;
-      totals[index] += transaction.amountKobo;
+      totals[index] = transaction.type == TransactionType.income
+          ? totals[index].copyWith(
+              incomeKobo: totals[index].incomeKobo + transaction.amountKobo,
+            )
+          : totals[index].copyWith(
+              expenseKobo: totals[index].expenseKobo + transaction.amountKobo,
+            );
     }
 
     return totals;
@@ -303,12 +318,17 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
     return counts;
   }
 
-  BarChartData _weeklyBarData(List<int> expenses) {
-    final maxExpenseKobo = expenses.fold<int>(
+  BarChartData _weeklyBarData(List<_WeeklyTransactionTotals> totals) {
+    final maxKobo = totals.fold<int>(
       0,
-      (max, value) => value > max ? value : max,
+      (max, value) {
+        final dayMax = value.incomeKobo > value.expenseKobo
+            ? value.incomeKobo
+            : value.expenseKobo;
+        return dayMax > max ? dayMax : max;
+      },
     );
-    final maxY = maxExpenseKobo == 0 ? 1.0 : maxExpenseKobo * 1.2;
+    final maxY = maxKobo == 0 ? 1.0 : maxKobo * 1.2;
 
     return BarChartData(
       maxY: maxY,
@@ -350,16 +370,23 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
       ),
       barTouchData: BarTouchData(enabled: false),
       barGroups: [
-        for (var index = 0; index < expenses.length; index++)
+        for (var index = 0; index < totals.length; index++)
           BarChartGroupData(
             x: index,
+            barsSpace: 3,
             barRods: [
               BarChartRodData(
-                toY: expenses[index].toDouble(),
-                width: 20,
-                color: index == expenses.length - 1
-                    ? KoloColors.primary
-                    : KoloColors.primaryPastel,
+                toY: totals[index].incomeKobo.toDouble(),
+                width: 8,
+                color: KoloColors.primary,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(4),
+                ),
+              ),
+              BarChartRodData(
+                toY: totals[index].expenseKobo.toDouble(),
+                width: 8,
+                color: KoloColors.expense,
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(4),
                 ),
@@ -398,6 +425,20 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
         transactions: transactions,
         ref: ref,
       ),
+    );
+  }
+}
+
+class _WeeklyTransactionTotals {
+  const _WeeklyTransactionTotals({this.incomeKobo = 0, this.expenseKobo = 0});
+
+  final int incomeKobo;
+  final int expenseKobo;
+
+  _WeeklyTransactionTotals copyWith({int? incomeKobo, int? expenseKobo}) {
+    return _WeeklyTransactionTotals(
+      incomeKobo: incomeKobo ?? this.incomeKobo,
+      expenseKobo: expenseKobo ?? this.expenseKobo,
     );
   }
 }
