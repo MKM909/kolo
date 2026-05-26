@@ -76,6 +76,18 @@ void main() {
     expect(smsReceiver, contains('"sender" to sender'));
   });
 
+  test('notification listener captures expanded notification text', () {
+    final listener = File(
+      'android/app/src/main/kotlin/com/example/kolo/KoloNotificationListenerService.kt',
+    ).readAsStringSync();
+
+    expect(listener, contains('Notification.EXTRA_BIG_TEXT'));
+    expect(listener, contains('Notification.EXTRA_TEXT_LINES'));
+    expect(listener, contains('"bigText" to bigText'));
+    expect(listener, contains('"textLines" to textLines'));
+    expect(listener, contains('combinedText'));
+  });
+
   test('Android manifest declares notification runtime permission', () {
     final manifest = File(
       'android/app/src/main/AndroidManifest.xml',
