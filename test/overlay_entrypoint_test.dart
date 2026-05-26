@@ -109,6 +109,64 @@ void main() {
     expect(find.byKey(const Key('kolo_block_cancel')), findsOneWidget);
   });
 
+  testWidgets('advised against decisions require typed override confirmation', (
+    tester,
+  ) async {
+    final controller = StreamController<Object?>.broadcast();
+    addTearDown(controller.close);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: KoloOverlayBubble(
+          overlayMessages: controller.stream,
+          initialOverlayData: const {
+            'type': 'blockOverlay',
+            'appName': 'Kuda',
+            'packageName': 'com.kuda.android',
+            'blockLevel': 'hardLock',
+            'prompt': 'Hold on. You just opened Kuda. What is the plan?',
+          },
+        ),
+      ),
+    );
+
+    controller.add({
+      'type': 'blockDecision',
+      'status': 'advisedAgainst',
+      'message': 'I would not open Kuda right now.',
+      'appName': 'Kuda',
+      'packageName': 'com.kuda.android',
+      'blockLevel': 'hardLock',
+    });
+    await tester.pump();
+
+    expect(find.text('I would not open Kuda right now.'), findsOneWidget);
+    expect(
+      find.text('Type "I understand, let me in" to override.'),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('kolo_block_override_confirmation')),
+      findsOneWidget,
+    );
+
+    var overrideButton = tester.widget<FilledButton>(
+      find.byKey(const Key('kolo_block_confirm_override')),
+    );
+    expect(overrideButton.onPressed, isNull);
+
+    await tester.enterText(
+      find.byKey(const Key('kolo_block_override_confirmation')),
+      'I understand, let me in',
+    );
+    await tester.pump();
+
+    overrideButton = tester.widget<FilledButton>(
+      find.byKey(const Key('kolo_block_confirm_override')),
+    );
+    expect(overrideButton.onPressed, isNotNull);
+  });
+
   test('Android manifest registers the overlay plugin service', () {
     final manifest = File(
       'android/app/src/main/AndroidManifest.xml',

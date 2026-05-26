@@ -515,7 +515,9 @@ class _BlockChatPanel extends StatelessWidget {
   }
 }
 
-class _BlockDecisionActions extends StatelessWidget {
+const _advisedAgainstOverridePhrase = 'I understand, let me in';
+
+class _BlockDecisionActions extends StatefulWidget {
   const _BlockDecisionActions({
     required this.appName,
     required this.decision,
@@ -529,16 +531,45 @@ class _BlockDecisionActions extends StatelessWidget {
   final VoidCallback onProceed;
 
   @override
+  State<_BlockDecisionActions> createState() => _BlockDecisionActionsState();
+}
+
+class _BlockDecisionActionsState extends State<_BlockDecisionActions> {
+  final _overrideController = TextEditingController();
+
+  bool get _overrideConfirmed =>
+      _overrideController.text.trim() == _advisedAgainstOverridePhrase;
+
+  @override
+  void didUpdateWidget(covariant _BlockDecisionActions oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.decision.status != widget.decision.status) {
+      _overrideController.clear();
+    }
+  }
+
+  @override
+  void dispose() {
+    _overrideController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final (key, label) = switch (decision.status) {
-      'approved' => (const Key('kolo_block_continue'), 'Continue to $appName'),
+    final (key, label) = switch (widget.decision.status) {
+      'approved' => (
+        const Key('kolo_block_continue'),
+        'Continue to ${widget.appName}',
+      ),
       'caution' => (const Key('kolo_block_proceed_anyway'), 'Proceed anyway'),
       'advisedAgainst' => (
         const Key('kolo_block_confirm_override'),
-        'I understand, proceed',
+        'Let me in',
       ),
       _ => (const Key('kolo_block_continue'), 'Continue'),
     };
+
+    final isAdvisedAgainst = widget.decision.status == 'advisedAgainst';
 
     return Container(
       width: double.infinity,
@@ -547,20 +578,52 @@ class _BlockDecisionActions extends StatelessWidget {
         color: Colors.white.withValues(alpha: 0.76),
         border: const Border(top: BorderSide(color: Color(0xFFEDE9FE))),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            child: FilledButton(
-              key: key,
-              onPressed: onProceed,
-              child: Text(label),
+          if (isAdvisedAgainst) ...[
+            const Text(
+              'Type "$_advisedAgainstOverridePhrase" to override.',
+              style: TextStyle(
+                color: KoloColors.textSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
             ),
-          ),
-          const SizedBox(width: 10),
-          OutlinedButton(
-            key: const Key('kolo_block_go_back'),
-            onPressed: onCancel,
-            child: const Text('Go back'),
+            const SizedBox(height: 8),
+            TextField(
+              key: const Key('kolo_block_override_confirmation'),
+              controller: _overrideController,
+              onChanged: (_) => setState(() {}),
+              textInputAction: TextInputAction.done,
+              decoration: const InputDecoration(
+                hintText: _advisedAgainstOverridePhrase,
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton(
+                  key: key,
+                  onPressed: isAdvisedAgainst && !_overrideConfirmed
+                      ? null
+                      : widget.onProceed,
+                  child: Text(label),
+                ),
+              ),
+              const SizedBox(width: 10),
+              OutlinedButton(
+                key: const Key('kolo_block_go_back'),
+                onPressed: widget.onCancel,
+                child: const Text('Go back'),
+              ),
+            ],
           ),
         ],
       ),
