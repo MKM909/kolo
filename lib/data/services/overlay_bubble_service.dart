@@ -192,5 +192,22 @@ class OverlayBubbleService {
     return _platform.shareData({'type': 'assistantMessage', 'text': message});
   }
 
+  Future<Object?> sendBlockDecisionToOverlay({
+    required String status,
+    required String message,
+    required String appName,
+    required String packageName,
+    required String blockLevel,
+  }) {
+    return _platform.shareData({
+      'type': 'blockDecision',
+      'status': status,
+      'message': message,
+      'appName': appName,
+      'packageName': packageName,
+      'blockLevel': blockLevel,
+    });
+  }
+
   Stream<Object?> get overlayMessages => _platform.overlayListener;
 }

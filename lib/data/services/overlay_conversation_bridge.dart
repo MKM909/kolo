@@ -43,6 +43,16 @@ class OverlayConversationBridge {
     final text = message['text']?.toString().trim();
     if (text == null || text.isEmpty) return;
 
+    final blockRequest = _OverlayBlockRequest.fromMap(message);
+    if (blockRequest?.blockLevel == 'explain') {
+      await _handleExplainBlockMessage(text, blockRequest!);
+      return;
+    }
+    if (blockRequest?.blockLevel == 'hardLock') {
+      await _handleSpendMessage(text, blockRequest: blockRequest);
+      return;
+    }
+
     if (_looksLikeSpendIntent(text)) {
       await _handleSpendMessage(text);
       return;
@@ -51,7 +61,32 @@ class OverlayConversationBridge {
     await _handleChatMessage(text);
   }
 
-  Future<void> _handleSpendMessage(String text) async {
+  Future<void> _handleExplainBlockMessage(
+    String text,
+    _OverlayBlockRequest blockRequest,
+  ) async {
+    final now = _now();
+    final response =
+        'Reason logged for ${blockRequest.appName}. You can continue now.';
+    await _recordOverlayConversation(
+      userText: text,
+      assistantText: response,
+      now: now,
+    );
+    await _overlayBubble.sendAssistantMessageToOverlay(response);
+    await _overlayBubble.sendBlockDecisionToOverlay(
+      status: SpendingDecisionStatus.approved.name,
+      message: response,
+      appName: blockRequest.appName,
+      packageName: blockRequest.packageName,
+      blockLevel: blockRequest.blockLevel,
+    );
+  }
+
+  Future<void> _handleSpendMessage(
+    String text, {
+    _OverlayBlockRequest? blockRequest,
+  }) async {
     final amountKobo = _amountKoboFrom(text);
     if (amountKobo == null || amountKobo <= 0) {
       await _overlayBubble.sendAssistantMessageToOverlay(
@@ -85,6 +120,15 @@ class OverlayConversationBridge {
         now: now,
       );
       await _overlayBubble.sendAssistantMessageToOverlay(decision.message);
+      if (blockRequest != null) {
+        await _overlayBubble.sendBlockDecisionToOverlay(
+          status: decision.status.name,
+          message: decision.message,
+          appName: blockRequest.appName,
+          packageName: blockRequest.packageName,
+          blockLevel: blockRequest.blockLevel,
+        );
+      }
     } on Object {
       await _overlayBubble.sendAssistantMessageToOverlay(
         'I could not check that spend yet. Open Kolo and I will run the full budget check there.',
@@ -175,5 +219,35 @@ class OverlayConversationBridge {
               category.toLowerCase() == preferredCategory.toLowerCase(),
           orElse: () => preferredCategory,
         );
+  }
+}
+
+class _OverlayBlockRequest {
+  const _OverlayBlockRequest({
+    required this.appName,
+    required this.packageName,
+    required this.blockLevel,
+  });
+
+  final String appName;
+  final String packageName;
+  final String blockLevel;
+
+  static _OverlayBlockRequest? fromMap(Map<Object?, Object?> map) {
+    final blockLevel = map['blockLevel']?.toString().trim();
+    if (blockLevel != 'explain' && blockLevel != 'hardLock') return null;
+    final appName = map['appName']?.toString().trim();
+    final packageName = map['packageName']?.toString().trim();
+    if (appName == null ||
+        appName.isEmpty ||
+        packageName == null ||
+        packageName.isEmpty) {
+      return null;
+    }
+    return _OverlayBlockRequest(
+      appName: appName,
+      packageName: packageName,
+      blockLevel: blockLevel!,
+    );
   }
 }

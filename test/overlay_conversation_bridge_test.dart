@@ -125,6 +125,99 @@ void main() {
     },
   );
 
+  test(
+    'explain mode block messages log the reason and approve the gate',
+    () async {
+      final platform = _FakeOverlayWindow();
+      final advisor = _RecordingSpendingAdvisor();
+      final repository = _RecordingRepository();
+      final bridge = OverlayConversationBridge(
+        overlayBubble: OverlayBubbleService(platform: platform),
+        repository: repository,
+        spendingAdvisor: advisor,
+        loadDashboard: () async => _dashboard(),
+        now: () => DateTime(2026, 5, 26, 12),
+      );
+      addTearDown(() async {
+        await bridge.dispose();
+        await platform.close();
+      });
+
+      bridge.start();
+      platform.emit({
+        'type': 'userMessage',
+        'text': 'I only need to check my balance.',
+        'blockLevel': 'explain',
+        'appName': 'Kuda',
+        'packageName': 'com.kuda.android',
+      });
+      await pumpEventQueue();
+
+      expect(advisor.transactions, isEmpty);
+      expect(repository.recordedMessages.map((message) => message.content), [
+        'I only need to check my balance.',
+        'Reason logged for Kuda. You can continue now.',
+      ]);
+      expect(platform.sharedData, [
+        {
+          'type': 'assistantMessage',
+          'text': 'Reason logged for Kuda. You can continue now.',
+        },
+        {
+          'type': 'blockDecision',
+          'status': 'approved',
+          'message': 'Reason logged for Kuda. You can continue now.',
+          'appName': 'Kuda',
+          'packageName': 'com.kuda.android',
+          'blockLevel': 'explain',
+        },
+      ]);
+    },
+  );
+
+  test('hard lock block messages emit the spending decision status', () async {
+    final platform = _FakeOverlayWindow();
+    final advisor = _RecordingSpendingAdvisor(
+      decision: const SpendingJustificationDecision(
+        status: SpendingDecisionStatus.advisedAgainst,
+        message: 'I would not do this transfer right now.',
+        aiNote: 'Transfer advised against.',
+      ),
+    );
+    final repository = _RecordingRepository();
+    final bridge = OverlayConversationBridge(
+      overlayBubble: OverlayBubbleService(platform: platform),
+      repository: repository,
+      spendingAdvisor: advisor,
+      loadDashboard: () async => _dashboard(),
+      now: () => DateTime(2026, 5, 26, 12),
+    );
+    addTearDown(() async {
+      await bridge.dispose();
+      await platform.close();
+    });
+
+    bridge.start();
+    platform.emit({
+      'type': 'userMessage',
+      'text': 'I want to send 12000 to buy shoes.',
+      'blockLevel': 'hardLock',
+      'appName': 'Kuda',
+      'packageName': 'com.kuda.android',
+    });
+    await pumpEventQueue();
+
+    expect(advisor.transactions.single.amountKobo, 1200000);
+    expect(platform.sharedData.last, {
+      'type': 'blockDecision',
+      'status': 'advisedAgainst',
+      'message': 'I would not do this transfer right now.',
+      'appName': 'Kuda',
+      'packageName': 'com.kuda.android',
+      'blockLevel': 'hardLock',
+    });
+  });
+
   test('app starts the overlay conversation bridge', () {
     final providers = File('lib/app/providers.dart').readAsStringSync();
     final app = File('lib/app/kolo_app.dart').readAsStringSync();

@@ -315,6 +315,14 @@ class _FakeOverlayBubbleService implements OverlayBubbleService {
   Future<bool> showKoloBubble() async => true;
 
   @override
+  Future<bool> showBlockOverlay({
+    required String appName,
+    required String packageName,
+    required WatchedAppBlockLevel blockLevel,
+    required String prompt,
+  }) async => true;
+
+  @override
   Future<bool?> expandConversation() async => true;
 
   @override
@@ -325,6 +333,15 @@ class _FakeOverlayBubbleService implements OverlayBubbleService {
 
   @override
   Future<Object?> sendAssistantMessageToOverlay(String message) async => null;
+
+  @override
+  Future<Object?> sendBlockDecisionToOverlay({
+    required String status,
+    required String message,
+    required String appName,
+    required String packageName,
+    required String blockLevel,
+  }) async => null;
 
   @override
   Stream<Object?> get overlayMessages => const Stream.empty();
