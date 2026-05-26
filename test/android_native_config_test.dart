@@ -121,6 +121,16 @@ void main() {
     },
   );
 
+  test('Android reminder scheduler falls back when exact alarms are locked', () {
+    final scheduler = File(
+      'android/app/src/main/kotlin/com/micah/kolo/KoloReminderScheduler.kt',
+    ).readAsStringSync();
+
+    expect(scheduler, contains('canScheduleExactAlarms'));
+    expect(scheduler, contains('setAndAllowWhileIdle'));
+    expect(scheduler, contains('SecurityException'));
+  });
+
   test('Android boot receiver queues boot events for Dart processing', () {
     final receiver = File(
       'android/app/src/main/kotlin/com/example/kolo/KoloBootReceiver.kt',
