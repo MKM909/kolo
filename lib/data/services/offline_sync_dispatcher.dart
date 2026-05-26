@@ -270,6 +270,37 @@ class OfflineSyncDispatcher {
       targetKobo: targetKobo,
       currentKobo: currentKobo,
       deadline: deadlineText == null ? null : DateTime.tryParse(deadlineText),
+      contributions: _vaultContributionsFromPayload(payload['contributions']),
+    );
+  }
+
+  List<VaultContribution> _vaultContributionsFromPayload(Object? value) {
+    if (value is! List) return const [];
+    return [
+      for (final item in value)
+        if (_vaultContributionFromPayload(item) != null)
+          _vaultContributionFromPayload(item)!,
+    ];
+  }
+
+  VaultContribution? _vaultContributionFromPayload(Object? value) {
+    if (value is! Map) return null;
+    final payload = {
+      for (final entry in value.entries) entry.key.toString(): entry.value,
+    };
+    final id = _string(payload['id']);
+    final amountKobo = _int(payload['amountKobo']);
+    final createdAtText = _string(payload['createdAt']);
+    final createdAt = createdAtText == null
+        ? null
+        : DateTime.tryParse(createdAtText);
+    if (id == null || amountKobo == null || createdAt == null) return null;
+
+    return VaultContribution(
+      id: id,
+      amountKobo: amountKobo,
+      createdAt: createdAt,
+      note: _string(payload['note']),
     );
   }
 

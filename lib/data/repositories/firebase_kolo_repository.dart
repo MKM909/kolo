@@ -360,10 +360,7 @@ class FirebaseKoloRepository implements KoloRepository {
   @override
   Future<BudgetPlan> generateBudget(OnboardingAnswers answers) async {
     final modelName = await _preferredAiModel();
-    return _aiService.generateBudget(
-      answers,
-      modelName: modelName,
-    );
+    return _aiService.generateBudget(answers, modelName: modelName);
   }
 
   @override
@@ -499,6 +496,34 @@ class FirebaseKoloRepository implements KoloRepository {
       currentKobo:
           ((data['currentKobo'] as num?)?.toInt()) ?? fallback.currentKobo,
       deadline: (data['deadline'] as Timestamp?)?.toDate(),
+      contributions: _vaultContributionsFromSnapshot(data['contributions']),
+    );
+  }
+
+  List<VaultContribution> _vaultContributionsFromSnapshot(Object? value) {
+    if (value is! List) return const [];
+    return [
+      for (final item in value)
+        if (_vaultContributionFromSnapshot(item) != null)
+          _vaultContributionFromSnapshot(item)!,
+    ];
+  }
+
+  VaultContribution? _vaultContributionFromSnapshot(Object? value) {
+    if (value is! Map) return null;
+    final map = {
+      for (final entry in value.entries) entry.key.toString(): entry.value,
+    };
+    final id = map['id'] as String?;
+    final amountKobo = (map['amountKobo'] as num?)?.toInt();
+    final createdAt = (map['createdAt'] as Timestamp?)?.toDate();
+    if (id == null || amountKobo == null || createdAt == null) return null;
+
+    return VaultContribution(
+      id: id,
+      amountKobo: amountKobo,
+      createdAt: createdAt,
+      note: map['note'] as String?,
     );
   }
 

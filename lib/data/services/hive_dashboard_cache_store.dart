@@ -208,6 +208,21 @@ class HiveDashboardCacheStore implements DashboardCacheStore {
       'targetKobo': vault.targetKobo,
       'currentKobo': vault.currentKobo,
       'deadline': vault.deadline == null ? null : _date(vault.deadline!),
+      'contributions': [
+        for (final contribution in vault.contributions)
+          _vaultContributionToJson(contribution),
+      ],
+    };
+  }
+
+  Map<String, Object?> _vaultContributionToJson(
+    VaultContribution contribution,
+  ) {
+    return {
+      'id': contribution.id,
+      'amountKobo': contribution.amountKobo,
+      'createdAt': _date(contribution.createdAt),
+      'note': contribution.note,
     };
   }
 

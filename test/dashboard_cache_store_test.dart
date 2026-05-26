@@ -41,6 +41,14 @@ void main() {
       expect(cached.dashboard.profile.name, 'Micah');
       expect(cached.dashboard.balanceKobo, 1250000);
       expect(cached.dashboard.transactions.single.aiNote, 'Allowed for lunch');
+      expect(
+        cached.dashboard.vaults.single.contributions.single.amountKobo,
+        500000,
+      );
+      expect(
+        cached.dashboard.vaults.single.contributions.single.createdAt,
+        DateTime(2026, 5, 6, 14),
+      );
       expect(cached.dashboard.bills.single.name, 'Data');
       expect(cached.dashboard.watchedApps.single.packageName, 'team.opay.pay');
       expect(
@@ -164,12 +172,20 @@ DashboardState _dashboardState({int balanceKobo = 1250000}) {
         context: 'chat',
       ),
     ],
-    vaults: const [
+    vaults: [
       SavingsVault(
         id: 'vault-1',
         name: 'Phone',
         targetKobo: 10000000,
         currentKobo: 2500000,
+        contributions: [
+          VaultContribution(
+            id: 'contribution-1',
+            amountKobo: 500000,
+            createdAt: DateTime(2026, 5, 6, 14),
+            note: 'Weekly save',
+          ),
+        ],
       ),
     ],
     owings: [

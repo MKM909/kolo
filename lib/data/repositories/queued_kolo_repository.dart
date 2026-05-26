@@ -153,10 +153,7 @@ class QueuedKoloRepository implements KoloRepository {
   }) {
     return _writeOrQueue(
       kind: 'transactionCategory',
-      payload: {
-        'transactionId': transactionId,
-        'category': category,
-      },
+      payload: {'transactionId': transactionId, 'category': category},
       write: () => _remote.updateTransactionCategory(
         transactionId: transactionId,
         category: category,
@@ -332,6 +329,21 @@ class QueuedKoloRepository implements KoloRepository {
       'targetKobo': vault.targetKobo,
       'currentKobo': vault.currentKobo,
       'deadline': vault.deadline?.toIso8601String(),
+      'contributions': [
+        for (final contribution in vault.contributions)
+          _vaultContributionPayload(contribution),
+      ],
+    });
+  }
+
+  Map<String, Object?> _vaultContributionPayload(
+    VaultContribution contribution,
+  ) {
+    return _withoutNulls({
+      'id': contribution.id,
+      'amountKobo': contribution.amountKobo,
+      'createdAt': contribution.createdAt.toIso8601String(),
+      'note': contribution.note,
     });
   }
 

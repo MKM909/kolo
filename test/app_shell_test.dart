@@ -515,6 +515,15 @@ void main() {
       find.textContaining(MoneyFormatter.formatKobo(4850000)),
       findsOneWidget,
     );
+
+    await tester.tap(find.text('New Phone'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Contribution history'), findsOneWidget);
+    expect(
+      find.textContaining('+${MoneyFormatter.formatKobo(250000)}'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('vault detail sheet edits target amount', (tester) async {
