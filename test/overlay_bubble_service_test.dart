@@ -31,12 +31,36 @@ void main() {
 
     expect(shown, isTrue);
     expect(platform.showCalls, 1);
-    expect(platform.height, 96);
-    expect(platform.width, 260);
+    expect(platform.height, 116);
+    expect(platform.width, 278);
     expect(platform.alignment, OverlayAlignment.bottomRight);
     expect(platform.positionGravity, PositionGravity.auto);
     expect(platform.enableDrag, isTrue);
     expect(platform.overlayTitle, 'Kolo bubble active');
+  });
+
+  test('resizes overlay between idle and conversation states', () async {
+    final platform = _FakeOverlayWindow(permissionGranted: true);
+    final service = OverlayBubbleService(platform: platform);
+
+    await service.expandConversation();
+    await service.collapseToBubble();
+
+    expect(platform.resizeCalls, [
+      (width: -1, height: 540, enableDrag: false),
+      (width: 278, height: 116, enableDrag: true),
+    ]);
+  });
+
+  test('shares prompts with the overlay conversation entrypoint', () async {
+    final platform = _FakeOverlayWindow(permissionGranted: true);
+    final service = OverlayBubbleService(platform: platform);
+
+    await service.sendPromptToOverlay('Check this spend');
+
+    expect(platform.sharedData, [
+      {'type': 'prompt', 'text': 'Check this spend'},
+    ]);
   });
 
   test('requests overlay permission through the overlay platform', () async {
@@ -81,6 +105,8 @@ class _FakeOverlayWindow implements OverlayWindowPlatform {
   PositionGravity? positionGravity;
   bool? enableDrag;
   String? overlayTitle;
+  final resizeCalls = <({int width, int height, bool enableDrag})>[];
+  final sharedData = <Object?>[];
 
   @override
   Future<bool> isPermissionGranted() async => permissionGranted;
@@ -113,4 +139,23 @@ class _FakeOverlayWindow implements OverlayWindowPlatform {
     this.enableDrag = enableDrag;
     this.overlayTitle = overlayTitle;
   }
+
+  @override
+  Future<bool?> resizeOverlay({
+    required int width,
+    required int height,
+    required bool enableDrag,
+  }) async {
+    resizeCalls.add((width: width, height: height, enableDrag: enableDrag));
+    return true;
+  }
+
+  @override
+  Future<Object?> shareData(Object? data) async {
+    sharedData.add(data);
+    return data;
+  }
+
+  @override
+  Stream<Object?> get overlayListener => const Stream.empty();
 }

@@ -538,4 +538,16 @@ class _FakeOverlayBubbleService implements OverlayBubbleService {
 
   @override
   Future<bool> requestPermission() async => true;
+
+  @override
+  Future<bool?> expandConversation() async => true;
+
+  @override
+  Future<bool?> collapseToBubble() async => true;
+
+  @override
+  Future<Object?> sendPromptToOverlay(String prompt) async => null;
+
+  @override
+  Stream<Object?> get overlayMessages => const Stream.empty();
 }

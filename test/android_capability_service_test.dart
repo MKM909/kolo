@@ -139,24 +139,27 @@ void main() {
     expect(state, PermissionGrantState.granted);
   });
 
-  test('overlay status reports denied when overlay permission was revoked', () async {
-    final overlayBubble = _FakeOverlayBubbleService(
-      requestResult: false,
-      permissionGranted: false,
-    );
-    final requester = AndroidPermissionRequester(
-      capabilities: _FakeAndroidCapabilities(
-        notificationListenerEnabled: false,
-      ),
-      overlayBubble: overlayBubble,
-    );
+  test(
+    'overlay status reports denied when overlay permission was revoked',
+    () async {
+      final overlayBubble = _FakeOverlayBubbleService(
+        requestResult: false,
+        permissionGranted: false,
+      );
+      final requester = AndroidPermissionRequester(
+        capabilities: _FakeAndroidCapabilities(
+          notificationListenerEnabled: false,
+        ),
+        overlayBubble: overlayBubble,
+      );
 
-    final state = await requester.status(KoloPermission.overlay);
+      final state = await requester.status(KoloPermission.overlay);
 
-    expect(state, PermissionGrantState.denied);
-    expect(overlayBubble.permissionChecks, 1);
-    expect(overlayBubble.requestPermissionCalls, 0);
-  });
+      expect(state, PermissionGrantState.denied);
+      expect(overlayBubble.permissionChecks, 1);
+      expect(overlayBubble.requestPermissionCalls, 0);
+    },
+  );
 
   test('status reads Android listener and accessibility settings', () async {
     final capabilities = _FakeAndroidCapabilities(
@@ -203,6 +206,18 @@ class _FakeOverlayBubbleService implements OverlayBubbleService {
 
   @override
   Future<bool> showKoloBubble() async => true;
+
+  @override
+  Future<bool?> expandConversation() async => true;
+
+  @override
+  Future<bool?> collapseToBubble() async => true;
+
+  @override
+  Future<Object?> sendPromptToOverlay(String prompt) async => null;
+
+  @override
+  Stream<Object?> get overlayMessages => const Stream.empty();
 }
 
 class _FakeAndroidCapabilities extends AndroidCapabilityService {

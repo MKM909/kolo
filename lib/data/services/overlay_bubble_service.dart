@@ -17,6 +17,16 @@ abstract class OverlayWindowPlatform {
     required bool enableDrag,
     required PositionGravity positionGravity,
   });
+
+  Future<bool?> resizeOverlay({
+    required int width,
+    required int height,
+    required bool enableDrag,
+  });
+
+  Future<Object?> shareData(Object? data);
+
+  Stream<Object?> get overlayListener;
 }
 
 class FlutterOverlayWindowPlatform implements OverlayWindowPlatform {
@@ -59,6 +69,23 @@ class FlutterOverlayWindowPlatform implements OverlayWindowPlatform {
       positionGravity: positionGravity,
     );
   }
+
+  @override
+  Future<bool?> resizeOverlay({
+    required int width,
+    required int height,
+    required bool enableDrag,
+  }) {
+    return FlutterOverlayWindow.resizeOverlay(width, height, enableDrag);
+  }
+
+  @override
+  Future<Object?> shareData(Object? data) {
+    return FlutterOverlayWindow.shareData(data);
+  }
+
+  @override
+  Stream<Object?> get overlayListener => FlutterOverlayWindow.overlayListener;
 }
 
 class OverlayBubbleService {
@@ -83,8 +110,8 @@ class OverlayBubbleService {
     }
 
     await _platform.showOverlay(
-      height: 96,
-      width: 260,
+      height: 116,
+      width: 278,
       alignment: OverlayAlignment.bottomRight,
       flag: OverlayFlag.defaultFlag,
       overlayTitle: 'Kolo bubble active',
@@ -98,4 +125,22 @@ class OverlayBubbleService {
   Future<bool> requestPermission() async {
     return await _platform.requestPermission() ?? false;
   }
+
+  Future<bool?> expandConversation() {
+    return _platform.resizeOverlay(
+      width: WindowSize.matchParent,
+      height: 540,
+      enableDrag: false,
+    );
+  }
+
+  Future<bool?> collapseToBubble() {
+    return _platform.resizeOverlay(width: 278, height: 116, enableDrag: true);
+  }
+
+  Future<Object?> sendPromptToOverlay(String prompt) {
+    return _platform.shareData({'type': 'prompt', 'text': prompt});
+  }
+
+  Stream<Object?> get overlayMessages => _platform.overlayListener;
 }
