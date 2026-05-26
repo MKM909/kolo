@@ -198,6 +198,36 @@ void main() {
     expect(find.byKey(const Key('grant_overlay')), findsOneWidget);
     expect(requester.statusChecks, contains(KoloPermission.overlay));
   });
+
+  testWidgets('profile unlocks a permission when Android status is granted', (
+    tester,
+  ) async {
+    final repository = FakeKoloRepository.seeded();
+    final requester = _StatusPermissionRequester({
+      KoloPermission.notifications: PermissionGrantState.granted,
+    });
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          firebaseBootstrapResultProvider.overrideWithValue(
+            const FirebaseBootstrapResult(initialized: true),
+          ),
+          koloRepositoryProvider.overrideWithValue(repository),
+          permissionRequesterProvider.overrideWithValue(requester),
+        ],
+        child: MaterialApp(theme: KoloTheme.light, home: const ProfileScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final dashboard = await repository.watchDashboard().first;
+    expect(
+      dashboard.permissions[KoloPermission.notifications],
+      PermissionGrantState.granted,
+    );
+    expect(requester.statusChecks, contains(KoloPermission.notifications));
+  });
 }
 
 class _StatusPermissionRequester implements PermissionRequester {

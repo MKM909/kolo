@@ -32,6 +32,10 @@ abstract class OverlayWindowPlatform {
 class FlutterOverlayWindowPlatform implements OverlayWindowPlatform {
   const FlutterOverlayWindowPlatform();
 
+  static final Stream<Object?> _overlayMessages = FlutterOverlayWindow
+      .overlayListener
+      .asBroadcastStream();
+
   @override
   Future<bool> isPermissionGranted() {
     return FlutterOverlayWindow.isPermissionGranted();
@@ -85,7 +89,7 @@ class FlutterOverlayWindowPlatform implements OverlayWindowPlatform {
   }
 
   @override
-  Stream<Object?> get overlayListener => FlutterOverlayWindow.overlayListener;
+  Stream<Object?> get overlayListener => _overlayMessages;
 }
 
 class OverlayBubbleService {

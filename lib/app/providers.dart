@@ -190,14 +190,13 @@ final permissionStatusRefreshProvider = FutureProvider<void>((ref) async {
   final requester = ref.watch(permissionRequesterProvider);
 
   for (final entry in dashboard.permissions.entries) {
-    if (entry.value != PermissionGrantState.granted ||
-        entry.key == KoloPermission.backgroundService) {
+    if (entry.key == KoloPermission.backgroundService) {
       continue;
     }
 
     try {
       final currentStatus = await requester.status(entry.key);
-      if (currentStatus != PermissionGrantState.granted) {
+      if (currentStatus != entry.value) {
         await repository.updatePermission(entry.key, currentStatus);
       }
     } on Object {
