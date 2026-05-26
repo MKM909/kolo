@@ -58,6 +58,10 @@ class OverlayConversationBridge {
       return;
     }
     if (blockRequest?.blockLevel == 'hardLock') {
+      if (!_looksLikeSpendIntent(text) && _amountKoboFrom(text) == null) {
+        await _handleExplainBlockMessage(text, blockRequest!);
+        return;
+      }
       await _handleSpendMessage(text, blockRequest: blockRequest);
       return;
     }

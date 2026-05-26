@@ -220,6 +220,56 @@ void main() {
   });
 
   test(
+    'hard lock non-spend messages log the reason and approve the gate',
+    () async {
+      final platform = _FakeOverlayWindow();
+      final advisor = _RecordingSpendingAdvisor();
+      final repository = _RecordingRepository();
+      final bridge = OverlayConversationBridge(
+        overlayBubble: OverlayBubbleService(platform: platform),
+        repository: repository,
+        spendingAdvisor: advisor,
+        loadDashboard: () async => _dashboard(),
+        now: () => DateTime(2026, 5, 26, 12),
+      );
+      addTearDown(() async {
+        await bridge.dispose();
+        await platform.close();
+      });
+
+      bridge.start();
+      platform.emit({
+        'type': 'userMessage',
+        'text': 'Just checking my balance.',
+        'blockLevel': 'hardLock',
+        'appName': 'Kuda',
+        'packageName': 'com.kuda.android',
+      });
+      await pumpEventQueue();
+
+      expect(advisor.transactions, isEmpty);
+      expect(repository.recordedMessages.map((message) => message.content), [
+        'Just checking my balance.',
+        'Reason logged for Kuda. You can continue now.',
+      ]);
+      expect(platform.sharedData, [
+        {
+          'type': 'assistantMessage',
+          'text': 'Reason logged for Kuda. You can continue now.',
+        },
+        {
+          'type': 'blockDecision',
+          'status': 'approved',
+          'message': 'Reason logged for Kuda. You can continue now.',
+          'appName': 'Kuda',
+          'packageName': 'com.kuda.android',
+          'blockLevel': 'hardLock',
+        },
+      ]);
+    },
+  );
+
+  test(
     'block cancel asks Android to send the user away from the app',
     () async {
       final platform = _FakeOverlayWindow();
