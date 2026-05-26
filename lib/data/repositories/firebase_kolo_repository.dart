@@ -197,13 +197,22 @@ class FirebaseKoloRepository implements KoloRepository {
   @override
   Future<void> upsertPartnerShare(PartnerShare share) async {
     final collection = _userDoc.collection('partnerShares');
+    final summaries = _userDoc.collection('partnerSummaries');
     final payload = {
       ...FirebaseKoloMapper.partnerShareToJson(share),
       'updatedAt': FieldValue.serverTimestamp(),
     };
 
     if (!PartnerSharePolicy.isVisible(share)) {
-      await collection.doc(share.id).set(payload, SetOptions(merge: true));
+      final batch = _firestore.batch();
+      final revokedAt = share.revokedAt ?? DateTime.now();
+      batch.set(collection.doc(share.id), payload, SetOptions(merge: true));
+      batch.set(summaries.doc(share.id), {
+        'status': ShareStatus.revoked.name,
+        'revokedAt': Timestamp.fromDate(revokedAt),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      await batch.commit();
       return;
     }
 
@@ -218,6 +227,11 @@ class FirebaseKoloRepository implements KoloRepository {
     for (final doc in visibleShares.docs) {
       if (doc.id == share.id) continue;
       batch.set(doc.reference, {
+        'status': ShareStatus.revoked.name,
+        'revokedAt': Timestamp.fromDate(revokedAt),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      batch.set(summaries.doc(doc.id), {
         'status': ShareStatus.revoked.name,
         'revokedAt': Timestamp.fromDate(revokedAt),
         'updatedAt': FieldValue.serverTimestamp(),

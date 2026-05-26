@@ -67,4 +67,18 @@ void main() {
     expect(source, contains('preferences.toJson()'));
     expect(source, contains('SetOptions(merge: true)'));
   });
+
+  test('Firebase partner revoke also revokes partner summaries', () {
+    final source = File(
+      'lib/data/repositories/firebase_kolo_repository.dart',
+    ).readAsStringSync();
+    final body = RegExp(
+      r'Future<void> upsertPartnerShare\(PartnerShare share\) async \{([\s\S]*?)\n  @override',
+    ).firstMatch(source)!.group(1)!;
+
+    expect(body, contains(".collection('partnerSummaries')"));
+    expect(body, contains('summaries.doc(share.id)'));
+    expect(body, contains('summaries.doc(doc.id)'));
+    expect(body, contains("'status': ShareStatus.revoked.name"));
+  });
 }
