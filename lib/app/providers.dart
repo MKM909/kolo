@@ -12,15 +12,18 @@ import 'package:kolo/data/services/cloud_ai_service.dart';
 import 'package:kolo/data/services/due_bill_processor.dart';
 import 'package:kolo/data/services/firebase_bootstrap.dart';
 import 'package:kolo/data/services/android_permission_requester.dart';
+import 'package:kolo/data/services/android_reminder_scheduler.dart';
 import 'package:kolo/data/services/native_event_ingestor.dart';
 import 'package:kolo/data/services/offline_sync_dispatcher.dart';
 import 'package:kolo/data/services/offline_sync_queue.dart';
 import 'package:kolo/data/services/overlay_bubble_service.dart';
+import 'package:kolo/data/services/reminder_sync_service.dart';
 import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/repositories/auth_repository.dart';
 import 'package:kolo/domain/repositories/kolo_repository.dart';
 import 'package:kolo/domain/services/permission_requester.dart';
 import 'package:kolo/domain/services/local_spending_justification_advisor.dart';
+import 'package:kolo/domain/services/reminder_scheduler.dart';
 import 'package:kolo/domain/services/sms_received_handler.dart';
 import 'package:kolo/domain/services/spending_justification_advisor.dart';
 import 'package:kolo/domain/services/spending_intervention_advisor.dart';
@@ -44,6 +47,10 @@ final androidCapabilityServiceProvider = Provider<AndroidCapabilityService>((
 
 final overlayBubbleServiceProvider = Provider<OverlayBubbleService>((ref) {
   return OverlayBubbleService();
+});
+
+final reminderSchedulerProvider = Provider<ReminderScheduler>((ref) {
+  return const AndroidReminderScheduler();
 });
 
 final biometricUnlockServiceProvider = Provider<BiometricUnlockService>((ref) {
@@ -178,6 +185,19 @@ final dueBillProcessorProvider = FutureProvider<int>((ref) async {
   return DueBillProcessor(
     repository: ref.watch(koloRepositoryProvider),
   ).process();
+});
+
+final reminderSyncProvider = FutureProvider<int>((ref) async {
+  final bootstrap = ref.watch(firebaseBootstrapResultProvider);
+  final authUser = ref
+      .watch(authStateProvider)
+      .when(data: (user) => user, error: (_, _) => null, loading: () => null);
+  if (bootstrap.initialized && authUser == null) return 0;
+
+  final dashboard = await ref.watch(dashboardProvider.future);
+  return ReminderSyncService(
+    scheduler: ref.watch(reminderSchedulerProvider),
+  ).sync(dashboard);
 });
 
 final nativeEventIngestorProvider = Provider<NativeEventIngestor>((ref) {

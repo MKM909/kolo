@@ -59,6 +59,7 @@ class _KoloMaterialAppState extends ConsumerState<_KoloMaterialApp>
   @override
   Widget build(BuildContext context) {
     ref.watch(dueBillProcessorProvider);
+    ref.watch(reminderSyncProvider);
     ref.watch(offlineSyncRetryProvider);
     ref.watch(nativeEventDrainProvider);
     final router = ref.watch(koloRouterProvider);

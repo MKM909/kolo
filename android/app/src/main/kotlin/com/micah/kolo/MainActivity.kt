@@ -38,6 +38,25 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "kolo/reminders"
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "scheduleReminder" -> {
+                    @Suppress("UNCHECKED_CAST")
+                    KoloReminderScheduler.schedule(this, call.arguments as? Map<Any?, Any?> ?: emptyMap())
+                    result.success(null)
+                }
+                "cancelReminder" -> {
+                    @Suppress("UNCHECKED_CAST")
+                    val args = call.arguments as? Map<Any?, Any?> ?: emptyMap()
+                    KoloReminderScheduler.cancel(this, args["id"]?.toString().orEmpty())
+                    result.success(null)
+                }
+                else -> result.notImplemented()
+            }
+        }
     }
 
     private fun startBackgroundWatcher(): Boolean {

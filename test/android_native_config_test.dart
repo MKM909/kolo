@@ -74,6 +74,8 @@ void main() {
     ).readAsStringSync();
 
     expect(manifest, contains('android.permission.POST_NOTIFICATIONS'));
+    expect(manifest, contains('android.permission.SCHEDULE_EXACT_ALARM'));
+    expect(manifest, contains('.KoloReminderReceiver'));
   });
 
   test('MainActivity exposes notification listener enabled status', () {
