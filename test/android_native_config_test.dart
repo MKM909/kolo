@@ -31,6 +31,14 @@ void main() {
     }
   });
 
+  test('Android Gradle config is no longer the stock Flutter template', () {
+    final gradle = File('android/app/build.gradle.kts').readAsStringSync();
+
+    expect(gradle, contains('applicationId = "com.micah.kolo"'));
+    expect(gradle, isNot(contains('TODO:')));
+    expect(gradle, contains('com.google.firebase:firebase-bom'));
+  });
+
   test('Android services enqueue native events for Flutter to drain', () {
     expect(
       File(
