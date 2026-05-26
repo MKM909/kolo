@@ -63,13 +63,7 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun startBackgroundWatcher(): Boolean {
-        val serviceIntent = Intent(this, KoloForegroundService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(serviceIntent)
-        } else {
-            @Suppress("DEPRECATION")
-            startService(serviceIntent)
-        }
+        KoloBackgroundStarter.nudge(this)
         return true
     }
 

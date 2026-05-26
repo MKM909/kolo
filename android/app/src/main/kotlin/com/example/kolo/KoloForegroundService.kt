@@ -15,6 +15,7 @@ class KoloForegroundService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         createChannel()
+        KoloBackgroundStarter.startFlutterBackgroundService(this)
         startForeground(42, notification())
         return START_STICKY
     }

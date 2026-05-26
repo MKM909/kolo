@@ -18,6 +18,7 @@ class KoloAccessibilityService : AccessibilityService() {
                 "foreground_app",
                 mapOf("packageName" to event.packageName?.toString().orEmpty())
             )
+            KoloBackgroundStarter.nudge(this)
             Log.d("KoloAccessibility", "Foreground app changed: ${event.packageName}")
         }
     }

@@ -31,6 +31,7 @@ class KoloNotificationListenerService : NotificationListenerService() {
                 "textLines" to textLines
             )
         )
+        KoloBackgroundStarter.nudge(this)
         Log.d("KoloNotification", "Notification from ${sbn.packageName}: $combinedText")
     }
 }

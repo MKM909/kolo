@@ -121,15 +121,18 @@ void main() {
     },
   );
 
-  test('Android reminder scheduler falls back when exact alarms are locked', () {
-    final scheduler = File(
-      'android/app/src/main/kotlin/com/micah/kolo/KoloReminderScheduler.kt',
-    ).readAsStringSync();
+  test(
+    'Android reminder scheduler falls back when exact alarms are locked',
+    () {
+      final scheduler = File(
+        'android/app/src/main/kotlin/com/micah/kolo/KoloReminderScheduler.kt',
+      ).readAsStringSync();
 
-    expect(scheduler, contains('canScheduleExactAlarms'));
-    expect(scheduler, contains('setAndAllowWhileIdle'));
-    expect(scheduler, contains('SecurityException'));
-  });
+      expect(scheduler, contains('canScheduleExactAlarms'));
+      expect(scheduler, contains('setAndAllowWhileIdle'));
+      expect(scheduler, contains('SecurityException'));
+    },
+  );
 
   test('Android boot receiver queues boot events for Dart processing', () {
     final receiver = File(
@@ -163,10 +166,50 @@ void main() {
     final mainActivity = File(
       'android/app/src/main/kotlin/com/micah/kolo/MainActivity.kt',
     ).readAsStringSync();
+    final starter = File(
+      'android/app/src/main/kotlin/com/micah/kolo/KoloBackgroundStarter.kt',
+    ).readAsStringSync();
 
     expect(mainActivity, contains('startBackgroundWatcher'));
-    expect(mainActivity, contains('KoloForegroundService::class.java'));
-    expect(mainActivity, contains('startForegroundService'));
+    expect(mainActivity, contains('KoloBackgroundStarter.nudge'));
+    expect(starter, contains('KoloForegroundService::class.java'));
+    expect(starter, contains('startForegroundService'));
+  });
+
+  test('native event receivers wake the Flutter background drain service', () {
+    final starter = File(
+      'android/app/src/main/kotlin/com/micah/kolo/KoloBackgroundStarter.kt',
+    ).readAsStringSync();
+
+    expect(
+      starter,
+      contains(
+        'id.flutter.flutter_background_service.BackgroundService::class.java',
+      ),
+    );
+    expect(starter, contains('KoloForegroundService::class.java'));
+    expect(starter, contains('startForegroundService'));
+
+    for (final path in [
+      'android/app/src/main/kotlin/com/example/kolo/KoloSmsReceiver.kt',
+      'android/app/src/main/kotlin/com/example/kolo/KoloNotificationListenerService.kt',
+      'android/app/src/main/kotlin/com/example/kolo/KoloAccessibilityService.kt',
+      'android/app/src/main/kotlin/com/example/kolo/KoloBootReceiver.kt',
+    ]) {
+      expect(
+        File(path).readAsStringSync(),
+        contains('KoloBackgroundStarter.nudge'),
+        reason: '$path must wake background processing after queueing an event',
+      );
+    }
+
+    final foregroundService = File(
+      'android/app/src/main/kotlin/com/example/kolo/KoloForegroundService.kt',
+    ).readAsStringSync();
+    expect(
+      foregroundService,
+      contains('KoloBackgroundStarter.startFlutterBackgroundService(this)'),
+    );
   });
 
   test('Android block cancel can perform accessibility global back', () {
