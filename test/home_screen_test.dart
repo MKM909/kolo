@@ -91,6 +91,42 @@ void main() {
     expect(find.textContaining('Data bundle is due soon'), findsNothing);
   });
 
+  testWidgets('home shows net unsettled owings summary', (tester) async {
+    await _pumpHome(
+      tester,
+      _dashboardWithBills(const []).copyWith(
+        owings: [
+          Owing(
+            id: 'owing-timi',
+            type: OwingType.theyOweMe,
+            person: 'Timi',
+            amountKobo: 1200000,
+            date: DateTime(2026, 5, 20),
+          ),
+          Owing(
+            id: 'owing-ada',
+            type: OwingType.iOweThem,
+            person: 'Ada',
+            amountKobo: 400000,
+            date: DateTime(2026, 5, 21),
+          ),
+          Owing(
+            id: 'owing-settled',
+            type: OwingType.theyOweMe,
+            person: 'Settled',
+            amountKobo: 300000,
+            date: DateTime(2026, 5, 22),
+            settled: true,
+          ),
+        ],
+      ),
+    );
+
+    expect(find.byKey(const Key('home_net_owings_summary')), findsOneWidget);
+    expect(find.text('Net owed to you'), findsOneWidget);
+    expect(find.text('₦8,000.00'), findsOneWidget);
+  });
+
   testWidgets('manual expense prompts before dipping into vault funds', (
     tester,
   ) async {

@@ -35,6 +35,7 @@ class HomeScreen extends ConsumerWidget {
           vaults: state.vaults,
         );
         final dueSoonBill = _nearestDueSoonBill(state.bills);
+        final netOwingsKobo = _netUnsettledOwingsKobo(state.owings);
 
         return KoloGradientScaffold(
           title: 'Kolo',
@@ -74,6 +75,10 @@ class HomeScreen extends ConsumerWidget {
                 onOpenOwings: () => _openOwingsSheet(context),
               ),
               const SizedBox(height: 24),
+              if (netOwingsKobo != 0) ...[
+                _NetOwingsSummaryCard(netKobo: netOwingsKobo),
+                const SizedBox(height: 24),
+              ],
               if (dueSoonBill != null)
                 KoloCard(
                   color: KoloColors.surfaceElevated,
@@ -215,6 +220,72 @@ class HomeScreen extends ConsumerWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => const _OwingsSheet(),
+    );
+  }
+}
+
+int _netUnsettledOwingsKobo(List<Owing> owings) {
+  return owings.where((owing) => !owing.settled).fold<int>(0, (total, owing) {
+    return total +
+        (owing.type == OwingType.theyOweMe
+            ? owing.amountKobo
+            : -owing.amountKobo);
+  });
+}
+
+class _NetOwingsSummaryCard extends StatelessWidget {
+  const _NetOwingsSummaryCard({required this.netKobo});
+
+  final int netKobo;
+
+  @override
+  Widget build(BuildContext context) {
+    final positive = netKobo > 0;
+    return KoloCard(
+      child: Row(
+        key: const Key('home_net_owings_summary'),
+        children: [
+          Container(
+            height: 40,
+            width: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: KoloColors.primaryPastel,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              Icons.handshake_outlined,
+              color: positive ? KoloColors.income : KoloColors.expense,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  positive ? 'Net owed to you' : 'Net you owe',
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Unsettled owings',
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: KoloColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            MoneyFormatter.formatKobo(netKobo.abs()),
+            style: TextStyle(
+              color: positive ? KoloColors.income : KoloColors.expense,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
