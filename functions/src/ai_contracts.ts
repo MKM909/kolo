@@ -25,6 +25,7 @@ export type TransactionCategorization = z.infer<
 
 export const smsReceivedInputSchema = z.object({
   rawText: z.string().min(1).max(2000),
+  sourceEventId: z.string().optional().nullable(),
   sender: z.string().optional().nullable(),
   receivedAt: z.string().optional().nullable(),
   context: z.record(z.string(), z.unknown()).optional(),

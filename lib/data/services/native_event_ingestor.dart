@@ -95,6 +95,7 @@ class NativeEventIngestor {
     final context = await _repository.watchDashboard().first;
     return smsReceivedHandler.onSmsReceived(
       rawText: rawText,
+      sourceEventId: event.id,
       sender: event.payload['sender'] as String?,
       receivedAt: event.createdAt,
       context: context,

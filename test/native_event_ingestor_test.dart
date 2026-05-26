@@ -405,6 +405,7 @@ void main() {
     expect(processed, 1);
     expect(handler.calls, 1);
     expect(handler.lastRawText, contains('Chicken Republic'));
+    expect(handler.lastSourceEventId, 'sms-server-1');
     expect(handler.lastSender, 'GTBank');
     expect(handler.lastReceivedAt, createdAt);
     expect(handler.lastContext?.balanceKobo, initial.balanceKobo);
@@ -579,6 +580,7 @@ class _FakeSmsReceivedHandler implements SmsReceivedHandler {
   final bool accepted;
   int calls = 0;
   String? lastRawText;
+  String? lastSourceEventId;
   String? lastSender;
   DateTime? lastReceivedAt;
   DashboardState? lastContext;
@@ -587,6 +589,7 @@ class _FakeSmsReceivedHandler implements SmsReceivedHandler {
   @override
   Future<bool> onSmsReceived({
     required String rawText,
+    String? sourceEventId,
     String? sender,
     DateTime? receivedAt,
     required DashboardState context,
@@ -594,6 +597,7 @@ class _FakeSmsReceivedHandler implements SmsReceivedHandler {
   }) async {
     calls += 1;
     lastRawText = rawText;
+    lastSourceEventId = sourceEventId;
     lastSender = sender;
     lastReceivedAt = receivedAt;
     lastContext = context;

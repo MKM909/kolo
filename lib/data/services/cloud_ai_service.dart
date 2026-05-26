@@ -138,6 +138,7 @@ class CloudAiService
   @override
   Future<bool> onSmsReceived({
     required String rawText,
+    String? sourceEventId,
     String? sender,
     DateTime? receivedAt,
     required DashboardState context,
@@ -147,6 +148,7 @@ class CloudAiService
       final callable = _functions.httpsCallable('onSmsReceived');
       final response = await callable.call<Map<String, dynamic>>({
         'rawText': rawText,
+        'sourceEventId': sourceEventId,
         'sender': sender,
         'receivedAt': receivedAt?.toUtc().toIso8601String(),
         'context': _contextPayload(context),

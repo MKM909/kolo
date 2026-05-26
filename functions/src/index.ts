@@ -1,3 +1,4 @@
+import {createHash} from "node:crypto";
 import {genkit, z} from "genkit";
 import {googleAI} from "@genkit-ai/googleai";
 import {HttpsError, onCall, onCallGenkit} from "firebase-functions/https";
@@ -55,6 +56,25 @@ function resolveGeminiModelName(model?: string | null): string {
 
 function selectedGeminiModel(model?: string | null) {
   return googleAI.model(resolveGeminiModelName(model));
+}
+
+function smsDedupKey(input: z.infer<typeof smsReceivedInputSchema>): string {
+  const sourceEventId = input.sourceEventId?.trim();
+  const basis =
+    sourceEventId && sourceEventId.length > 0
+      ? `event:${sourceEventId}`
+      : `sms:${input.sender ?? ""}:${input.receivedAt ?? ""}:${input.rawText}`;
+  return createHash("sha256").update(basis).digest("hex").slice(0, 40);
+}
+
+function smsTransactionId(
+  input: z.infer<typeof smsReceivedInputSchema>,
+): string {
+  return `sms_${smsDedupKey(input)}`;
+}
+
+function smsAiMessageId(input: z.infer<typeof smsReceivedInputSchema>): string {
+  return `${smsTransactionId(input)}_ai`;
 }
 
 const chatSchema = z.object({
@@ -363,8 +383,13 @@ const onSmsReceivedFlow = ai.defineFlow(
       });
     const receivedAt = parseDateOrNow(input.receivedAt);
     const userRef = firestore.collection("users").doc(uid);
-    const transactionRef = userRef.collection("transactions").doc();
-    const aiMessageRef = userRef.collection("aiMessages").doc();
+    const dedupKey = smsDedupKey(input);
+    const transactionRef = userRef
+      .collection("transactions")
+      .doc(smsTransactionId(input));
+    const aiMessageRef = userRef
+      .collection("aiMessages")
+      .doc(smsAiMessageId(input));
     const deltaKobo =
       transaction.type === "income"
         ? transaction.amountKobo
@@ -372,6 +397,9 @@ const onSmsReceivedFlow = ai.defineFlow(
     const aiMessage = smsAiMessage(transaction);
 
     await firestore.runTransaction(async (dbTransaction) => {
+      const existingTransaction = await dbTransaction.get(transactionRef);
+      if (existingTransaction.exists) return;
+
       dbTransaction.set(transactionRef, {
         amountKobo: transaction.amountKobo,
         type: transaction.type,
@@ -383,6 +411,8 @@ const onSmsReceivedFlow = ai.defineFlow(
         aiApproved: null,
         aiNote: transaction.reason,
         rawText: input.rawText,
+        sourceEventId: input.sourceEventId ?? null,
+        dedupKey,
         sender: input.sender ?? null,
         createdAt: FieldValue.serverTimestamp(),
       });
