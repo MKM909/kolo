@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:hive/hive.dart';
 
+const koloOfflineSyncBoxName = 'kolo_offline_sync';
+
 class PendingSyncOperation {
   const PendingSyncOperation({
     required this.id,
@@ -19,9 +21,7 @@ class PendingSyncOperation {
     return PendingSyncOperation(
       id: json['id'] as String? ?? '',
       kind: json['kind'] as String? ?? '',
-      payload: Map<String, Object?>.from(
-        (json['payload'] as Map?) ?? const {},
-      ),
+      payload: Map<String, Object?>.from((json['payload'] as Map?) ?? const {}),
       createdAt:
           DateTime.tryParse(json['createdAt'] as String? ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0),
@@ -81,10 +81,9 @@ class HiveOfflineSyncStore implements OfflineSyncStore {
 
   @override
   Future<void> save(List<PendingSyncOperation> operations) async {
-    await _box.put(
-      _operationsKey,
-      [for (final operation in operations) operation.toJson()],
-    );
+    await _box.put(_operationsKey, [
+      for (final operation in operations) operation.toJson(),
+    ]);
   }
 }
 

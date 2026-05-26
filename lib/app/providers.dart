@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
+import 'package:hive/hive.dart';
 import 'package:kolo/app/backend_selector.dart';
+import 'package:kolo/data/repositories/cached_kolo_repository.dart';
 import 'package:kolo/data/repositories/fake_auth_repository.dart';
 import 'package:kolo/data/repositories/fake_kolo_repository.dart';
 import 'package:kolo/data/repositories/fake_partner_repository.dart';
@@ -15,6 +17,7 @@ import 'package:kolo/data/services/due_bill_processor.dart';
 import 'package:kolo/data/services/firebase_bootstrap.dart';
 import 'package:kolo/data/services/android_permission_requester.dart';
 import 'package:kolo/data/services/android_reminder_scheduler.dart';
+import 'package:kolo/data/services/hive_dashboard_cache_store.dart';
 import 'package:kolo/data/services/native_event_ingestor.dart';
 import 'package:kolo/data/services/offline_sync_dispatcher.dart';
 import 'package:kolo/data/services/offline_sync_queue.dart';
@@ -24,6 +27,7 @@ import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/repositories/auth_repository.dart';
 import 'package:kolo/domain/repositories/kolo_repository.dart';
 import 'package:kolo/domain/repositories/partner_repository.dart';
+import 'package:kolo/domain/services/dashboard_cache_store.dart';
 import 'package:kolo/domain/services/permission_requester.dart';
 import 'package:kolo/domain/services/local_spending_justification_advisor.dart';
 import 'package:kolo/domain/services/reminder_scheduler.dart';
@@ -110,6 +114,15 @@ final authStateProvider = StreamProvider<AuthUser?>((ref) {
   return ref.watch(authRepositoryProvider).watchAuthState();
 });
 
+final dashboardCacheStoreProvider = Provider<DashboardCacheStore>((ref) {
+  if (Hive.isBoxOpen(koloDashboardCacheBoxName)) {
+    return HiveDashboardCacheStore(
+      Hive.box<Object?>(koloDashboardCacheBoxName),
+    );
+  }
+  return MemoryDashboardCacheStore();
+});
+
 final koloRepositoryProvider = Provider<KoloRepository>((ref) {
   final bootstrap = ref.watch(firebaseBootstrapResultProvider);
   final authUser = ref
@@ -119,7 +132,11 @@ final koloRepositoryProvider = Provider<KoloRepository>((ref) {
     firebaseInitialized: bootstrap.initialized,
     firebaseUid: authUser?.uid,
     fakeBuilder: FakeKoloRepository.seeded,
-    firebaseBuilder: (uid) => FirebaseKoloRepository(uid: uid),
+    firebaseBuilder: (uid) => CachedKoloRepository(
+      uid: uid,
+      remote: FirebaseKoloRepository(uid: uid),
+      cache: ref.watch(dashboardCacheStoreProvider),
+    ),
   );
 });
 
@@ -159,6 +176,11 @@ final permissionStatusRefreshProvider = FutureProvider<void>((ref) async {
 });
 
 final offlineSyncQueueProvider = Provider<OfflineSyncQueue>((ref) {
+  if (Hive.isBoxOpen(koloOfflineSyncBoxName)) {
+    return OfflineSyncQueue(
+      store: HiveOfflineSyncStore(Hive.box<Object?>(koloOfflineSyncBoxName)),
+    );
+  }
   return OfflineSyncQueue();
 });
 
