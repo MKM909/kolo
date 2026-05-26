@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kolo/app/providers.dart';
+import 'package:kolo/data/services/offline_sync_queue.dart';
 import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/ui/core/theme/kolo_theme.dart';
 import 'package:kolo/ui/features/home/home_screen.dart';
@@ -127,6 +128,25 @@ void main() {
     expect(find.text('₦8,000.00'), findsOneWidget);
   });
 
+  testWidgets('home surfaces pending sync status', (tester) async {
+    await _pumpHome(
+      tester,
+      _dashboardWithBills(const []),
+      pendingOperations: [
+        PendingSyncOperation(
+          id: 'pending-transaction',
+          kind: 'transaction',
+          payload: const {'id': 'tx-offline'},
+          createdAt: DateTime(2026, 5, 26, 10),
+        ),
+      ],
+    );
+
+    expect(find.byKey(const Key('home_sync_status')), findsOneWidget);
+    expect(find.text('Waiting to sync'), findsOneWidget);
+    expect(find.text('1 pending'), findsOneWidget);
+  });
+
   testWidgets('manual expense prompts before dipping into vault funds', (
     tester,
   ) async {
@@ -191,10 +211,19 @@ void main() {
   });
 }
 
-Future<void> _pumpHome(WidgetTester tester, DashboardState state) async {
+Future<void> _pumpHome(
+  WidgetTester tester,
+  DashboardState state, {
+  List<PendingSyncOperation> pendingOperations = const [],
+}) async {
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [dashboardProvider.overrideWith((ref) => Stream.value(state))],
+      overrides: [
+        dashboardProvider.overrideWith((ref) => Stream.value(state)),
+        pendingSyncOperationsProvider.overrideWith(
+          (ref) => Stream.value(pendingOperations),
+        ),
+      ],
       child: MaterialApp(theme: KoloTheme.light, home: const HomeScreen()),
     ),
   );

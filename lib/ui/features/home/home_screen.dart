@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kolo/app/providers.dart';
+import 'package:kolo/data/services/offline_sync_queue.dart';
 import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/services/bill_protection_advisor.dart';
 import 'package:kolo/domain/services/bill_reminder_schedule.dart';
@@ -20,6 +21,7 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dashboard = ref.watch(dashboardProvider);
+    final syncState = ref.watch(pendingSyncOperationsProvider);
 
     return dashboard.when(
       loading: () => const KoloGradientScaffold(
@@ -57,6 +59,11 @@ class HomeScreen extends ConsumerWidget {
                   context,
                   currentBalanceKobo: state.balanceKobo,
                 ),
+              ),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: _HomeSyncStatusPill(syncState: syncState),
               ),
               const SizedBox(height: 20),
               _QuickActions(
@@ -343,6 +350,89 @@ class _HomeOfflineState extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _HomeSyncStatusPill extends StatelessWidget {
+  const _HomeSyncStatusPill({required this.syncState});
+
+  final AsyncValue<List<PendingSyncOperation>> syncState;
+
+  @override
+  Widget build(BuildContext context) {
+    final operations = syncState.value ?? const <PendingSyncOperation>[];
+    final hasPending = operations.isNotEmpty;
+    final hasError = syncState.hasError && !syncState.hasValue;
+    final statusColor = hasError
+        ? KoloColors.warning
+        : hasPending
+        ? KoloColors.warning
+        : KoloColors.income;
+    final title = hasError
+        ? 'Sync paused'
+        : hasPending
+        ? 'Waiting to sync'
+        : syncState.isLoading
+        ? 'Checking sync'
+        : 'All synced';
+    final countLabel = hasError
+        ? 'Retry soon'
+        : hasPending
+        ? '${operations.length} pending'
+        : syncState.isLoading
+        ? 'Checking'
+        : 'Clear';
+
+    return Container(
+      key: const Key('home_sync_status'),
+      constraints: const BoxConstraints(maxWidth: 174),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.76),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.72)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 20,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.cloud_sync_outlined, color: statusColor, size: 17),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: KoloColors.textPrimary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  countLabel,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
