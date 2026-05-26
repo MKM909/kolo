@@ -246,6 +246,8 @@ class CloudAiService
       source: source,
       rawText: rawText,
       category: payload['category'] as String? ?? 'Miscellaneous',
+      balanceAfterKobo: _nullableIntFromPayload(payload['balanceAfterKobo']),
+      occurredAt: _dateTimeFromPayload(payload['occurredAt']),
     );
   }
 
@@ -276,6 +278,19 @@ class CloudAiService
       final num amount => amount.toInt(),
       _ => 0,
     };
+  }
+
+  int? _nullableIntFromPayload(Object? value) {
+    return switch (value) {
+      final int amount => amount,
+      final num amount => amount.toInt(),
+      _ => null,
+    };
+  }
+
+  DateTime? _dateTimeFromPayload(Object? value) {
+    if (value is! String || value.trim().isEmpty) return null;
+    return DateTime.tryParse(value);
   }
 
   BudgetPlan _fallbackBudget(OnboardingAnswers answers) {

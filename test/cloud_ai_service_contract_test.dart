@@ -34,6 +34,16 @@ void main() {
       ),
     );
     expect(source, contains('Future<TransactionDraft?> categorizeTransaction'));
+    expect(
+      source,
+      contains(
+        "balanceAfterKobo: _nullableIntFromPayload(payload['balanceAfterKobo'])",
+      ),
+    );
+    expect(
+      source,
+      contains("occurredAt: _dateTimeFromPayload(payload['occurredAt'])"),
+    );
     expect(source, contains('Future<bool> onSmsReceived'));
     expect(source, contains("'sourceEventId': sourceEventId"));
     expect(source, contains('Future<String> draftReminder'));
