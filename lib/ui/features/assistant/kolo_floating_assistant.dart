@@ -336,6 +336,12 @@ const _assistantCategoryOptions = [
   'Miscellaneous',
 ];
 
+String _dateInput(DateTime date) {
+  final month = date.month.toString().padLeft(2, '0');
+  final day = date.day.toString().padLeft(2, '0');
+  return '${date.year}-$month-$day';
+}
+
 class _AssistantToolErrorCard extends StatelessWidget {
   const _AssistantToolErrorCard({
     required this.message,
@@ -389,6 +395,10 @@ class _AssistantLogTransactionCardState
     extends ConsumerState<_AssistantLogTransactionCard> {
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
+  final TextEditingController _dateController = TextEditingController(
+    text: _dateInput(DateTime.now()),
+  );
+  TransactionType _type = TransactionType.expense;
   String _category = 'Food & Snacks';
   String? _error;
   bool _saving = false;
@@ -397,6 +407,7 @@ class _AssistantLogTransactionCardState
   void dispose() {
     _amountController.dispose();
     _descriptionController.dispose();
+    _dateController.dispose();
     super.dispose();
   }
 
@@ -440,7 +451,7 @@ class _AssistantLogTransactionCardState
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Log quick expense',
+                  'Log quick transaction',
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
@@ -455,6 +466,31 @@ class _AssistantLogTransactionCardState
             ],
           ),
           const SizedBox(height: 12),
+          Container(
+            height: 40,
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: KoloColors.primaryPastel,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Row(
+              children: [
+                _TransactionTypeButton(
+                  key: const Key('kolo_assistant_log_expense'),
+                  label: 'Expense',
+                  selected: _type == TransactionType.expense,
+                  onTap: () => setState(() => _type = TransactionType.expense),
+                ),
+                _TransactionTypeButton(
+                  key: const Key('kolo_assistant_log_income'),
+                  label: 'Income',
+                  selected: _type == TransactionType.income,
+                  onTap: () => setState(() => _type = TransactionType.income),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
           TextField(
             key: const Key('kolo_assistant_log_amount'),
             controller: _amountController,
@@ -475,6 +511,20 @@ class _AssistantLogTransactionCardState
             textInputAction: TextInputAction.next,
             decoration: const InputDecoration(
               labelText: 'What was it?',
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            key: const Key('kolo_assistant_log_date'),
+            controller: _dateController,
+            keyboardType: TextInputType.datetime,
+            textInputAction: TextInputAction.next,
+            decoration: const InputDecoration(
+              labelText: 'Date',
               contentPadding: EdgeInsets.symmetric(
                 horizontal: 12,
                 vertical: 10,
@@ -529,9 +579,9 @@ class _AssistantLogTransactionCardState
                         strokeWidth: 2,
                         color: Colors.white,
                       ),
-                    )
+                  )
                   : const Icon(Icons.add_circle_outline, size: 18),
-              label: Text(_saving ? 'Saving...' : 'Save expense'),
+              label: Text(_saving ? 'Saving...' : 'Save transaction'),
             ),
           ),
         ],
@@ -544,8 +594,12 @@ class _AssistantLogTransactionCardState
       _amountController.text.trim(),
     );
     final description = _descriptionController.text.trim();
-    if (amountKobo == null || amountKobo <= 0 || description.isEmpty) {
-      setState(() => _error = 'Enter an amount and what happened.');
+    final date = DateTime.tryParse(_dateController.text.trim());
+    if (amountKobo == null ||
+        amountKobo <= 0 ||
+        description.isEmpty ||
+        date == null) {
+      setState(() => _error = 'Enter an amount, date, and what happened.');
       return;
     }
 
@@ -554,22 +608,62 @@ class _AssistantLogTransactionCardState
       _error = null;
     });
     final now = DateTime.now();
-    await ref
-        .read(koloRepositoryProvider)
-        .logTransaction(
-          TransactionRecord.expense(
+    final transaction = _type == TransactionType.income
+        ? TransactionRecord.income(
+            id: 'assistant-income-${now.microsecondsSinceEpoch}',
+            amountKobo: amountKobo,
+            category: _category,
+            description: description,
+            date: date,
+            source: TransactionSource.manual,
+            aiNote: 'Logged from Kolo quick assistant.',
+          )
+        : TransactionRecord.expense(
             id: 'assistant-expense-${now.microsecondsSinceEpoch}',
             amountKobo: amountKobo,
             category: _category,
             description: description,
-            date: now,
+            date: date,
             source: TransactionSource.manual,
             aiNote: 'Logged from Kolo quick assistant.',
-          ),
-        );
+          );
+    await ref
+        .read(koloRepositoryProvider)
+        .logTransaction(transaction);
     if (!mounted) return;
     setState(() => _saving = false);
     widget.onSaved();
+  }
+}
+
+class _TransactionTypeButton extends StatelessWidget {
+  const _TransactionTypeButton({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: TextButton(
+        onPressed: onTap,
+        style: TextButton.styleFrom(
+          foregroundColor: selected ? Colors.white : KoloColors.textSecondary,
+          backgroundColor: selected ? KoloColors.primary : Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(999),
+          ),
+          textStyle: const TextStyle(fontWeight: FontWeight.w800),
+        ),
+        child: Text(label),
+      ),
+    );
   }
 }
 

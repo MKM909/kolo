@@ -222,6 +222,57 @@ void main() {
     expect(transaction.source, TransactionSource.manual);
   });
 
+  testWidgets('floating assistant Log it records income with a custom date', (
+    tester,
+  ) async {
+    final repository = FakeKoloRepository.seeded();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [koloRepositoryProvider.overrideWithValue(repository)],
+        child: MaterialApp(
+          theme: KoloTheme.light,
+          home: const Scaffold(
+            body: Stack(children: [KoloFloatingAssistant()]),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('kolo_liquid_aether_orb')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('kolo_quick_log_it')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('kolo_assistant_log_income')), findsOneWidget);
+    expect(find.byKey(const Key('kolo_assistant_log_date')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('kolo_assistant_log_income')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('kolo_assistant_log_amount')),
+      '75000',
+    );
+    await tester.enterText(
+      find.byKey(const Key('kolo_assistant_log_description')),
+      'Logo project payment',
+    );
+    await tester.enterText(
+      find.byKey(const Key('kolo_assistant_log_date')),
+      '2026-04-15',
+    );
+    await tester.ensureVisible(find.byKey(const Key('kolo_assistant_log_save')));
+    await tester.tap(find.byKey(const Key('kolo_assistant_log_save')));
+    await tester.pumpAndSettle();
+
+    final dashboard = await repository.watchDashboard().first;
+    final transaction = dashboard.transactions.first;
+    expect(transaction.description, 'Logo project payment');
+    expect(transaction.amountKobo, 7500000);
+    expect(transaction.type, TransactionType.income);
+    expect(transaction.date, DateTime(2026, 4, 15));
+  });
+
   testWidgets('floating assistant warns when balance is negative', (
     tester,
   ) async {
