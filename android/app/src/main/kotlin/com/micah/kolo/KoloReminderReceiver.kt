@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import org.json.JSONObject
 
 class KoloReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -20,6 +21,7 @@ class KoloReminderReceiver : BroadcastReceiver() {
         }
         val notification = notification(context, title, body)
         val manager = context.getSystemService(NotificationManager::class.java)
+        KoloNativeEventQueue.enqueue(context, "reminder", reminderPayload(intent))
         manager.notify(id.hashCode(), notification)
     }
 
@@ -65,5 +67,18 @@ class KoloReminderReceiver : BroadcastReceiver() {
                 0
             }
         return PendingIntent.getActivity(context, 44, intent, flags)
+    }
+
+    private fun reminderPayload(intent: Intent): Map<String, Any?> {
+        val payload = intent.getStringExtra("payload").orEmpty()
+        val payloadJson = try {
+            if (payload.isBlank()) JSONObject() else JSONObject(payload)
+        } catch (_: Exception) {
+            JSONObject()
+        }
+        return mapOf(
+            "reminderId" to intent.getStringExtra("id").orEmpty(),
+            "kind" to payloadJson.optString("kind")
+        )
     }
 }

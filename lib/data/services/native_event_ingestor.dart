@@ -48,6 +48,11 @@ class NativeEventIngestor {
         continue;
       }
 
+      if (event.type == 'reminder') {
+        if (await _processReminder(event)) processed += 1;
+        continue;
+      }
+
       if (event.type == 'notification_posted' &&
           !await _isEnabledWatchedApp(event)) {
         continue;
@@ -166,6 +171,20 @@ class NativeEventIngestor {
     );
     await _surfaceOverlayIntervention(content);
     return true;
+  }
+
+  Future<bool> _processReminder(NativeAndroidEvent event) async {
+    if (event.payload['kind'] != 'weeklyInsight') return false;
+
+    try {
+      final insight = await _repository.generateWeeklyInsight();
+      final message = 'Your weekly insight is ready: ${insight.title}.';
+      await _overlayBubble?.showKoloBubble();
+      await _overlayBubble?.sendAssistantMessageToOverlay(message);
+      return true;
+    } on Object {
+      return false;
+    }
   }
 
   Future<void> _surfaceOverlayIntervention(String content) async {

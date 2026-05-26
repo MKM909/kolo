@@ -204,6 +204,39 @@ void main() {
     expect(dashboard.aiMessages.first.context, 'intervention');
   });
 
+  test('generates weekly insights from reminder native events', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          expect(call.method, 'drainNativeEvents');
+          return [
+            {
+              'id': 'weekly-reminder-1',
+              'type': 'reminder',
+              'createdAt': DateTime(2026, 5, 25, 9).millisecondsSinceEpoch,
+              'payload': {'kind': 'weeklyInsight'},
+            },
+          ];
+        });
+
+    final repository = FakeKoloRepository.seeded();
+    final overlayBubble = _FakeOverlayBubbleService();
+    final before = await repository.watchDashboard().first;
+    final ingestor = NativeEventIngestor(
+      capabilities: AndroidCapabilityService(channel: channel),
+      repository: repository,
+      overlayBubble: overlayBubble,
+    );
+
+    final processed = await ingestor.drainAndProcess();
+    final after = await repository.watchDashboard().first;
+
+    expect(processed, 1);
+    expect(after.insights, hasLength(before.insights.length + 1));
+    expect(after.insights.first.title, 'Kolo weekly spending check');
+    expect(overlayBubble.showCalls, 1);
+    expect(overlayBubble.assistantMessages.single, contains('weekly insight'));
+  });
+
   test('triggers the floating bubble for watched app interventions', () async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {

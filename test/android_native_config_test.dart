@@ -78,6 +78,20 @@ void main() {
     expect(manifest, contains('.KoloReminderReceiver'));
   });
 
+  test(
+    'Android reminder receiver queues reminder events for Dart processing',
+    () {
+      final receiver = File(
+        'android/app/src/main/kotlin/com/micah/kolo/KoloReminderReceiver.kt',
+      ).readAsStringSync();
+
+      expect(receiver, contains('KoloNativeEventQueue.enqueue'));
+      expect(receiver, contains('"reminder"'));
+      expect(receiver, contains('"kind" to'));
+      expect(receiver, contains('JSONObject(payload)'));
+    },
+  );
+
   test('MainActivity exposes notification listener enabled status', () {
     final mainActivity = File(
       'android/app/src/main/kotlin/com/micah/kolo/MainActivity.kt',
@@ -138,13 +152,15 @@ void main() {
       isTrue,
     );
     expect(
-      File('android/app/src/main/res/drawable/ic_launcher_foreground.xml')
-          .existsSync(),
+      File(
+        'android/app/src/main/res/drawable/ic_launcher_foreground.xml',
+      ).existsSync(),
       isTrue,
     );
     expect(
-      File('android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml')
-          .existsSync(),
+      File(
+        'android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml',
+      ).existsSync(),
       isTrue,
     );
     expect(launchBackground, contains('@color/kolo_splash_start'));
