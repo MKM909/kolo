@@ -108,29 +108,32 @@ void main() {
     },
   );
 
-  test('retryPending deletes queued bill reminders and marks them synced', () async {
-    final repository = FakeKoloRepository.seeded();
-    final queue = OfflineSyncQueue();
-    await queue.enqueue(
-      PendingSyncOperation(
-        id: 'offline-delete-bill',
-        kind: 'deleteBill',
-        payload: const {'id': 'bill-data'},
-        createdAt: DateTime(2026, 5, 24),
-      ),
-    );
+  test(
+    'retryPending deletes queued bill reminders and marks them synced',
+    () async {
+      final repository = FakeKoloRepository.seeded();
+      final queue = OfflineSyncQueue();
+      await queue.enqueue(
+        PendingSyncOperation(
+          id: 'offline-delete-bill',
+          kind: 'deleteBill',
+          payload: const {'id': 'bill-data'},
+          createdAt: DateTime(2026, 5, 24),
+        ),
+      );
 
-    final synced = await OfflineSyncDispatcher(
-      queue: queue,
-      repository: repository,
-    ).retryPending();
-    final pending = await queue.watchPendingOperations().first;
-    final dashboard = await repository.watchDashboard().first;
+      final synced = await OfflineSyncDispatcher(
+        queue: queue,
+        repository: repository,
+      ).retryPending();
+      final pending = await queue.watchPendingOperations().first;
+      final dashboard = await repository.watchDashboard().first;
 
-    expect(synced, 1);
-    expect(pending, isEmpty);
-    expect(dashboard.bills.where((bill) => bill.id == 'bill-data'), isEmpty);
-  });
+      expect(synced, 1);
+      expect(pending, isEmpty);
+      expect(dashboard.bills.where((bill) => bill.id == 'bill-data'), isEmpty);
+    },
+  );
 
   test('retryPending upserts queued gig income and marks it synced', () async {
     final repository = FakeKoloRepository.seeded();
@@ -333,4 +336,108 @@ void main() {
       expect(app.enabled, isTrue);
     },
   );
+
+  test('retryPending applies queued balance adjustments', () async {
+    final repository = FakeKoloRepository.seeded();
+    final queue = OfflineSyncQueue();
+    await queue.enqueue(
+      PendingSyncOperation(
+        id: 'offline-balance',
+        kind: 'balanceAdjustment',
+        payload: {
+          'id': 'balance-offline-1',
+          'previousBalanceKobo': 5080000,
+          'newBalanceKobo': 6100000,
+          'note': 'Cash deposit caught up offline',
+          'createdAt': DateTime(2026, 5, 24, 20).toIso8601String(),
+        },
+        createdAt: DateTime(2026, 5, 24, 20),
+      ),
+    );
+
+    final synced = await OfflineSyncDispatcher(
+      queue: queue,
+      repository: repository,
+    ).retryPending();
+    final pending = await queue.watchPendingOperations().first;
+    final dashboard = await repository.watchDashboard().first;
+
+    expect(synced, 1);
+    expect(pending, isEmpty);
+    expect(dashboard.balanceKobo, 6100000);
+    expect(dashboard.balanceAdjustments.first.id, 'balance-offline-1');
+  });
+
+  test('retryPending applies queued budget edits', () async {
+    final repository = FakeKoloRepository.seeded();
+    final queue = OfflineSyncQueue();
+    await queue.enqueue(
+      PendingSyncOperation(
+        id: 'offline-budget',
+        kind: 'budget',
+        payload: const {
+          'monthlyIncomeKobo': 9000000,
+          'incomeType': 'salary',
+          'savingsTargetKobo': 2500000,
+          'savingsGoal': 'New laptop',
+          'aiNotes': 'Protect savings first.',
+          'categories': [
+            {
+              'name': 'Food',
+              'emoji': 'food',
+              'allocatedKobo': 1800000,
+              'priority': 1,
+            },
+          ],
+        },
+        createdAt: DateTime(2026, 5, 24),
+      ),
+    );
+
+    final synced = await OfflineSyncDispatcher(
+      queue: queue,
+      repository: repository,
+    ).retryPending();
+    final pending = await queue.watchPendingOperations().first;
+    final dashboard = await repository.watchDashboard().first;
+
+    expect(synced, 1);
+    expect(pending, isEmpty);
+    expect(dashboard.budgetPlan.monthlyIncomeKobo, 9000000);
+    expect(dashboard.budgetPlan.categories.single.allocatedKobo, 1800000);
+  });
+
+  test('retryPending applies queued partner shares', () async {
+    final repository = FakeKoloRepository.seeded();
+    final queue = OfflineSyncQueue();
+    await queue.enqueue(
+      PendingSyncOperation(
+        id: 'offline-partner',
+        kind: 'partnerShare',
+        payload: {
+          'id': 'share-offline-1',
+          'partnerEmail': 'friend@kolo.app',
+          'status': 'pending',
+          'permissions': const ['balance_summary', 'weekly_insights'],
+          'createdAt': DateTime(2026, 5, 24).toIso8601String(),
+        },
+        createdAt: DateTime(2026, 5, 24),
+      ),
+    );
+
+    final synced = await OfflineSyncDispatcher(
+      queue: queue,
+      repository: repository,
+    ).retryPending();
+    final pending = await queue.watchPendingOperations().first;
+    final dashboard = await repository.watchDashboard().first;
+    final share = dashboard.partnerShares.firstWhere(
+      (share) => share.id == 'share-offline-1',
+    );
+
+    expect(synced, 1);
+    expect(pending, isEmpty);
+    expect(share.partnerEmail, 'friend@kolo.app');
+    expect(share.permissions, {'balance_summary', 'weekly_insights'});
+  });
 }
