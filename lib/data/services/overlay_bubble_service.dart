@@ -142,5 +142,9 @@ class OverlayBubbleService {
     return _platform.shareData({'type': 'prompt', 'text': prompt});
   }
 
+  Future<Object?> sendAssistantMessageToOverlay(String message) {
+    return _platform.shareData({'type': 'assistantMessage', 'text': message});
+  }
+
   Stream<Object?> get overlayMessages => _platform.overlayListener;
 }

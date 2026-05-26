@@ -63,6 +63,17 @@ void main() {
     ]);
   });
 
+  test('shares assistant messages with the overlay conversation', () async {
+    final platform = _FakeOverlayWindow(permissionGranted: true);
+    final service = OverlayBubbleService(platform: platform);
+
+    await service.sendAssistantMessageToOverlay('Pause before sending money.');
+
+    expect(platform.sharedData, [
+      {'type': 'assistantMessage', 'text': 'Pause before sending money.'},
+    ]);
+  });
+
   test('requests overlay permission through the overlay platform', () async {
     final platform = _FakeOverlayWindow(
       permissionGranted: false,

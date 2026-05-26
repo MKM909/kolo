@@ -230,6 +230,8 @@ void main() {
 
     expect(processed, 1);
     expect(overlayBubble.showCalls, 1);
+    expect(overlayBubble.expandCalls, 1);
+    expect(overlayBubble.assistantMessages.single, contains('Kuda'));
   });
 
   test(
@@ -526,6 +528,8 @@ class _FakeSmsReceivedHandler implements SmsReceivedHandler {
 
 class _FakeOverlayBubbleService implements OverlayBubbleService {
   int showCalls = 0;
+  int expandCalls = 0;
+  final List<String> assistantMessages = [];
 
   @override
   Future<bool> isPermissionGranted() async => true;
@@ -540,13 +544,22 @@ class _FakeOverlayBubbleService implements OverlayBubbleService {
   Future<bool> requestPermission() async => true;
 
   @override
-  Future<bool?> expandConversation() async => true;
+  Future<bool?> expandConversation() async {
+    expandCalls += 1;
+    return true;
+  }
 
   @override
   Future<bool?> collapseToBubble() async => true;
 
   @override
   Future<Object?> sendPromptToOverlay(String prompt) async => null;
+
+  @override
+  Future<Object?> sendAssistantMessageToOverlay(String message) async {
+    assistantMessages.add(message);
+    return null;
+  }
 
   @override
   Stream<Object?> get overlayMessages => const Stream.empty();

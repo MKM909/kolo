@@ -68,9 +68,19 @@ class _KoloOverlayBubbleState extends State<KoloOverlayBubble> {
 
   void _handleOverlayMessage(Object? message) {
     if (message is! Map) return;
-    if (message['type'] != 'prompt') return;
+    final type = message['type']?.toString();
     final prompt = message['text']?.toString().trim();
     if (prompt == null || prompt.isEmpty) return;
+    if (type == 'assistantMessage') {
+      setState(() {
+        _messages.add(_OverlayChatMessage.assistant(prompt));
+      });
+      if (!_expanded) {
+        _setExpanded(true);
+      }
+      return;
+    }
+    if (type != 'prompt') return;
     _controller.text = prompt;
     _controller.selection = TextSelection.collapsed(offset: prompt.length);
     if (!_expanded) {

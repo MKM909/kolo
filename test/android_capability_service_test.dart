@@ -324,6 +324,9 @@ class _FakeOverlayBubbleService implements OverlayBubbleService {
   Future<Object?> sendPromptToOverlay(String prompt) async => null;
 
   @override
+  Future<Object?> sendAssistantMessageToOverlay(String message) async => null;
+
+  @override
   Stream<Object?> get overlayMessages => const Stream.empty();
 }
 

@@ -164,8 +164,22 @@ class NativeEventIngestor {
         context: 'intervention',
       ),
     );
-    await _overlayBubble?.showKoloBubble();
+    await _surfaceOverlayIntervention(content);
     return true;
+  }
+
+  Future<void> _surfaceOverlayIntervention(String content) async {
+    final overlayBubble = _overlayBubble;
+    if (overlayBubble == null) return;
+
+    try {
+      await overlayBubble.showKoloBubble();
+      await overlayBubble.sendAssistantMessageToOverlay(content);
+      await overlayBubble.expandConversation();
+    } on Object {
+      // Native event processing should not fail just because the overlay
+      // channel is unavailable or permission was revoked.
+    }
   }
 
   Future<String> _interventionMessage({
