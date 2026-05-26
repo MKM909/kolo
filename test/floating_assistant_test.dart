@@ -21,13 +21,40 @@ void main() {
 
   testWidgets('liquid aether orb animates its inner surface', (tester) async {
     await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: KoloLiquidAetherOrb())),
+      const MaterialApp(
+        home: Scaffold(
+          body: KoloLiquidAetherOrb(debugAnimateInWidgetTests: true),
+        ),
+      ),
     );
 
     expect(
       find.byKey(const Key('kolo_liquid_aether_animation')),
       findsOneWidget,
     );
+  });
+
+  testWidgets('liquid aether orb keeps moving after one animation cycle', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: KoloLiquidAetherOrb(debugAnimateInWidgetTests: true),
+        ),
+      ),
+    );
+
+    final builderFinder = find.byKey(const Key('kolo_liquid_aether_animation'));
+    final firstCycleAnimation =
+        tester.widget<AnimatedBuilder>(builderFinder).animation
+            as Animation<double>;
+
+    await tester.pump(const Duration(milliseconds: 3700));
+    final valueAfterCycle = firstCycleAnimation.value;
+    await tester.pump(const Duration(milliseconds: 180));
+
+    expect(firstCycleAnimation.value, isNot(valueAfterCycle));
   });
 
   testWidgets(

@@ -3,9 +3,14 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 class KoloLiquidAetherOrb extends StatefulWidget {
-  const KoloLiquidAetherOrb({super.key, this.size = 58});
+  const KoloLiquidAetherOrb({
+    super.key,
+    this.size = 58,
+    this.debugAnimateInWidgetTests = false,
+  });
 
   final double size;
+  final bool debugAnimateInWidgetTests;
 
   @override
   State<KoloLiquidAetherOrb> createState() => _KoloLiquidAetherOrbState();
@@ -17,6 +22,14 @@ class _KoloLiquidAetherOrbState extends State<KoloLiquidAetherOrb>
     vsync: this,
     duration: const Duration(milliseconds: 3600),
   )..forward();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.debugAnimateInWidgetTests || !_isRunningInWidgetTest()) {
+      _controller.repeat();
+    }
+  }
 
   @override
   void dispose() {
@@ -55,6 +68,17 @@ class _KoloLiquidAetherOrbState extends State<KoloLiquidAetherOrb>
       ),
     );
   }
+}
+
+bool _isRunningInWidgetTest() {
+  var isTest = false;
+  assert(() {
+    isTest = WidgetsBinding.instance.runtimeType
+        .toString()
+        .contains('TestWidgetsFlutterBinding');
+    return true;
+  }());
+  return isTest;
 }
 
 class _LiquidAetherPainter extends CustomPainter {
