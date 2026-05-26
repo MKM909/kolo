@@ -305,6 +305,43 @@ void main() {
   });
 
   test(
+    'publishPartnerSummary queues the share when remote write fails',
+    () async {
+      final queue = OfflineSyncQueue();
+      final repository = QueuedKoloRepository(
+        remote: _OfflineRepository(),
+        queue: queue,
+        now: () => fixedNow,
+        idFactory: (kind) => 'pending-$kind',
+      );
+
+      final summary = await repository.publishPartnerSummary(
+        PartnerShare(
+          id: 'share-active',
+          partnerEmail: 'friend@kolo.app',
+          status: ShareStatus.active,
+          permissions: const {'balance_summary', 'weekly_insights'},
+          createdAt: DateTime(2026, 5, 20),
+        ),
+      );
+
+      final pending = await queue.watchPendingOperations().first;
+
+      expect(summary, isNull);
+      expect(pending, hasLength(1));
+      expect(pending.single.id, 'pending-partnerSummaryPublish');
+      expect(pending.single.kind, 'partnerSummaryPublish');
+      expect(pending.single.payload, {
+        'id': 'share-active',
+        'partnerEmail': 'friend@kolo.app',
+        'status': 'active',
+        'permissions': ['balance_summary', 'weekly_insights'],
+        'createdAt': DateTime(2026, 5, 20).toIso8601String(),
+      });
+    },
+  );
+
+  test(
     'app wires queued Firebase writes without using the queue for retry replay',
     () {
       final providers = File('lib/app/providers.dart').readAsStringSync();

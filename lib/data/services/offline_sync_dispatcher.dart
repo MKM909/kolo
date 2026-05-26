@@ -83,6 +83,11 @@ class OfflineSyncDispatcher {
         if (share == null) return false;
         await _repository.upsertPartnerShare(share);
         return true;
+      case 'partnerSummaryPublish':
+        final share = _partnerShareFromPayload(operation.payload);
+        if (share == null) return false;
+        await _repository.publishPartnerSummary(share);
+        return true;
       case 'transactionCategory':
         final transactionId = _string(operation.payload['transactionId']);
         final category = _string(operation.payload['category']);

@@ -104,8 +104,21 @@ class QueuedKoloRepository implements KoloRepository {
   }
 
   @override
-  Future<PartnerSafeSummary?> publishPartnerSummary(PartnerShare share) {
-    return _remote.publishPartnerSummary(share);
+  Future<PartnerSafeSummary?> publishPartnerSummary(PartnerShare share) async {
+    try {
+      return await _remote.publishPartnerSummary(share);
+    } on Object {
+      final createdAt = _now();
+      await _queue.enqueue(
+        PendingSyncOperation(
+          id: _pendingId('partnerSummaryPublish', createdAt),
+          kind: 'partnerSummaryPublish',
+          payload: _partnerSharePayload(share),
+          createdAt: createdAt,
+        ),
+      );
+      return null;
+    }
   }
 
   @override

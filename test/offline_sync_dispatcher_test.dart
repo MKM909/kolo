@@ -3,6 +3,8 @@ import 'package:kolo/data/repositories/fake_kolo_repository.dart';
 import 'package:kolo/data/services/offline_sync_dispatcher.dart';
 import 'package:kolo/data/services/offline_sync_queue.dart';
 import 'package:kolo/domain/models/models.dart';
+import 'package:kolo/domain/repositories/kolo_repository.dart';
+import 'package:kolo/domain/services/partner_summary_builder.dart';
 
 void main() {
   test('retryPending logs queued transactions and marks them synced', () async {
@@ -566,4 +568,48 @@ void main() {
     expect(message.content, 'I saw a money alert while offline.');
     expect(message.context, 'unrecognized_transaction');
   });
+
+  test('retryPending publishes queued partner summaries', () async {
+    final repository = _RecordingRepository();
+    final queue = OfflineSyncQueue();
+    await queue.enqueue(
+      PendingSyncOperation(
+        id: 'offline-partner-summary',
+        kind: 'partnerSummaryPublish',
+        payload: {
+          'id': 'share-active',
+          'partnerEmail': 'friend@kolo.app',
+          'status': 'active',
+          'permissions': const ['balance_summary', 'weekly_insights'],
+          'createdAt': DateTime(2026, 5, 20).toIso8601String(),
+        },
+        createdAt: DateTime(2026, 5, 24),
+      ),
+    );
+
+    final synced = await OfflineSyncDispatcher(
+      queue: queue,
+      repository: repository,
+    ).retryPending();
+    final pending = await queue.watchPendingOperations().first;
+
+    expect(synced, 1);
+    expect(pending, isEmpty);
+    expect(repository.publishedShares.map((share) => share.id), [
+      'share-active',
+    ]);
+  });
+}
+
+class _RecordingRepository implements KoloRepository {
+  final List<PartnerShare> publishedShares = [];
+
+  @override
+  Future<PartnerSafeSummary?> publishPartnerSummary(PartnerShare share) async {
+    publishedShares.add(share);
+    return null;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
