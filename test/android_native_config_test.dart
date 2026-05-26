@@ -141,4 +141,19 @@ void main() {
       expect(mainActivity, contains('"${entry.key}" to "${entry.value}"'));
     }
   });
+
+  test(
+    'MainActivity discovers installed launcher apps for watched app picker',
+    () {
+      final mainActivity = File(
+        'android/app/src/main/kotlin/com/micah/kolo/MainActivity.kt',
+      ).readAsStringSync();
+
+      expect(mainActivity, contains('getInstalledAppCandidates'));
+      expect(mainActivity, contains('Intent.ACTION_MAIN'));
+      expect(mainActivity, contains('Intent.CATEGORY_LAUNCHER'));
+      expect(mainActivity, contains('queryIntentActivities'));
+      expect(mainActivity, contains('isKnownFinancialApp'));
+    },
+  );
 }

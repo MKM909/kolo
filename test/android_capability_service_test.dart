@@ -151,6 +151,47 @@ void main() {
     expect(await service.startBackgroundWatcher(), isTrue);
   });
 
+  test(
+    'maps installed app candidates from MethodChannel with finance apps first',
+    () async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            expect(call.method, 'getInstalledAppCandidates');
+            return [
+              {
+                'packageName': 'com.android.calculator2',
+                'displayName': 'Calculator',
+                'installed': true,
+                'isKnownFinancialApp': false,
+              },
+              {
+                'packageName': 'com.kuda.android',
+                'displayName': 'Kuda',
+                'installed': true,
+                'isKnownFinancialApp': true,
+              },
+              {
+                'packageName': 'team.opay.pay',
+                'displayName': 'Opay',
+                'installed': false,
+                'isKnownFinancialApp': true,
+              },
+            ];
+          });
+
+      final service = AndroidCapabilityService(channel: channel);
+      final candidates = await service.getInstalledAppCandidates();
+
+      expect(candidates.map((app) => app.packageName), [
+        'com.kuda.android',
+        'team.opay.pay',
+        'com.android.calculator2',
+      ]);
+      expect(candidates.first.installed, isTrue);
+      expect(candidates.first.isKnownFinancialApp, isTrue);
+    },
+  );
+
   test('background service request starts watcher before granting', () async {
     final capabilities = _FakeAndroidCapabilities(
       notificationListenerEnabled: false,

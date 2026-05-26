@@ -8,6 +8,19 @@ class AndroidCapabilityService {
 
   final MethodChannel _channel;
 
+  Future<List<InstalledAppCandidate>> getInstalledAppCandidates() async {
+    final result = await _channel.invokeListMethod<Map<dynamic, dynamic>>(
+      'getInstalledAppCandidates',
+    );
+    if (result == null) return const [];
+    final candidates = result
+        .map(_installedAppCandidateFromPayload)
+        .where((app) => app.packageName.isNotEmpty)
+        .toList();
+    candidates.sort(_compareInstalledAppCandidates);
+    return candidates;
+  }
+
   Future<List<WatchedApp>> getSuggestedBankingApps() async {
     final result = await _channel.invokeListMethod<Map<dynamic, dynamic>>(
       'getSuggestedBankingApps',
@@ -81,6 +94,29 @@ class AndroidCapabilityService {
       'isNotificationListenerEnabled',
     );
     return enabled ?? false;
+  }
+
+  InstalledAppCandidate _installedAppCandidateFromPayload(
+    Map<dynamic, dynamic> item,
+  ) {
+    return InstalledAppCandidate(
+      packageName: item['packageName'] as String? ?? '',
+      displayName: item['displayName'] as String? ?? 'Installed app',
+      installed:
+          item['installed'] as bool? ?? item['enabled'] as bool? ?? false,
+      isKnownFinancialApp: item['isKnownFinancialApp'] as bool? ?? false,
+    );
+  }
+
+  int _compareInstalledAppCandidates(
+    InstalledAppCandidate first,
+    InstalledAppCandidate second,
+  ) {
+    final rankComparison = first.sortRank.compareTo(second.sortRank);
+    if (rankComparison != 0) return rankComparison;
+    return first.displayName.toLowerCase().compareTo(
+      second.displayName.toLowerCase(),
+    );
   }
 
   NativeAndroidEvent _nativeEventFromPayload(Map<dynamic, dynamic> item) {
