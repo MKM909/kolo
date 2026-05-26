@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kolo/data/repositories/firebase_auth_repository.dart';
 
@@ -15,5 +17,15 @@ void main() {
     expect(payload, isNot(contains('onboardingComplete')));
     expect(payload, isNot(contains('balanceKobo')));
     expect(payload, isNot(contains('createdAt')));
+  });
+
+  test('sign out clears both Firebase and cached Google sessions', () {
+    final source = File(
+      'lib/data/repositories/firebase_auth_repository.dart',
+    ).readAsStringSync();
+
+    expect(source, contains('Future<void> signOut() async'));
+    expect(source, contains('GoogleSignIn.instance.signOut()'));
+    expect(source, contains('_auth.signOut()'));
   });
 }
