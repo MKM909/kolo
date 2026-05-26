@@ -368,6 +368,7 @@ const onSmsReceivedFlow = ai.defineFlow(
       prompt: [
         "Parse this Nigerian bank SMS for Kolo and return a transaction draft.",
         "Use kobo for amountKobo. Choose income for credits and expense for debits.",
+        "If present, return the bank-reported balance after the alert as balanceAfterKobo and the transaction time as occurredAt in ISO-8601 format.",
         `Sender: ${input.sender ?? "unknown"}.`,
         `Raw SMS: ${input.rawText}`,
         `Context JSON: ${JSON.stringify(input.context ?? {})}`,
@@ -381,7 +382,7 @@ const onSmsReceivedFlow = ai.defineFlow(
         source: "sms",
         context: input.context,
       });
-    const receivedAt = parseDateOrNow(input.receivedAt);
+    const transactionDate = parseDateOrNow(transaction.occurredAt ?? input.receivedAt);
     const userRef = firestore.collection("users").doc(uid);
     const dedupKey = smsDedupKey(input);
     const transactionRef = userRef
@@ -395,6 +396,10 @@ const onSmsReceivedFlow = ai.defineFlow(
         ? transaction.amountKobo
         : -transaction.amountKobo;
     const aiMessage = smsAiMessage(transaction);
+    const balanceUpdate =
+      typeof transaction.balanceAfterKobo === "number"
+        ? {balanceKobo: transaction.balanceAfterKobo}
+        : {balanceKobo: FieldValue.increment(deltaKobo)};
 
     await firestore.runTransaction(async (dbTransaction) => {
       const existingTransaction = await dbTransaction.get(transactionRef);
@@ -406,8 +411,10 @@ const onSmsReceivedFlow = ai.defineFlow(
         category: transaction.category,
         description: transaction.description,
         source: "sms",
-        date: Timestamp.fromDate(receivedAt),
+        date: Timestamp.fromDate(transactionDate),
         merchantName: transaction.merchantName ?? null,
+        occurredAt: transaction.occurredAt ?? null,
+        balanceAfterKobo: transaction.balanceAfterKobo ?? null,
         aiApproved: null,
         aiNote: transaction.reason,
         rawText: input.rawText,
@@ -424,7 +431,7 @@ const onSmsReceivedFlow = ai.defineFlow(
       });
       dbTransaction.set(
         userRef,
-        {balanceKobo: FieldValue.increment(deltaKobo)},
+        balanceUpdate,
         {merge: true},
       );
     });

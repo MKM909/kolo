@@ -60,6 +60,8 @@ test("sms received contracts include raw alert text and logged outputs", () => {
       category: "Food & Snacks",
       description: "Chicken Republic",
       merchantName: "Chicken Republic",
+      occurredAt: "2026-05-25T09:55:00.000Z",
+      balanceAfterKobo: 4750000,
       confidence: 0.9,
       reason: "SMS mentions a known food merchant.",
     },
@@ -73,6 +75,8 @@ test("sms received contracts include raw alert text and logged outputs", () => {
   assert.equal(input.sender, "GTBank");
   assert.equal(input.sourceEventId, "native-sms-1");
   assert.equal(output.transaction.type, "expense");
+  assert.equal(output.transaction.occurredAt, "2026-05-25T09:55:00.000Z");
+  assert.equal(output.transaction.balanceAfterKobo, 4750000);
   assert.equal(output.transactionId, "tx-1");
 });
 

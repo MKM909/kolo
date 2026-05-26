@@ -12,6 +12,8 @@ export const transactionCategorizationSchema = z.object({
   category: z.string().min(1),
   description: z.string().min(1),
   merchantName: z.string().optional().nullable(),
+  occurredAt: z.string().optional().nullable(),
+  balanceAfterKobo: z.number().int().nonnegative().optional().nullable(),
   confidence: z.number().min(0).max(1),
   reason: z.string().min(1),
 });
