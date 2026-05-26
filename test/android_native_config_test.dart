@@ -102,6 +102,23 @@ void main() {
     expect(mainActivity, contains('startForegroundService'));
   });
 
+  test('foreground watcher notification taps open Kolo AI', () {
+    final foregroundService = File(
+      'android/app/src/main/kotlin/com/example/kolo/KoloForegroundService.kt',
+    ).readAsStringSync();
+    final manifest = File(
+      'android/app/src/main/AndroidManifest.xml',
+    ).readAsStringSync();
+
+    expect(foregroundService, contains('PendingIntent.getActivity'));
+    expect(foregroundService, contains('Intent.ACTION_VIEW'));
+    expect(foregroundService, contains('Uri.parse("kolo://app/ai?prompt='));
+    expect(foregroundService, contains('.setContentIntent('));
+    expect(manifest, contains('android.intent.category.BROWSABLE'));
+    expect(manifest, contains('android:scheme="kolo"'));
+    expect(manifest, contains('android:host="app"'));
+  });
+
   test('MainActivity suggests every v1 fintech app from the PRD', () {
     final mainActivity = File(
       'android/app/src/main/kotlin/com/micah/kolo/MainActivity.kt',

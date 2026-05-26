@@ -33,6 +33,24 @@ void main() {
     expect(find.text('Home'), findsWidgets);
   });
 
+  testWidgets('notification launch can open the Kolo AI tab with a prompt', (
+    tester,
+  ) async {
+    await _pumpWithRouter(
+      tester,
+      firebaseInitialized: false,
+      authKnown: true,
+      signedIn: false,
+      initialLocation:
+          '/ai?prompt=You%20just%20opened%20a%20Kolo%20notification',
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Kolo AI'), findsWidgets);
+    expect(find.text('You just opened a Kolo notification'), findsOneWidget);
+  });
+
   testWidgets('signed-in users with incomplete onboarding open onboarding', (
     tester,
   ) async {
@@ -93,6 +111,7 @@ Future<void> _pumpWithRouter(
   bool onboardingComplete = true,
   bool emailVerified = true,
   bool requiresBiometricUnlock = false,
+  String? initialLocation,
 }) {
   return tester.pumpWidget(
     ProviderScope(
@@ -104,6 +123,7 @@ Future<void> _pumpWithRouter(
           onboardingComplete: onboardingComplete,
           emailVerified: emailVerified,
           requiresBiometricUnlock: requiresBiometricUnlock,
+          initialLocation: initialLocation ?? '/home',
         ),
       ),
     ),

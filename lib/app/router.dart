@@ -15,9 +15,10 @@ GoRouter buildKoloRouter({
   bool onboardingComplete = true,
   bool emailVerified = true,
   bool requiresBiometricUnlock = false,
+  String initialLocation = '/home',
 }) {
   return GoRouter(
-    initialLocation: '/home',
+    initialLocation: initialLocation,
     redirect: (context, state) {
       if (!firebaseInitialized || !authKnown) return null;
 
