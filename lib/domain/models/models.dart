@@ -20,6 +20,180 @@ enum KoloPermission {
 
 enum PermissionGrantState { granted, denied, notRequested }
 
+enum SpendingDecisionStatus { approved, caution, advisedAgainst }
+
+class SpendingJustificationDecision {
+  const SpendingJustificationDecision({
+    required this.status,
+    required this.message,
+    required this.aiNote,
+  });
+
+  factory SpendingJustificationDecision.fromJson(Map<String, Object?> json) {
+    return SpendingJustificationDecision(
+      status: _statusFromJson(json['status']),
+      message: json['message'] as String? ?? '',
+      aiNote: json['aiNote'] as String? ?? '',
+    );
+  }
+
+  final SpendingDecisionStatus status;
+  final String message;
+  final String aiNote;
+
+  bool get approved => status == SpendingDecisionStatus.approved;
+
+  bool get requiresOverride => !approved;
+
+  Map<String, Object?> toJson() {
+    return {
+      'status': status.name,
+      'message': message,
+      'aiNote': aiNote,
+    };
+  }
+
+  static SpendingDecisionStatus _statusFromJson(Object? value) {
+    for (final status in SpendingDecisionStatus.values) {
+      if (status.name == value) return status;
+    }
+    return SpendingDecisionStatus.caution;
+  }
+}
+
+class PartnerInviteRef {
+  const PartnerInviteRef({required this.ownerUid, required this.shareId});
+
+  final String ownerUid;
+  final String shareId;
+
+  Uri get deepLink {
+    return Uri(
+      scheme: 'kolo',
+      host: 'app',
+      path: '/partner/invite',
+      queryParameters: {
+        'ownerUid': ownerUid,
+        'shareId': shareId,
+      },
+    );
+  }
+
+  static PartnerInviteRef? fromUri(Uri uri) {
+    if (uri.scheme != 'kolo' ||
+        uri.host != 'app' ||
+        uri.path != '/partner/invite') {
+      return null;
+    }
+    final ownerUid = uri.queryParameters['ownerUid'];
+    final shareId = uri.queryParameters['shareId'];
+    if (ownerUid == null ||
+        ownerUid.isEmpty ||
+        shareId == null ||
+        shareId.isEmpty) {
+      return null;
+    }
+    return PartnerInviteRef(ownerUid: ownerUid, shareId: shareId);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is PartnerInviteRef &&
+        other.ownerUid == ownerUid &&
+        other.shareId == shareId;
+  }
+
+  @override
+  int get hashCode => Object.hash(ownerUid, shareId);
+}
+
+class InstalledAppCandidate {
+  const InstalledAppCandidate({
+    required this.packageName,
+    required this.displayName,
+    required this.installed,
+    this.isKnownFinancialApp = false,
+  });
+
+  final String packageName;
+  final String displayName;
+  final bool installed;
+  final bool isKnownFinancialApp;
+
+  int get sortRank {
+    if (isKnownFinancialApp && installed) return 0;
+    if (isKnownFinancialApp) return 1;
+    if (installed) return 2;
+    return 3;
+  }
+
+  WatchedApp toWatchedApp({bool enabled = false}) {
+    return WatchedApp(
+      packageName: packageName,
+      displayName: displayName,
+      enabled: enabled,
+    );
+  }
+}
+
+class ReminderScheduleIntent {
+  const ReminderScheduleIntent({
+    required this.id,
+    required this.title,
+    required this.body,
+    required this.scheduledAt,
+    required this.payload,
+  });
+
+  factory ReminderScheduleIntent.bill({
+    required String billId,
+    required String title,
+    required String body,
+    required DateTime scheduledAt,
+    required int daysBeforeDue,
+  }) {
+    return ReminderScheduleIntent(
+      id: 'bill-$billId-${daysBeforeDue}d',
+      title: title,
+      body: body,
+      scheduledAt: scheduledAt,
+      payload: {
+        'kind': 'bill',
+        'billId': billId,
+        'daysBeforeDue': daysBeforeDue,
+      },
+    );
+  }
+
+  final String id;
+  final String title;
+  final String body;
+  final DateTime scheduledAt;
+  final Map<String, Object?> payload;
+}
+
+class CachedDashboardMetadata {
+  const CachedDashboardMetadata({
+    required this.uid,
+    required this.cachedAt,
+    this.source = 'firestore',
+  });
+
+  final String uid;
+  final DateTime cachedAt;
+  final String source;
+}
+
+class CachedDashboardEntry {
+  const CachedDashboardEntry({
+    required this.dashboard,
+    required this.metadata,
+  });
+
+  final DashboardState dashboard;
+  final CachedDashboardMetadata metadata;
+}
+
 class NotificationPreferences {
   const NotificationPreferences({
     this.transactionAlerts = true,
