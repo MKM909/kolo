@@ -23,6 +23,7 @@ import 'package:kolo/data/services/firebase_bootstrap.dart';
 import 'package:kolo/data/services/android_permission_requester.dart';
 import 'package:kolo/data/services/android_reminder_scheduler.dart';
 import 'package:kolo/data/services/hive_dashboard_cache_store.dart';
+import 'package:kolo/data/services/native_event_drain_loop.dart';
 import 'package:kolo/data/services/native_event_ingestor.dart';
 import 'package:kolo/data/services/offline_sync_dispatcher.dart';
 import 'package:kolo/data/services/offline_sync_queue.dart';
@@ -306,6 +307,21 @@ final nativeEventDrainProvider = FutureProvider<int>((ref) async {
   if (!bootstrap.initialized || authUser == null) return 0;
 
   return ref.watch(nativeEventIngestorProvider).drainAndProcess();
+});
+
+final nativeEventDrainLoopProvider = Provider<NativeEventDrainLoop?>((ref) {
+  final bootstrap = ref.watch(firebaseBootstrapResultProvider);
+  final authUser = ref
+      .watch(authStateProvider)
+      .when(data: (user) => user, error: (_, _) => null, loading: () => null);
+  if (!bootstrap.initialized || authUser == null) return null;
+
+  final loop = NativeEventDrainLoop(
+    drain: () => ref.read(nativeEventIngestorProvider).drainAndProcess(),
+  );
+  loop.start();
+  ref.onDispose(() => unawaited(loop.dispose()));
+  return loop;
 });
 
 final overlayConversationBridgeProvider = Provider<OverlayConversationBridge>((

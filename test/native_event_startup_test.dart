@@ -49,6 +49,15 @@ void main() {
     );
   });
 
+  test('foreground native event drain loop is wired into app startup', () {
+    final providersSource = File('lib/app/providers.dart').readAsStringSync();
+    final appSource = File('lib/app/kolo_app.dart').readAsStringSync();
+
+    expect(providersSource, contains('nativeEventDrainLoopProvider'));
+    expect(providersSource, contains('NativeEventDrainLoop('));
+    expect(appSource, contains('ref.watch(nativeEventDrainLoopProvider)'));
+  });
+
   test('due bill processor is wired into startup', () {
     final providersSource = File('lib/app/providers.dart').readAsStringSync();
     final appSource = File('lib/app/kolo_app.dart').readAsStringSync();
