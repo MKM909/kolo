@@ -9,6 +9,7 @@ import 'package:kolo/data/repositories/fake_partner_repository.dart';
 import 'package:kolo/data/repositories/firebase_auth_repository.dart';
 import 'package:kolo/data/repositories/firebase_kolo_repository.dart';
 import 'package:kolo/data/repositories/firebase_partner_repository.dart';
+import 'package:kolo/data/repositories/queued_kolo_repository.dart';
 import 'package:kolo/data/services/android_capability_service.dart';
 import 'package:kolo/data/services/biometric_session_lock.dart';
 import 'package:kolo/data/services/biometric_unlock_service.dart';
@@ -123,6 +124,23 @@ final dashboardCacheStoreProvider = Provider<DashboardCacheStore>((ref) {
   return MemoryDashboardCacheStore();
 });
 
+final firebaseKoloRemoteRepositoryProvider = Provider<KoloRepository?>((ref) {
+  final bootstrap = ref.watch(firebaseBootstrapResultProvider);
+  final authUser = ref
+      .watch(authStateProvider)
+      .when(data: (user) => user, error: (_, _) => null, loading: () => null);
+
+  if (!bootstrap.initialized || authUser == null || authUser.uid.isEmpty) {
+    return null;
+  }
+
+  return CachedKoloRepository(
+    uid: authUser.uid,
+    remote: FirebaseKoloRepository(uid: authUser.uid),
+    cache: ref.watch(dashboardCacheStoreProvider),
+  );
+});
+
 final koloRepositoryProvider = Provider<KoloRepository>((ref) {
   final bootstrap = ref.watch(firebaseBootstrapResultProvider);
   final authUser = ref
@@ -132,10 +150,9 @@ final koloRepositoryProvider = Provider<KoloRepository>((ref) {
     firebaseInitialized: bootstrap.initialized,
     firebaseUid: authUser?.uid,
     fakeBuilder: FakeKoloRepository.seeded,
-    firebaseBuilder: (uid) => CachedKoloRepository(
-      uid: uid,
-      remote: FirebaseKoloRepository(uid: uid),
-      cache: ref.watch(dashboardCacheStoreProvider),
+    firebaseBuilder: (_) => QueuedKoloRepository(
+      remote: ref.watch(firebaseKoloRemoteRepositoryProvider)!,
+      queue: ref.watch(offlineSyncQueueProvider),
     ),
   );
 });
@@ -192,8 +209,13 @@ final pendingSyncOperationsProvider =
 final offlineSyncDispatcherProvider = Provider<OfflineSyncDispatcher>((ref) {
   return OfflineSyncDispatcher(
     queue: ref.watch(offlineSyncQueueProvider),
-    repository: ref.watch(koloRepositoryProvider),
+    repository: ref.watch(offlineSyncTargetRepositoryProvider),
   );
+});
+
+final offlineSyncTargetRepositoryProvider = Provider<KoloRepository>((ref) {
+  return ref.watch(firebaseKoloRemoteRepositoryProvider) ??
+      ref.watch(koloRepositoryProvider);
 });
 
 final offlineSyncRetryProvider = FutureProvider<int>((ref) async {
