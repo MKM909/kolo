@@ -3,7 +3,12 @@ import {genkit, z} from "genkit";
 import {googleAI} from "@genkit-ai/googleai";
 import {HttpsError, onCall, onCallGenkit} from "firebase-functions/https";
 import {getApps, initializeApp} from "firebase-admin/app";
-import {FieldValue, getFirestore, Timestamp} from "firebase-admin/firestore";
+import {
+  FieldValue,
+  getFirestore,
+  Timestamp,
+  type DocumentReference,
+} from "firebase-admin/firestore";
 import {
   fallbackInterventionMessage,
   fallbackReminderDraft,
@@ -75,6 +80,157 @@ function smsTransactionId(
 
 function smsAiMessageId(input: z.infer<typeof smsReceivedInputSchema>): string {
   return `${smsTransactionId(input)}_ai`;
+}
+
+type FirestoreMap = Record<string, unknown>;
+
+function mapValue(value: unknown): FirestoreMap {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return {};
+  }
+  return value as FirestoreMap;
+}
+
+function stringValue(value: unknown, fallback = ""): string {
+  return typeof value === "string" && value.trim().length > 0
+    ? value.trim()
+    : fallback;
+}
+
+function numberValue(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function boolValue(value: unknown, fallback = false): boolean {
+  return typeof value === "boolean" ? value : fallback;
+}
+
+async function collectionRows(
+  ownerRef: DocumentReference,
+  collectionName: string,
+): Promise<FirestoreMap[]> {
+  const snapshot = await ownerRef.collection(collectionName).get();
+  return snapshot.docs.map((doc) => ({id: doc.id, ...doc.data()}));
+}
+
+async function buildPartnerSafeSummary(
+  ownerRef: DocumentReference,
+  shareId: string,
+  partnerEmail: string,
+  permissions: string[],
+) {
+  const permissionSet = new Set(permissions);
+  const user = mapValue((await ownerRef.get()).data());
+  const budgetPlan = mapValue(user.budgetPlan);
+  const transactions = await collectionRows(ownerRef, "transactions");
+  const vaults = await collectionRows(ownerRef, "vaults");
+  const owings = await collectionRows(ownerRef, "owings");
+  const bills = await collectionRows(ownerRef, "bills");
+  const insights = await collectionRows(ownerRef, "insights");
+  const expenseTransactions = transactions.filter(
+    (transaction) => transaction.type === "expense",
+  );
+  const totalIncomeKobo = transactions
+    .filter((transaction) => transaction.type === "income")
+    .reduce((total, transaction) => total + numberValue(transaction.amountKobo), 0);
+  const totalExpenseKobo = expenseTransactions.reduce(
+    (total, transaction) => total + numberValue(transaction.amountKobo),
+    0,
+  );
+  const totalSavingsKobo = vaults.reduce(
+    (total, vault) => total + numberValue(vault.currentKobo),
+    0,
+  );
+  const sections: FirestoreMap = {};
+
+  if (permissionSet.has("balance_summary")) {
+    sections.balance_summary = {
+      balanceKobo: numberValue(user.balanceKobo),
+      totalIncomeKobo,
+      totalExpenseKobo,
+      totalSavingsKobo,
+    };
+  }
+
+  if (permissionSet.has("budget_summary")) {
+    const categories = Array.isArray(budgetPlan.categories)
+      ? budgetPlan.categories.map((rawCategory) => {
+        const category = mapValue(rawCategory);
+        const name = stringValue(category.name, "Category");
+        return {
+          name,
+          allocatedKobo: numberValue(category.allocatedKobo),
+          spentKobo: expenseTransactions
+            .filter((transaction) => stringValue(transaction.category) === name)
+            .reduce(
+              (total, transaction) => total + numberValue(transaction.amountKobo),
+              0,
+            ),
+        };
+      })
+      : [];
+    sections.budget_summary = {
+      totalBudgetKobo: categories.reduce(
+        (total, category) => total + category.allocatedKobo,
+        0,
+      ),
+      categories,
+    };
+  }
+
+  if (permissionSet.has("vault_goals")) {
+    sections.vault_goals = {
+      count: vaults.length,
+      totalTargetKobo: vaults.reduce(
+        (total, vault) => total + numberValue(vault.targetKobo),
+        0,
+      ),
+      totalCurrentKobo: totalSavingsKobo,
+    };
+  }
+
+  if (permissionSet.has("owings")) {
+    const unsettled = owings.filter((owing) => !boolValue(owing.settled));
+    sections.owings = {
+      unsettledCount: unsettled.length,
+      theyOweMeKobo: unsettled
+        .filter((owing) => owing.type === "theyOweMe")
+        .reduce((total, owing) => total + numberValue(owing.amountKobo), 0),
+      iOweThemKobo: unsettled
+        .filter((owing) => owing.type === "iOweThem")
+        .reduce((total, owing) => total + numberValue(owing.amountKobo), 0),
+    };
+  }
+
+  if (permissionSet.has("bills")) {
+    const activeBills = bills.filter((bill) => boolValue(bill.active, true));
+    sections.bills = {
+      activeCount: activeBills.length,
+      totalActiveKobo: activeBills.reduce(
+        (total, bill) => total + numberValue(bill.amountKobo),
+        0,
+      ),
+    };
+  }
+
+  if (permissionSet.has("weekly_insights")) {
+    sections.weekly_insights = {
+      count: insights.length,
+      titles: insights
+        .slice(0, 3)
+        .map((insight) => stringValue(insight.title, "Kolo insight")),
+    };
+  }
+
+  return {
+    shareId,
+    partnerEmail,
+    status: "active",
+    permissions,
+    sections,
+    generatedAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  };
 }
 
 const chatSchema = z.object({
@@ -538,6 +694,12 @@ export const acceptPartnerShare = onCall(async (request) => {
   }
 
   const permissions = Array.isArray(share.permissions) ? share.permissions : [];
+  const summary = await buildPartnerSafeSummary(
+    ownerRef,
+    shareId,
+    partnerEmail,
+    permissions,
+  );
   const batch = firestore.batch();
   batch.set(
     shareRef,
@@ -552,14 +714,9 @@ export const acceptPartnerShare = onCall(async (request) => {
   batch.set(
     summaryRef,
     {
+      ...summary,
       shareId,
       ownerUid,
-      partnerEmail,
-      status: "active",
-      permissions,
-      sections: {},
-      generatedAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
     },
     {merge: true},
   );

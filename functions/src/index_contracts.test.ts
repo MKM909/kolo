@@ -38,6 +38,9 @@ test("Gemini callable exports use typed AI contract schemas", () => {
   assert.match(source, /export const acceptPartnerShare = onCall/);
   assert.match(source, /partnerShares"\)\.doc\(shareId\)/);
   assert.match(source, /partnerSummaries"\)\.doc\(shareId\)/);
+  assert.match(source, /buildPartnerSafeSummary/);
+  assert.match(source, /const summary = await buildPartnerSafeSummary/);
+  assert.doesNotMatch(source, /sections: \{\}/);
   assert.match(source, /request\.auth\.token\.email/);
   assert.doesNotMatch(source, /simpleTextFlow/);
 });
