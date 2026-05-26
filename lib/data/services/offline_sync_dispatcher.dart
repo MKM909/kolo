@@ -87,6 +87,30 @@ class OfflineSyncDispatcher {
           category: category,
         );
         return true;
+      case 'permission':
+        final permission = _enumByName(
+          KoloPermission.values,
+          operation.payload['permission'],
+        );
+        final state = _enumByName(
+          PermissionGrantState.values,
+          operation.payload['state'],
+        );
+        if (permission == null || state == null) return false;
+        await _repository.updatePermission(permission, state);
+        return true;
+      case 'preferredAiModel':
+        final modelName = _string(operation.payload['modelName']);
+        if (modelName == null) return false;
+        await _repository.updatePreferredAiModel(modelName);
+        return true;
+      case 'notificationPreferences':
+        await _repository.updateNotificationPreferences(
+          NotificationPreferences.fromJson(
+            Map<String, dynamic>.from(operation.payload),
+          ),
+        );
+        return true;
       default:
         return false;
     }

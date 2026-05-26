@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:kolo/data/services/offline_sync_queue.dart';
 import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/repositories/kolo_repository.dart';
+import 'package:kolo/domain/services/ai_model_config.dart';
 import 'package:kolo/domain/services/partner_summary_builder.dart';
 
 typedef PendingOperationIdFactory = String Function(String kind);
@@ -130,7 +131,11 @@ class QueuedKoloRepository implements KoloRepository {
   Future<void> updateNotificationPreferences(
     NotificationPreferences preferences,
   ) {
-    return _remote.updateNotificationPreferences(preferences);
+    return _writeOrQueue(
+      kind: 'notificationPreferences',
+      payload: preferences.toJson(),
+      write: () => _remote.updateNotificationPreferences(preferences),
+    );
   }
 
   @override
@@ -138,12 +143,21 @@ class QueuedKoloRepository implements KoloRepository {
     KoloPermission permission,
     PermissionGrantState state,
   ) {
-    return _remote.updatePermission(permission, state);
+    return _writeOrQueue(
+      kind: 'permission',
+      payload: {'permission': permission.name, 'state': state.name},
+      write: () => _remote.updatePermission(permission, state),
+    );
   }
 
   @override
   Future<void> updatePreferredAiModel(String modelName) {
-    return _remote.updatePreferredAiModel(modelName);
+    final normalizedModelName = koloAiModelNameOrDefault(modelName);
+    return _writeOrQueue(
+      kind: 'preferredAiModel',
+      payload: {'modelName': normalizedModelName},
+      write: () => _remote.updatePreferredAiModel(normalizedModelName),
+    );
   }
 
   @override

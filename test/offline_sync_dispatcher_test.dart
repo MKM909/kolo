@@ -443,16 +443,65 @@ void main() {
     expect(share.permissions, {'balance_summary', 'weekly_insights'});
   });
 
-  test('retryPending applies queued transaction category corrections', () async {
+  test(
+    'retryPending applies queued transaction category corrections',
+    () async {
+      final repository = FakeKoloRepository.seeded();
+      final queue = OfflineSyncQueue();
+      await queue.enqueue(
+        PendingSyncOperation(
+          id: 'offline-category-correction',
+          kind: 'transactionCategory',
+          payload: const {'transactionId': 'tx-food', 'category': 'Transport'},
+          createdAt: DateTime(2026, 5, 24),
+        ),
+      );
+
+      final synced = await OfflineSyncDispatcher(
+        queue: queue,
+        repository: repository,
+      ).retryPending();
+      final pending = await queue.watchPendingOperations().first;
+      final dashboard = await repository.watchDashboard().first;
+      final transaction = dashboard.transactions.firstWhere(
+        (transaction) => transaction.id == 'tx-food',
+      );
+
+      expect(synced, 1);
+      expect(pending, isEmpty);
+      expect(transaction.category, 'Transport');
+    },
+  );
+
+  test('retryPending applies queued settings writes', () async {
     final repository = FakeKoloRepository.seeded();
     final queue = OfflineSyncQueue();
     await queue.enqueue(
       PendingSyncOperation(
-        id: 'offline-category-correction',
-        kind: 'transactionCategory',
+        id: 'offline-permission',
+        kind: 'permission',
+        payload: const {'permission': 'notifications', 'state': 'granted'},
+        createdAt: DateTime(2026, 5, 24),
+      ),
+    );
+    await queue.enqueue(
+      PendingSyncOperation(
+        id: 'offline-model',
+        kind: 'preferredAiModel',
+        payload: const {'modelName': 'gemini-3.1-flash-lite'},
+        createdAt: DateTime(2026, 5, 24),
+      ),
+    );
+    await queue.enqueue(
+      PendingSyncOperation(
+        id: 'offline-notifications',
+        kind: 'notificationPreferences',
         payload: const {
-          'transactionId': 'tx-food',
-          'category': 'Transport',
+          'transactionAlerts': false,
+          'budgetWarnings': true,
+          'billReminders': false,
+          'weeklyInsights': true,
+          'bubbleInterventions': false,
         },
         createdAt: DateTime(2026, 5, 24),
       ),
@@ -464,12 +513,22 @@ void main() {
     ).retryPending();
     final pending = await queue.watchPendingOperations().first;
     final dashboard = await repository.watchDashboard().first;
-    final transaction = dashboard.transactions.firstWhere(
-      (transaction) => transaction.id == 'tx-food',
-    );
 
-    expect(synced, 1);
+    expect(synced, 3);
     expect(pending, isEmpty);
-    expect(transaction.category, 'Transport');
+    expect(
+      dashboard.permissions[KoloPermission.notifications],
+      PermissionGrantState.granted,
+    );
+    expect(dashboard.profile.preferredAiModel, 'gemini-3.1-flash-lite');
+    expect(
+      dashboard.profile.notificationPreferences.transactionAlerts,
+      isFalse,
+    );
+    expect(dashboard.profile.notificationPreferences.billReminders, isFalse);
+    expect(
+      dashboard.profile.notificationPreferences.bubbleInterventions,
+      isFalse,
+    );
   });
 }

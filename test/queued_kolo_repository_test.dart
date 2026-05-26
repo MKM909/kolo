@@ -178,6 +178,20 @@ void main() {
           createdAt: fixedNow,
         ),
       );
+      await repository.updatePermission(
+        KoloPermission.notifications,
+        PermissionGrantState.granted,
+      );
+      await repository.updatePreferredAiModel('gemini-3.1-ultra');
+      await repository.updateNotificationPreferences(
+        const NotificationPreferences(
+          transactionAlerts: false,
+          budgetWarnings: true,
+          billReminders: false,
+          weeklyInsights: true,
+          bubbleInterventions: false,
+        ),
+      );
 
       final pending = await queue.watchPendingOperations().first;
 
@@ -193,6 +207,9 @@ void main() {
         'deleteVault',
         'watchedApp',
         'partnerShare',
+        'permission',
+        'preferredAiModel',
+        'notificationPreferences',
       ]);
       expect(
         pending.every((operation) => operation.createdAt == fixedNow),
@@ -217,6 +234,12 @@ void main() {
         DateTime(2026, 8, 1).toIso8601String(),
       );
       expect(pending[10].payload['permissions'], ['balance_summary']);
+      expect(pending[11].payload, {
+        'permission': 'notifications',
+        'state': 'granted',
+      });
+      expect(pending[12].payload, {'modelName': 'gemini-3.1-flash-lite'});
+      expect(pending[13].payload['billReminders'], false);
     },
   );
 
