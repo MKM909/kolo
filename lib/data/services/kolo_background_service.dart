@@ -103,7 +103,7 @@ Future<void> koloBackgroundServiceEntryPoint(ServiceInstance service) async {
   });
 
   await drainKoloNativeEventsInBackground(service);
-  Timer.periodic(const Duration(minutes: 5), (_) {
+  Timer.periodic(const Duration(seconds: 15), (_) {
     drainKoloNativeEventsInBackground(service);
   });
 }

@@ -61,6 +61,8 @@ void main() {
     expect(source, contains('FirebaseAuth.instance.currentUser'));
     expect(source, contains('NativeEventIngestor('));
     expect(source, contains('Timer.periodic'));
+    expect(source, contains('Duration(seconds: 15)'));
+    expect(source, isNot(contains('Duration(minutes: 5)')));
     expect(source, contains('service.invoke'));
   });
 
