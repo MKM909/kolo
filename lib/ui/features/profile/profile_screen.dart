@@ -991,6 +991,9 @@ class _GigTrackerSheetState extends ConsumerState<_GigTrackerSheet> {
   final TextEditingController _clientController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _projectTypeController = TextEditingController();
+  final TextEditingController _dateController = TextEditingController(
+    text: _dateInput(DateTime.now()),
+  );
   final TextEditingController _noteController = TextEditingController();
   String? _error;
 
@@ -999,6 +1002,7 @@ class _GigTrackerSheetState extends ConsumerState<_GigTrackerSheet> {
     _clientController.dispose();
     _amountController.dispose();
     _projectTypeController.dispose();
+    _dateController.dispose();
     _noteController.dispose();
     super.dispose();
   }
@@ -1125,6 +1129,14 @@ class _GigTrackerSheetState extends ConsumerState<_GigTrackerSheet> {
                 ),
                 const SizedBox(height: 12),
                 TextField(
+                  key: const Key('new_gig_date'),
+                  controller: _dateController,
+                  keyboardType: TextInputType.datetime,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(labelText: 'Date received'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
                   controller: _noteController,
                   decoration: const InputDecoration(labelText: 'Note'),
                 ),
@@ -1155,9 +1167,13 @@ class _GigTrackerSheetState extends ConsumerState<_GigTrackerSheet> {
       _amountController.text.trim(),
     );
     final projectType = _projectTypeController.text.trim();
+    final receivedDate = DateTime.tryParse(_dateController.text.trim());
 
-    if (client.isEmpty || amountKobo == null || amountKobo <= 0) {
-      setState(() => _error = 'Enter a client and amount.');
+    if (client.isEmpty ||
+        amountKobo == null ||
+        amountKobo <= 0 ||
+        receivedDate == null) {
+      setState(() => _error = 'Enter a client, amount, and received date.');
       return;
     }
 
@@ -1169,7 +1185,7 @@ class _GigTrackerSheetState extends ConsumerState<_GigTrackerSheet> {
             id: 'gig-${now.microsecondsSinceEpoch}',
             client: client,
             amountKobo: amountKobo,
-            date: now,
+            date: receivedDate,
             projectType: projectType.isEmpty ? 'Gig' : projectType,
             note: _noteController.text.trim().isEmpty
                 ? null
@@ -1179,6 +1195,7 @@ class _GigTrackerSheetState extends ConsumerState<_GigTrackerSheet> {
     _clientController.clear();
     _amountController.clear();
     _projectTypeController.clear();
+    _dateController.text = _dateInput(DateTime.now());
     _noteController.clear();
     if (mounted) setState(() => _error = null);
   }
@@ -1320,6 +1337,13 @@ class _GigCard extends StatelessWidget {
                 Text(
                   gig.projectType,
                   style: Theme.of(context).textTheme.labelMedium,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _dateInput(gig.date),
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: KoloColors.textSecondary,
+                  ),
                 ),
               ],
             ),

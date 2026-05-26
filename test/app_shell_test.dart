@@ -799,12 +799,15 @@ void main() {
       find.byKey(const Key('new_gig_project_type')),
       'Brand kit',
     );
+    expect(find.byKey(const Key('new_gig_date')), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('new_gig_date')), '2026-04-15');
     await tester.ensureVisible(find.byKey(const Key('save_new_gig')));
     await tester.tap(find.byKey(const Key('save_new_gig')));
     await tester.pumpAndSettle();
 
     expect(find.text('Muna Foods'), findsWidgets);
     expect(find.text('Brand kit'), findsOneWidget);
+    expect(find.text('2026-04-15'), findsOneWidget);
     expect(
       find.textContaining(MoneyFormatter.formatKobo(9000000)),
       findsWidgets,
