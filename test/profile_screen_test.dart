@@ -4,8 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kolo/app/kolo_app.dart';
 import 'package:kolo/app/providers.dart';
 import 'package:kolo/data/repositories/fake_kolo_repository.dart';
+import 'package:kolo/data/services/firebase_bootstrap.dart';
 import 'package:kolo/data/services/offline_sync_queue.dart';
+import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/repositories/auth_repository.dart';
+import 'package:kolo/domain/services/permission_requester.dart';
 import 'package:kolo/ui/core/theme/kolo_theme.dart';
 import 'package:kolo/ui/features/profile/profile_screen.dart';
 
@@ -157,6 +160,62 @@ void main() {
 
     expect(find.text('₦70,000.00'), findsOneWidget);
   });
+
+  testWidgets('profile locks a permission when Android status is revoked', (
+    tester,
+  ) async {
+    final repository = FakeKoloRepository.seeded();
+    final requester = _StatusPermissionRequester({
+      KoloPermission.sms: PermissionGrantState.granted,
+      KoloPermission.overlay: PermissionGrantState.denied,
+    });
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          firebaseBootstrapResultProvider.overrideWithValue(
+            const FirebaseBootstrapResult(initialized: true),
+          ),
+          koloRepositoryProvider.overrideWithValue(repository),
+          permissionRequesterProvider.overrideWithValue(requester),
+        ],
+        child: MaterialApp(theme: KoloTheme.light, home: const ProfileScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final dashboard = await repository.watchDashboard().first;
+    expect(
+      dashboard.permissions[KoloPermission.overlay],
+      PermissionGrantState.denied,
+    );
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('grant_overlay')),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.byKey(const Key('grant_overlay')), findsOneWidget);
+    expect(requester.statusChecks, contains(KoloPermission.overlay));
+  });
+}
+
+class _StatusPermissionRequester implements PermissionRequester {
+  _StatusPermissionRequester(this.statuses);
+
+  final Map<KoloPermission, PermissionGrantState> statuses;
+  final List<KoloPermission> statusChecks = [];
+
+  @override
+  Future<PermissionGrantState> request(KoloPermission permission) async {
+    return statuses[permission] ?? PermissionGrantState.notRequested;
+  }
+
+  @override
+  Future<PermissionGrantState> status(KoloPermission permission) async {
+    statusChecks.add(permission);
+    return statuses[permission] ?? PermissionGrantState.notRequested;
+  }
 }
 
 class _SignOutAuthRepository implements AuthRepository {

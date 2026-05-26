@@ -18,6 +18,7 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final dashboard = ref.watch(dashboardProvider);
     final pendingSync = ref.watch(pendingSyncOperationsProvider);
+    ref.watch(permissionStatusRefreshProvider);
 
     return dashboard.when(
       loading: () => const Center(child: CircularProgressIndicator()),

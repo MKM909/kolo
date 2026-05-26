@@ -106,6 +106,31 @@ final dashboardProvider = StreamProvider<DashboardState>((ref) {
   return ref.watch(koloRepositoryProvider).watchDashboard();
 });
 
+final permissionStatusRefreshProvider = FutureProvider<void>((ref) async {
+  final bootstrap = ref.watch(firebaseBootstrapResultProvider);
+  if (!bootstrap.initialized) return;
+
+  final dashboard = await ref.watch(dashboardProvider.future);
+  final repository = ref.watch(koloRepositoryProvider);
+  final requester = ref.watch(permissionRequesterProvider);
+
+  for (final entry in dashboard.permissions.entries) {
+    if (entry.value != PermissionGrantState.granted ||
+        entry.key == KoloPermission.backgroundService) {
+      continue;
+    }
+
+    try {
+      final currentStatus = await requester.status(entry.key);
+      if (currentStatus != PermissionGrantState.granted) {
+        await repository.updatePermission(entry.key, currentStatus);
+      }
+    } on Object {
+      continue;
+    }
+  }
+});
+
 final offlineSyncQueueProvider = Provider<OfflineSyncQueue>((ref) {
   return OfflineSyncQueue();
 });
