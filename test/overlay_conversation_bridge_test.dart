@@ -345,6 +345,9 @@ class _FakeOverlayWindow implements OverlayWindowPlatform {
   }
 
   @override
+  Future<bool?> closeOverlay() async => true;
+
+  @override
   Future<void> showOverlay({
     required int height,
     required int width,

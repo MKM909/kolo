@@ -25,6 +25,8 @@ abstract class OverlayWindowPlatform {
     required bool enableDrag,
   });
 
+  Future<bool?> closeOverlay();
+
   Future<Object?> shareData(Object? data);
 
   Stream<Object?> get overlayListener;
@@ -85,6 +87,11 @@ class FlutterOverlayWindowPlatform implements OverlayWindowPlatform {
   }
 
   @override
+  Future<bool?> closeOverlay() {
+    return FlutterOverlayWindow.closeOverlay();
+  }
+
+  @override
   Future<Object?> shareData(Object? data) {
     return FlutterOverlayWindow.shareData(data);
   }
@@ -140,23 +147,19 @@ class OverlayBubbleService {
 
     final isActive = await _platform.isActive();
     if (isActive) {
-      await _platform.resizeOverlay(
-        width: WindowSize.fullCover,
-        height: WindowSize.fullCover,
-        enableDrag: false,
-      );
-    } else {
-      await _platform.showOverlay(
-        height: WindowSize.fullCover,
-        width: WindowSize.fullCover,
-        alignment: OverlayAlignment.center,
-        flag: OverlayFlag.focusPointer,
-        overlayTitle: 'Kolo block overlay active',
-        overlayContent: 'Kolo is checking this app launch with you.',
-        enableDrag: false,
-        positionGravity: PositionGravity.none,
-      );
+      await _platform.closeOverlay();
     }
+
+    await _platform.showOverlay(
+      height: WindowSize.fullCover,
+      width: WindowSize.fullCover,
+      alignment: OverlayAlignment.center,
+      flag: OverlayFlag.focusPointer,
+      overlayTitle: 'Kolo block overlay active',
+      overlayContent: 'Kolo is checking this app launch with you.',
+      enableDrag: false,
+      positionGravity: PositionGravity.none,
+    );
 
     await _platform.shareData({
       'type': 'blockOverlay',

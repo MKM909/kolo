@@ -103,7 +103,7 @@ void main() {
     });
   });
 
-  test('resizes an active overlay before sharing block context', () async {
+  test('reopens an active overlay before sharing block context', () async {
     final platform = _FakeOverlayWindow(permissionGranted: true, active: true);
     final service = OverlayBubbleService(platform: platform);
 
@@ -115,15 +115,29 @@ void main() {
     );
 
     expect(shown, isTrue);
-    expect(platform.showCalls, 0);
-    expect(platform.resizeCalls, [
-      (
-        width: WindowSize.fullCover,
-        height: WindowSize.fullCover,
-        enableDrag: false,
-      ),
-    ]);
+    expect(platform.closeCalls, 1);
+    expect(platform.showCalls, 1);
+    expect(platform.resizeCalls, isEmpty);
     expect(platform.sharedData.single, containsPair('blockLevel', 'explain'));
+  });
+
+  test('reopens active overlays as focusable block overlays', () async {
+    final platform = _FakeOverlayWindow(permissionGranted: true, active: true);
+    final service = OverlayBubbleService(platform: platform);
+
+    final shown = await service.showBlockOverlay(
+      appName: 'Kuda',
+      packageName: 'com.kuda.android',
+      blockLevel: WatchedAppBlockLevel.hardLock,
+      prompt: 'Before you go in, what is the plan?',
+    );
+
+    expect(shown, isTrue);
+    expect(platform.showCalls, 1);
+    expect(platform.flag, OverlayFlag.focusPointer);
+    expect(platform.height, WindowSize.fullCover);
+    expect(platform.width, WindowSize.fullCover);
+    expect(platform.enableDrag, isFalse);
   });
 
   test('requests overlay permission through the overlay platform', () async {
@@ -161,12 +175,14 @@ class _FakeOverlayWindow implements OverlayWindowPlatform {
   final bool active;
   final bool? requestPermissionResult;
   int showCalls = 0;
+  int closeCalls = 0;
   int requestPermissionCalls = 0;
   int? height;
   int? width;
   OverlayAlignment? alignment;
   PositionGravity? positionGravity;
   bool? enableDrag;
+  OverlayFlag? flag;
   String? overlayTitle;
   final resizeCalls = <({int width, int height, bool enableDrag})>[];
   final sharedData = <Object?>[];
@@ -181,6 +197,12 @@ class _FakeOverlayWindow implements OverlayWindowPlatform {
   Future<bool?> requestPermission() async {
     requestPermissionCalls += 1;
     return requestPermissionResult;
+  }
+
+  @override
+  Future<bool?> closeOverlay() async {
+    closeCalls += 1;
+    return true;
   }
 
   @override
@@ -200,6 +222,7 @@ class _FakeOverlayWindow implements OverlayWindowPlatform {
     this.alignment = alignment;
     this.positionGravity = positionGravity;
     this.enableDrag = enableDrag;
+    this.flag = flag;
     this.overlayTitle = overlayTitle;
   }
 
