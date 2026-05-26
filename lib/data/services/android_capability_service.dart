@@ -33,6 +33,23 @@ class AndroidCapabilityService {
     return result.map(_nativeEventFromPayload).toList();
   }
 
+  Future<List<NativeAndroidEvent>> peekNativeEvents() async {
+    final result = await _channel.invokeListMethod<Map<dynamic, dynamic>>(
+      'peekNativeEvents',
+    );
+    if (result == null) return const [];
+    return result.map(_nativeEventFromPayload).toList();
+  }
+
+  Future<void> enqueueNativeEvent(NativeAndroidEvent event) {
+    return _channel.invokeMethod<void>('enqueueNativeEvent', {
+      'id': event.id,
+      'type': event.type,
+      'createdAt': event.createdAt.millisecondsSinceEpoch,
+      'payload': event.payload,
+    });
+  }
+
   Future<bool> startBackgroundWatcher() async {
     final started = await _channel.invokeMethod<bool>('startBackgroundWatcher');
     return started ?? false;

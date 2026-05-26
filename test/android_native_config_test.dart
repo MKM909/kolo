@@ -43,6 +43,8 @@ void main() {
       'android/app/src/main/kotlin/com/micah/kolo/MainActivity.kt',
     ).readAsStringSync();
     expect(mainActivity, contains('drainNativeEvents'));
+    expect(mainActivity, contains('peekNativeEvents'));
+    expect(mainActivity, contains('enqueueNativeEvent'));
 
     for (final path in [
       'android/app/src/main/kotlin/com/example/kolo/KoloSmsReceiver.kt',

@@ -17,6 +17,12 @@ class MainActivity : FlutterActivity() {
         ).setMethodCallHandler { call, result ->
             when (call.method) {
                 "getSuggestedBankingApps" -> result.success(getSuggestedBankingApps())
+                "enqueueNativeEvent" -> {
+                    @Suppress("UNCHECKED_CAST")
+                    KoloNativeEventQueue.append(this, call.arguments as? Map<Any?, Any?> ?: emptyMap())
+                    result.success(null)
+                }
+                "peekNativeEvents" -> result.success(KoloNativeEventQueue.peek(this))
                 "drainNativeEvents" -> result.success(KoloNativeEventQueue.drain(this))
                 "openAccessibilitySettings" -> {
                     startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))

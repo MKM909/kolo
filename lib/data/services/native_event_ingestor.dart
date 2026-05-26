@@ -1,29 +1,34 @@
 import 'package:kolo/data/services/android_capability_service.dart';
+import 'package:kolo/data/services/android_native_event_queue_store.dart';
 import 'package:kolo/data/services/overlay_bubble_service.dart';
 import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/repositories/kolo_repository.dart';
 import 'package:kolo/domain/services/money_formatter.dart';
+import 'package:kolo/domain/services/native_event_queue_store.dart';
 import 'package:kolo/domain/services/sms_received_handler.dart';
 import 'package:kolo/domain/services/spending_intervention_advisor.dart';
 import 'package:kolo/domain/services/transaction_categorizer.dart';
 import 'package:kolo/domain/services/transaction_parser.dart';
 
 class NativeEventIngestor {
-  const NativeEventIngestor({
+  NativeEventIngestor({
     required AndroidCapabilityService capabilities,
     required KoloRepository repository,
+    NativeEventQueueStore? eventQueueStore,
     OverlayBubbleService? overlayBubble,
     TransactionCategorizer? categorizer,
     SpendingInterventionAdvisor? interventionAdvisor,
     SmsReceivedHandler? smsReceivedHandler,
-  }) : _capabilities = capabilities,
+  }) : _eventQueueStore =
+           eventQueueStore ??
+           AndroidNativeEventQueueStore(capabilities: capabilities),
        _repository = repository,
        _overlayBubble = overlayBubble,
        _categorizer = categorizer,
        _interventionAdvisor = interventionAdvisor,
        _smsReceivedHandler = smsReceivedHandler;
 
-  final AndroidCapabilityService _capabilities;
+  final NativeEventQueueStore _eventQueueStore;
   final KoloRepository _repository;
   final OverlayBubbleService? _overlayBubble;
   final TransactionCategorizer? _categorizer;
@@ -31,7 +36,7 @@ class NativeEventIngestor {
   final SmsReceivedHandler? _smsReceivedHandler;
 
   Future<int> drainAndProcess() async {
-    final events = await _capabilities.drainNativeEvents();
+    final events = await _eventQueueStore.drain();
     final seenEventIds = <String>{};
     var processed = 0;
 

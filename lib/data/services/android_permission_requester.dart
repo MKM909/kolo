@@ -1,4 +1,5 @@
 import 'package:kolo/data/services/android_capability_service.dart';
+import 'package:kolo/data/services/kolo_background_service.dart';
 import 'package:kolo/data/services/overlay_bubble_service.dart';
 import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/services/permission_requester.dart';
@@ -8,11 +9,15 @@ class AndroidPermissionRequester implements PermissionRequester {
   AndroidPermissionRequester({
     AndroidCapabilityService? capabilities,
     OverlayBubbleService? overlayBubble,
+    KoloBackgroundServiceController? backgroundService,
   }) : _capabilities = capabilities ?? AndroidCapabilityService(),
-       _overlayBubble = overlayBubble ?? OverlayBubbleService();
+       _overlayBubble = overlayBubble ?? OverlayBubbleService(),
+       _backgroundService =
+           backgroundService ?? KoloBackgroundServiceController();
 
   final AndroidCapabilityService _capabilities;
   final OverlayBubbleService _overlayBubble;
+  final KoloBackgroundServiceController _backgroundService;
 
   @override
   Future<PermissionGrantState> status(KoloPermission permission) async {
@@ -56,7 +61,10 @@ class AndroidPermissionRequester implements PermissionRequester {
             ? PermissionGrantState.granted
             : PermissionGrantState.notRequested;
       case KoloPermission.backgroundService:
-        return await _capabilities.startBackgroundWatcher()
+        final configured = await _backgroundService.configure();
+        final flutterStarted = await _backgroundService.start();
+        final nativeStarted = await _capabilities.startBackgroundWatcher();
+        return configured && flutterStarted && nativeStarted
             ? PermissionGrantState.granted
             : PermissionGrantState.notRequested;
     }

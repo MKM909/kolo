@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:kolo/app/kolo_app.dart';
 import 'package:kolo/data/services/firebase_bootstrap.dart';
+import 'package:kolo/data/services/kolo_background_service.dart';
 import 'package:kolo/ui/core/theme/kolo_theme.dart';
 import 'package:kolo/ui/core/widgets/kolo_liquid_aether_orb.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await KoloBackgroundServiceController().configure();
   final firebaseBootstrapResult = await FirebaseBootstrap.tryInitialize();
   runApp(KoloApp(firebaseBootstrapResult: firebaseBootstrapResult));
 }
