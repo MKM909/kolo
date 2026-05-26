@@ -66,6 +66,15 @@ final reminderSchedulerProvider = Provider<ReminderScheduler>((ref) {
   return const AndroidReminderScheduler();
 });
 
+final reminderScheduleStoreProvider = Provider<ReminderScheduleStore>((ref) {
+  if (Hive.isBoxOpen(koloReminderScheduleBoxName)) {
+    return HiveReminderScheduleStore(
+      Hive.box<Object?>(koloReminderScheduleBoxName),
+    );
+  }
+  return MemoryReminderScheduleStore();
+});
+
 final biometricUnlockServiceProvider = Provider<BiometricUnlockService>((ref) {
   return BiometricUnlockService();
 });
@@ -275,6 +284,7 @@ final reminderSyncProvider = FutureProvider<int>((ref) async {
   final dashboard = await ref.watch(dashboardProvider.future);
   return ReminderSyncService(
     scheduler: ref.watch(reminderSchedulerProvider),
+    scheduleStore: ref.watch(reminderScheduleStoreProvider),
   ).sync(dashboard);
 });
 

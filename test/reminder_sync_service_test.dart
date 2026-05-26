@@ -38,6 +38,9 @@ void main() {
 
   test('cancels reminders when notifications are denied', () async {
     final scheduler = _FakeReminderScheduler();
+    final store = MemoryReminderScheduleStore(
+      initialIds: const {'bill-bill-data-3d'},
+    );
     final dashboard = _dashboard(
       permissions: const {
         KoloPermission.notifications: PermissionGrantState.denied,
@@ -46,15 +49,64 @@ void main() {
 
     final count = await ReminderSyncService(
       scheduler: scheduler,
+      scheduleStore: store,
     ).sync(dashboard, now: DateTime(2026, 5, 26, 9));
 
     expect(count, 0);
     expect(scheduler.scheduled, isEmpty);
     expect(
       scheduler.cancelled,
-      containsAll(['weekly-insight', 'bill-reminders', 'owing-reminders']),
+      containsAll([
+        'weekly-insight',
+        'bill-reminders',
+        'owing-reminders',
+        'bill-bill-data-3d',
+      ]),
     );
+    expect(await store.loadIds(), isEmpty);
   });
+
+  test(
+    'cancels stale reminders missing from the latest schedule plan',
+    () async {
+      final scheduler = _FakeReminderScheduler();
+      final store = MemoryReminderScheduleStore(
+        initialIds: const {
+          'bill-old-data-3d',
+          'bill-old-data-1d',
+          'weekly-insight',
+        },
+      );
+      final dashboard = _dashboard(
+        bills: [
+          BillReminder(
+            id: 'bill-new-data',
+            name: 'New data',
+            amountKobo: 250000,
+            frequency: 'monthly',
+            nextDue: DateTime(2026, 5, 30),
+          ),
+        ],
+      );
+
+      final count = await ReminderSyncService(
+        scheduler: scheduler,
+        scheduleStore: store,
+      ).sync(dashboard, now: DateTime(2026, 5, 26, 9));
+
+      expect(count, 3);
+      expect(
+        scheduler.cancelled,
+        containsAll(['bill-old-data-3d', 'bill-old-data-1d']),
+      );
+      expect(scheduler.cancelled, isNot(contains('weekly-insight')));
+      expect(await store.loadIds(), {
+        'bill-bill-new-data-3d',
+        'bill-bill-new-data-1d',
+        'weekly-insight',
+      });
+    },
+  );
 }
 
 class _FakeReminderScheduler implements ReminderScheduler {

@@ -8,6 +8,7 @@ import 'package:kolo/data/services/hive_dashboard_cache_store.dart';
 import 'package:kolo/data/services/firebase_bootstrap.dart';
 import 'package:kolo/data/services/kolo_background_service.dart';
 import 'package:kolo/data/services/offline_sync_queue.dart';
+import 'package:kolo/data/services/reminder_sync_service.dart';
 import 'package:kolo/ui/core/theme/kolo_theme.dart';
 import 'package:kolo/ui/core/widgets/kolo_liquid_aether_orb.dart';
 
@@ -17,6 +18,7 @@ Future<void> main() async {
   await Future.wait([
     Hive.openBox<Object?>(koloDashboardCacheBoxName),
     Hive.openBox<Object?>(koloOfflineSyncBoxName),
+    Hive.openBox<Object?>(koloReminderScheduleBoxName),
   ]);
   await KoloBackgroundServiceController().configure();
   final firebaseBootstrapResult = await FirebaseBootstrap.tryInitialize();
