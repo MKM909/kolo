@@ -151,9 +151,16 @@ class QueuedKoloRepository implements KoloRepository {
     required String transactionId,
     required String category,
   }) {
-    return _remote.updateTransactionCategory(
-      transactionId: transactionId,
-      category: category,
+    return _writeOrQueue(
+      kind: 'transactionCategory',
+      payload: {
+        'transactionId': transactionId,
+        'category': category,
+      },
+      write: () => _remote.updateTransactionCategory(
+        transactionId: transactionId,
+        category: category,
+      ),
     );
   }
 

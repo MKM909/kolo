@@ -78,6 +78,15 @@ class OfflineSyncDispatcher {
         if (share == null) return false;
         await _repository.upsertPartnerShare(share);
         return true;
+      case 'transactionCategory':
+        final transactionId = _string(operation.payload['transactionId']);
+        final category = _string(operation.payload['category']);
+        if (transactionId == null || category == null) return false;
+        await _repository.updateTransactionCategory(
+          transactionId: transactionId,
+          category: category,
+        );
+        return true;
       default:
         return false;
     }

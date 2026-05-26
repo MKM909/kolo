@@ -442,4 +442,34 @@ void main() {
     expect(share.partnerEmail, 'friend@kolo.app');
     expect(share.permissions, {'balance_summary', 'weekly_insights'});
   });
+
+  test('retryPending applies queued transaction category corrections', () async {
+    final repository = FakeKoloRepository.seeded();
+    final queue = OfflineSyncQueue();
+    await queue.enqueue(
+      PendingSyncOperation(
+        id: 'offline-category-correction',
+        kind: 'transactionCategory',
+        payload: const {
+          'transactionId': 'tx-food',
+          'category': 'Transport',
+        },
+        createdAt: DateTime(2026, 5, 24),
+      ),
+    );
+
+    final synced = await OfflineSyncDispatcher(
+      queue: queue,
+      repository: repository,
+    ).retryPending();
+    final pending = await queue.watchPendingOperations().first;
+    final dashboard = await repository.watchDashboard().first;
+    final transaction = dashboard.transactions.firstWhere(
+      (transaction) => transaction.id == 'tx-food',
+    );
+
+    expect(synced, 1);
+    expect(pending, isEmpty);
+    expect(transaction.category, 'Transport');
+  });
 }

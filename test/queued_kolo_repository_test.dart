@@ -221,6 +221,34 @@ void main() {
   );
 
   test(
+    'updateTransactionCategory queues the correction when remote write fails',
+    () async {
+      final queue = OfflineSyncQueue();
+      final repository = QueuedKoloRepository(
+        remote: _OfflineRepository(),
+        queue: queue,
+        now: () => fixedNow,
+        idFactory: (kind) => 'pending-$kind',
+      );
+
+      await repository.updateTransactionCategory(
+        transactionId: 'tx-food',
+        category: 'Transport',
+      );
+
+      final pending = await queue.watchPendingOperations().first;
+
+      expect(pending, hasLength(1));
+      expect(pending.single.id, 'pending-transactionCategory');
+      expect(pending.single.kind, 'transactionCategory');
+      expect(pending.single.payload, {
+        'transactionId': 'tx-food',
+        'category': 'Transport',
+      });
+    },
+  );
+
+  test(
     'app wires queued Firebase writes without using the queue for retry replay',
     () {
       final providers = File('lib/app/providers.dart').readAsStringSync();
