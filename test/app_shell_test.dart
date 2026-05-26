@@ -1232,6 +1232,66 @@ void main() {
     expect(find.textContaining('must type a reason'), findsOneWidget);
   });
 
+  testWidgets('hard lock block level shows a serious-mode prompt', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.person_outline));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Watched Apps'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const Key('open_watched_apps')));
+    await tester.pumpAndSettle();
+
+    final hardLockOption = find.byKey(
+      const Key('block_level_com.kuda.android_hardLock'),
+    );
+    await tester.scrollUntilVisible(
+      hardLockOption,
+      250,
+      scrollable: find.byType(Scrollable).last,
+    );
+
+    await tester.tap(hardLockOption);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('hard_lock_onboarding_sheet')), findsOneWidget);
+    expect(find.text('Hard Lock is serious'), findsOneWidget);
+    expect(
+      find.textContaining('Kolo never truly locks you out'),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const Key('use_explain_mode_com.kuda.android')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<ChoiceChip>(
+            find.byKey(const Key('block_level_com.kuda.android_explain')),
+          )
+          .selected,
+      isTrue,
+    );
+
+    await tester.tap(hardLockOption);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('confirm_hard_lock_com.kuda.android')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<ChoiceChip>(hardLockOption).selected, isTrue);
+  });
+
   testWidgets('watched apps sheet prompts for accessibility permission', (
     tester,
   ) async {

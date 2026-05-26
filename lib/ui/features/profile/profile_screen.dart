@@ -2817,7 +2817,7 @@ class _WatchedAppToggle extends ConsumerWidget {
                                 : const Color(0xFFE5E7EB),
                           ),
                           onSelected: (_) async {
-                            await _saveWatchedApp(ref, blockLevel: level);
+                            await _selectBlockLevel(context, ref, level);
                           },
                         ),
                     ],
@@ -2854,6 +2854,27 @@ class _WatchedAppToggle extends ConsumerWidget {
           ),
         );
   }
+
+  Future<void> _selectBlockLevel(
+    BuildContext context,
+    WidgetRef ref,
+    WatchedAppBlockLevel level,
+  ) async {
+    if (level == WatchedAppBlockLevel.hardLock &&
+        app.blockLevel != WatchedAppBlockLevel.hardLock) {
+      final confirmedLevel = await showModalBottomSheet<WatchedAppBlockLevel>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => _HardLockOnboardingSheet(app: app),
+      );
+      if (confirmedLevel == null) return;
+      await _saveWatchedApp(ref, blockLevel: confirmedLevel);
+      return;
+    }
+
+    await _saveWatchedApp(ref, blockLevel: level);
+  }
 }
 
 String _blockLevelLabel(WatchedAppBlockLevel level) {
@@ -2881,6 +2902,94 @@ String _blockLevelDescription(WatchedAppBlockLevel level) {
     WatchedAppBlockLevel.hardLock =>
       'Hard Lock mode - Kolo checks budget context before you proceed.',
   };
+}
+
+class _HardLockOnboardingSheet extends StatelessWidget {
+  const _HardLockOnboardingSheet({required this.app});
+
+  final WatchedApp app;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('hard_lock_onboarding_sheet'),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+      decoration: const BoxDecoration(
+        color: Color(0xF5FFFFFF),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x20000000),
+            blurRadius: 40,
+            offset: Offset(0, -8),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                height: 4,
+                width: 42,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE5E7EB),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                const CircleAvatar(
+                  backgroundColor: KoloColors.primaryPastel,
+                  child: Icon(Icons.lock_outline, color: KoloColors.primary),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Hard Lock is serious',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'When you try to open ${app.displayName}, Kolo will review your spending context and decide if this is a good idea. You can always override. Kolo never truly locks you out, but you will have to explain yourself first.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: KoloColors.textSecondary,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 18),
+            FilledButton(
+              key: Key('confirm_hard_lock_${app.packageName}'),
+              onPressed: () {
+                Navigator.of(context).pop(WatchedAppBlockLevel.hardLock);
+              },
+              child: const Text('Got it, enable Hard Lock'),
+            ),
+            const SizedBox(height: 8),
+            Center(
+              child: TextButton(
+                key: Key('use_explain_mode_${app.packageName}'),
+                onPressed: () {
+                  Navigator.of(context).pop(WatchedAppBlockLevel.explain);
+                },
+                child: const Text('Use Explain Mode instead'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _InstalledAppCandidateTile extends ConsumerWidget {
