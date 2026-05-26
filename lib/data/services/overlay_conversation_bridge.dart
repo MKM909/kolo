@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:kolo/data/services/android_capability_service.dart';
 import 'package:kolo/data/services/overlay_bubble_service.dart';
 import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/repositories/kolo_repository.dart';
@@ -11,17 +12,20 @@ class OverlayConversationBridge {
     required KoloRepository repository,
     required SpendingJustificationAdvisor spendingAdvisor,
     required Future<DashboardState> Function() loadDashboard,
+    AndroidCapabilityService? androidCapabilities,
     DateTime Function()? now,
   }) : _overlayBubble = overlayBubble,
        _repository = repository,
        _spendingAdvisor = spendingAdvisor,
        _loadDashboard = loadDashboard,
+       _androidCapabilities = androidCapabilities,
        _now = now ?? DateTime.now;
 
   final OverlayBubbleService _overlayBubble;
   final KoloRepository _repository;
   final SpendingJustificationAdvisor _spendingAdvisor;
   final Future<DashboardState> Function() _loadDashboard;
+  final AndroidCapabilityService? _androidCapabilities;
   final DateTime Function() _now;
   StreamSubscription<Object?>? _subscription;
 
@@ -38,7 +42,12 @@ class OverlayConversationBridge {
 
   Future<void> _handleOverlayMessage(Object? message) async {
     if (message is! Map) return;
-    if (message['type']?.toString() != 'userMessage') return;
+    final type = message['type']?.toString();
+    if (type == 'blockCancelled') {
+      await _androidCapabilities?.performGlobalBack();
+      return;
+    }
+    if (type != 'userMessage') return;
 
     final text = message['text']?.toString().trim();
     if (text == null || text.isEmpty) return;

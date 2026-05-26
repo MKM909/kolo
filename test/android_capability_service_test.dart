@@ -151,6 +151,18 @@ void main() {
     expect(await service.startBackgroundWatcher(), isTrue);
   });
 
+  test('performs Android global back through MethodChannel', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          expect(call.method, 'performGlobalBack');
+          return true;
+        });
+
+    final service = AndroidCapabilityService(channel: channel);
+
+    expect(await service.performGlobalBack(), isTrue);
+  });
+
   test(
     'maps installed app candidates from MethodChannel with finance apps first',
     () async {

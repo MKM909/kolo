@@ -37,6 +37,7 @@ class MainActivity : FlutterActivity() {
                 "isAccessibilityServiceEnabled" -> result.success(isAccessibilityServiceEnabled())
                 "isNotificationListenerEnabled" -> result.success(isNotificationListenerEnabled())
                 "startBackgroundWatcher" -> result.success(startBackgroundWatcher())
+                "performGlobalBack" -> result.success(KoloAccessibilityService.performGlobalBackAction())
                 else -> result.notImplemented()
             }
         }

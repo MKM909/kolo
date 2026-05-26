@@ -316,6 +316,7 @@ final overlayConversationBridgeProvider = Provider<OverlayConversationBridge>((
     repository: ref.watch(koloRepositoryProvider),
     spendingAdvisor: ref.watch(spendingJustificationAdvisorProvider),
     loadDashboard: () => ref.read(dashboardProvider.future),
+    androidCapabilities: ref.watch(androidCapabilityServiceProvider),
   );
   bridge.start();
   ref.onDispose(() => unawaited(bridge.dispose()));

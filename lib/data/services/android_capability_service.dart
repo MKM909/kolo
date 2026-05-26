@@ -68,6 +68,11 @@ class AndroidCapabilityService {
     return started ?? false;
   }
 
+  Future<bool> performGlobalBack() async {
+    final performed = await _channel.invokeMethod<bool>('performGlobalBack');
+    return performed ?? false;
+  }
+
   Future<bool> openAccessibilitySettings() async {
     final opened = await _channel.invokeMethod<bool>(
       'openAccessibilitySettings',

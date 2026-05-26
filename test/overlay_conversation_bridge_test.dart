@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kolo/data/services/android_capability_service.dart';
 import 'package:kolo/data/services/overlay_bubble_service.dart';
 import 'package:kolo/data/services/overlay_conversation_bridge.dart';
 import 'package:kolo/domain/models/models.dart';
@@ -218,6 +219,37 @@ void main() {
     });
   });
 
+  test(
+    'block cancel asks Android to send the user away from the app',
+    () async {
+      final platform = _FakeOverlayWindow();
+      final capabilities = _RecordingAndroidCapabilities();
+      final bridge = OverlayConversationBridge(
+        overlayBubble: OverlayBubbleService(platform: platform),
+        repository: _RecordingRepository(),
+        spendingAdvisor: _RecordingSpendingAdvisor(),
+        loadDashboard: () async => _dashboard(),
+        androidCapabilities: capabilities,
+        now: () => DateTime(2026, 5, 26, 12),
+      );
+      addTearDown(() async {
+        await bridge.dispose();
+        await platform.close();
+      });
+
+      bridge.start();
+      platform.emit({
+        'type': 'blockCancelled',
+        'appName': 'Kuda',
+        'packageName': 'com.kuda.android',
+        'blockLevel': 'hardLock',
+      });
+      await pumpEventQueue();
+
+      expect(capabilities.globalBackCalls, 1);
+    },
+  );
+
   test('app starts the overlay conversation bridge', () {
     final providers = File('lib/app/providers.dart').readAsStringSync();
     final app = File('lib/app/kolo_app.dart').readAsStringSync();
@@ -330,6 +362,16 @@ class _RecordingRepository implements KoloRepository {
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _RecordingAndroidCapabilities extends AndroidCapabilityService {
+  int globalBackCalls = 0;
+
+  @override
+  Future<bool> performGlobalBack() async {
+    globalBackCalls += 1;
+    return true;
+  }
 }
 
 DashboardState _dashboard() {

@@ -128,6 +128,26 @@ void main() {
     expect(mainActivity, contains('startForegroundService'));
   });
 
+  test('Android block cancel can perform accessibility global back', () {
+    final mainActivity = File(
+      'android/app/src/main/kotlin/com/micah/kolo/MainActivity.kt',
+    ).readAsStringSync();
+    final accessibilityService = File(
+      'android/app/src/main/kotlin/com/example/kolo/KoloAccessibilityService.kt',
+    ).readAsStringSync();
+
+    expect(mainActivity, contains('performGlobalBack'));
+    expect(
+      mainActivity,
+      contains('KoloAccessibilityService.performGlobalBackAction()'),
+    );
+    expect(accessibilityService, contains('performGlobalBackAction'));
+    expect(
+      accessibilityService,
+      contains('performGlobalAction(GLOBAL_ACTION_BACK)'),
+    );
+  });
+
   test('foreground watcher notification taps open Kolo AI', () {
     final foregroundService = File(
       'android/app/src/main/kotlin/com/example/kolo/KoloForegroundService.kt',
