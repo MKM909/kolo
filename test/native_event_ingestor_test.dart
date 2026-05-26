@@ -274,6 +274,90 @@ void main() {
     expect(overlayBubble.assistantMessages.single, contains('weekly insight'));
   });
 
+  test('surfaces bill reminders from native reminder events', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          expect(call.method, 'drainNativeEvents');
+          return [
+            {
+              'id': 'bill-reminder-1',
+              'type': 'reminder',
+              'createdAt': DateTime(2026, 5, 25, 9).millisecondsSinceEpoch,
+              'payload': {
+                'kind': 'bill',
+                'billId': 'bill-data',
+                'title': 'Data is due soon',
+                'body': 'Keep cash ready for your data renewal.',
+              },
+            },
+          ];
+        });
+
+    final repository = FakeKoloRepository.seeded();
+    final overlayBubble = _FakeOverlayBubbleService();
+    final ingestor = NativeEventIngestor(
+      capabilities: AndroidCapabilityService(channel: channel),
+      repository: repository,
+      overlayBubble: overlayBubble,
+    );
+
+    final processed = await ingestor.drainAndProcess();
+    final dashboard = await repository.watchDashboard().first;
+
+    expect(processed, 1);
+    expect(dashboard.aiMessages.first.context, 'bill_reminder');
+    expect(dashboard.aiMessages.first.content, contains('Data is due soon'));
+    expect(overlayBubble.showCalls, 1);
+    expect(overlayBubble.assistantMessages.single, contains('data renewal'));
+  });
+
+  test('drafts owing reminders from native reminder events', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          expect(call.method, 'drainNativeEvents');
+          return [
+            {
+              'id': 'owing-reminder-1',
+              'type': 'reminder',
+              'createdAt': DateTime(2026, 5, 25, 9).millisecondsSinceEpoch,
+              'payload': {
+                'kind': 'owing',
+                'owingId': 'owing-tola',
+                'title': 'Tola still owes you',
+                'body': 'Send a gentle Kolo reminder.',
+              },
+            },
+          ];
+        });
+
+    final repository = FakeKoloRepository.seeded();
+    await repository.upsertOwing(
+      Owing(
+        id: 'owing-tola',
+        type: OwingType.theyOweMe,
+        person: 'Tola',
+        amountKobo: 450000,
+        date: DateTime(2026, 5, 20),
+        dueDate: DateTime(2026, 5, 24),
+      ),
+    );
+    final overlayBubble = _FakeOverlayBubbleService();
+    final ingestor = NativeEventIngestor(
+      capabilities: AndroidCapabilityService(channel: channel),
+      repository: repository,
+      overlayBubble: overlayBubble,
+    );
+
+    final processed = await ingestor.drainAndProcess();
+    final dashboard = await repository.watchDashboard().first;
+
+    expect(processed, 1);
+    expect(dashboard.aiMessages.first.context, 'owing_reminder');
+    expect(dashboard.aiMessages.first.content, contains('Tola'));
+    expect(overlayBubble.showCalls, 1);
+    expect(overlayBubble.assistantMessages.single, contains('Tola'));
+  });
+
   test('triggers the floating bubble for watched app interventions', () async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
@@ -304,37 +388,40 @@ void main() {
     expect(overlayBubble.assistantMessages.single, contains('Kuda'));
   });
 
-  test('skips soft watched app bubbles when interventions are disabled', () async {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-          expect(call.method, 'drainNativeEvents');
-          return [
-            {
-              'id': 'app-bubble-off',
-              'type': 'foreground_app',
-              'createdAt': DateTime(2026, 5, 24, 10).millisecondsSinceEpoch,
-              'payload': {'packageName': 'com.kuda.android'},
-            },
-          ];
-        });
+  test(
+    'skips soft watched app bubbles when interventions are disabled',
+    () async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            expect(call.method, 'drainNativeEvents');
+            return [
+              {
+                'id': 'app-bubble-off',
+                'type': 'foreground_app',
+                'createdAt': DateTime(2026, 5, 24, 10).millisecondsSinceEpoch,
+                'payload': {'packageName': 'com.kuda.android'},
+              },
+            ];
+          });
 
-    final repository = FakeKoloRepository.seeded();
-    await repository.updateNotificationPreferences(
-      const NotificationPreferences(bubbleInterventions: false),
-    );
-    final overlayBubble = _FakeOverlayBubbleService();
-    final ingestor = NativeEventIngestor(
-      capabilities: AndroidCapabilityService(channel: channel),
-      repository: repository,
-      overlayBubble: overlayBubble,
-    );
+      final repository = FakeKoloRepository.seeded();
+      await repository.updateNotificationPreferences(
+        const NotificationPreferences(bubbleInterventions: false),
+      );
+      final overlayBubble = _FakeOverlayBubbleService();
+      final ingestor = NativeEventIngestor(
+        capabilities: AndroidCapabilityService(channel: channel),
+        repository: repository,
+        overlayBubble: overlayBubble,
+      );
 
-    final processed = await ingestor.drainAndProcess();
+      final processed = await ingestor.drainAndProcess();
 
-    expect(processed, 0);
-    expect(overlayBubble.showCalls, 0);
-    expect(overlayBubble.expandCalls, 0);
-  });
+      expect(processed, 0);
+      expect(overlayBubble.showCalls, 0);
+      expect(overlayBubble.expandCalls, 0);
+    },
+  );
 
   test('routes hard lock watched app events to a block overlay', () async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -437,41 +524,44 @@ void main() {
     },
   );
 
-  test('keeps locally parsed watched app notifications as notifications', () async {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-          expect(call.method, 'drainNativeEvents');
-          return [
-            {
-              'id': 'notif-local-source-1',
-              'type': 'notification_posted',
-              'createdAt': DateTime(2026, 5, 24, 11).millisecondsSinceEpoch,
-              'payload': {
-                'packageName': 'com.kuda.android',
-                'title': 'Debit alert',
-                'text':
-                    'Debit NGN2,500.00 at Chicken Republic. Bal: NGN47,500.00',
+  test(
+    'keeps locally parsed watched app notifications as notifications',
+    () async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            expect(call.method, 'drainNativeEvents');
+            return [
+              {
+                'id': 'notif-local-source-1',
+                'type': 'notification_posted',
+                'createdAt': DateTime(2026, 5, 24, 11).millisecondsSinceEpoch,
+                'payload': {
+                  'packageName': 'com.kuda.android',
+                  'title': 'Debit alert',
+                  'text':
+                      'Debit NGN2,500.00 at Chicken Republic. Bal: NGN47,500.00',
+                },
               },
-            },
-          ];
-        });
+            ];
+          });
 
-    final repository = FakeKoloRepository.seeded();
-    final ingestor = NativeEventIngestor(
-      capabilities: AndroidCapabilityService(channel: channel),
-      repository: repository,
-    );
+      final repository = FakeKoloRepository.seeded();
+      final ingestor = NativeEventIngestor(
+        capabilities: AndroidCapabilityService(channel: channel),
+        repository: repository,
+      );
 
-    final processed = await ingestor.drainAndProcess();
-    final dashboard = await repository.watchDashboard().first;
-    final transaction = dashboard.transactions.firstWhere(
-      (tx) => tx.id == 'native-notif-local-source-1',
-    );
+      final processed = await ingestor.drainAndProcess();
+      final dashboard = await repository.watchDashboard().first;
+      final transaction = dashboard.transactions.firstWhere(
+        (tx) => tx.id == 'native-notif-local-source-1',
+      );
 
-    expect(processed, 1);
-    expect(transaction.merchantName, 'Chicken Republic');
-    expect(transaction.source, TransactionSource.notification);
-  });
+      expect(processed, 1);
+      expect(transaction.merchantName, 'Chicken Republic');
+      expect(transaction.source, TransactionSource.notification);
+    },
+  );
 
   test('uses server SMS ingestion before local logging when available', () async {
     final createdAt = DateTime(2026, 5, 24, 11);

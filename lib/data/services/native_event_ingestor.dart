@@ -180,7 +180,10 @@ class NativeEventIngestor {
   }
 
   Future<bool> _processReminder(NativeAndroidEvent event) async {
-    if (event.payload['kind'] != 'weeklyInsight') return false;
+    final kind = event.payload['kind'];
+    if (kind == 'bill') return _processBillReminder(event);
+    if (kind == 'owing') return _processOwingReminder(event);
+    if (kind != 'weeklyInsight') return false;
 
     try {
       final insight = await _repository.generateWeeklyInsight();
@@ -190,6 +193,73 @@ class NativeEventIngestor {
       return true;
     } on Object {
       return false;
+    }
+  }
+
+  Future<bool> _processBillReminder(NativeAndroidEvent event) async {
+    final title = _stringPayload(event, 'title') ?? 'Bill reminder';
+    final body =
+        _stringPayload(event, 'body') ??
+        'A bill reminder fired. Check Kolo before money leaves.';
+    final message = '$title. $body';
+
+    await _repository.recordAiMessage(
+      AiMessage(
+        id: 'native-reminder-${event.id}',
+        role: AiRole.assistant,
+        content: message,
+        timestamp: event.createdAt,
+        context: 'bill_reminder',
+      ),
+    );
+    await _surfaceReminderMessage(message);
+    return true;
+  }
+
+  Future<bool> _processOwingReminder(NativeAndroidEvent event) async {
+    final dashboard = await _repository.watchDashboard().first;
+    final owingId = _stringPayload(event, 'owingId');
+    Owing? owing;
+    for (final candidate in dashboard.owings) {
+      if (candidate.id == owingId) {
+        owing = candidate;
+        break;
+      }
+    }
+
+    final message = owing == null
+        ? [
+            _stringPayload(event, 'title') ?? 'Owing reminder',
+            _stringPayload(event, 'body') ??
+                'Check your owing tracker in Kolo.',
+          ].join('. ')
+        : await _repository.draftOwingReminder(owing);
+
+    if (owing == null) {
+      await _repository.recordAiMessage(
+        AiMessage(
+          id: 'native-reminder-${event.id}',
+          role: AiRole.assistant,
+          content: message,
+          timestamp: event.createdAt,
+          context: 'owing_reminder',
+        ),
+      );
+    }
+    await _surfaceReminderMessage(message);
+    return true;
+  }
+
+  Future<void> _surfaceReminderMessage(String message) async {
+    final overlayBubble = _overlayBubble;
+    if (overlayBubble == null) return;
+
+    try {
+      await overlayBubble.showKoloBubble();
+      await overlayBubble.sendAssistantMessageToOverlay(message);
+      await overlayBubble.expandConversation();
+    } on Object {
+      // Reminder delivery should not fail if overlay permission is unavailable.
     }
   }
 
@@ -273,6 +343,13 @@ class NativeEventIngestor {
       ].whereType<String>().join(' ').trim(),
       _ => null,
     };
+  }
+
+  String? _stringPayload(NativeAndroidEvent event, String key) {
+    final value = event.payload[key];
+    if (value is! String) return null;
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
   }
 
   Future<void> _reconcileParsedBalance(
