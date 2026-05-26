@@ -39,6 +39,8 @@ functions/lib/
 .env.*
 functions/.env
 functions/.env.*
+.secret.local
+functions/.secret.local
 
 # Symbolication related
 app.*.symbols
