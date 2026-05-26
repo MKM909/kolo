@@ -208,6 +208,18 @@ void main() {
     await tester.tap(find.byKey(const Key('save_spending_justification')));
     await tester.pumpAndSettle();
 
+    expect(find.byKey(const Key('spending_decision_card')), findsOneWidget);
+    expect(
+      find.textContaining('Caution - Birthday dinner for my sister'),
+      findsOneWidget,
+    );
+
+    await tester.ensureVisible(
+      find.byKey(const Key('override_spending_decision')),
+    );
+    await tester.tap(find.byKey(const Key('override_spending_decision')));
+    await tester.pumpAndSettle();
+
     await tester.tap(find.byIcon(Icons.receipt_long_outlined));
     await tester.pumpAndSettle();
 

@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kolo/data/services/android_capability_service.dart';
 import 'package:kolo/data/services/android_permission_requester.dart';
+import 'package:kolo/data/services/kolo_background_service.dart';
 import 'package:kolo/data/services/overlay_bubble_service.dart';
 import 'package:kolo/domain/models/models.dart';
 
@@ -37,6 +38,45 @@ void main() {
     expect(events.single.createdAt, DateTime.fromMillisecondsSinceEpoch(123));
     expect(events.single.payload['body'], 'GTBank Alert DR NGN2,500.00');
   });
+
+  test(
+    'peeks and appends native Android events through MethodChannel',
+    () async {
+      final appended = <Map<dynamic, dynamic>>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            if (call.method == 'enqueueNativeEvent') {
+              appended.add(call.arguments as Map<dynamic, dynamic>);
+              return null;
+            }
+            expect(call.method, 'peekNativeEvents');
+            return [
+              {
+                'id': 'native-peek-1',
+                'type': 'foreground_app',
+                'createdAt': 456,
+                'payload': {'packageName': 'com.kuda.android'},
+              },
+            ];
+          });
+
+      final service = AndroidCapabilityService(channel: channel);
+      final event = NativeAndroidEvent(
+        id: 'native-append-1',
+        type: 'sms_received',
+        createdAt: DateTime.fromMillisecondsSinceEpoch(123),
+        payload: const {'body': 'Kuda debit NGN 1,000'},
+      );
+
+      await service.enqueueNativeEvent(event);
+      final preview = await service.peekNativeEvents();
+
+      expect(appended.single['id'], 'native-append-1');
+      expect(appended.single['createdAt'], 123);
+      expect(preview.single.id, 'native-peek-1');
+      expect(preview.single.payload['packageName'], 'com.kuda.android');
+    },
+  );
 
   test(
     'reports notification listener enabled status from MethodChannel',
@@ -116,10 +156,16 @@ void main() {
       notificationListenerEnabled: false,
       backgroundWatcherStarted: true,
     );
-    final requester = AndroidPermissionRequester(capabilities: capabilities);
+    final backgroundService = _FakeKoloBackgroundServiceController();
+    final requester = AndroidPermissionRequester(
+      capabilities: capabilities,
+      backgroundService: backgroundService,
+    );
 
     final state = await requester.request(KoloPermission.backgroundService);
 
+    expect(backgroundService.configureCalls, 1);
+    expect(backgroundService.startCalls, 1);
     expect(capabilities.startedBackgroundWatcher, isTrue);
     expect(state, PermissionGrantState.granted);
   });
@@ -139,24 +185,27 @@ void main() {
     expect(state, PermissionGrantState.granted);
   });
 
-  test('overlay status reports denied when overlay permission was revoked', () async {
-    final overlayBubble = _FakeOverlayBubbleService(
-      requestResult: false,
-      permissionGranted: false,
-    );
-    final requester = AndroidPermissionRequester(
-      capabilities: _FakeAndroidCapabilities(
-        notificationListenerEnabled: false,
-      ),
-      overlayBubble: overlayBubble,
-    );
+  test(
+    'overlay status reports denied when overlay permission was revoked',
+    () async {
+      final overlayBubble = _FakeOverlayBubbleService(
+        requestResult: false,
+        permissionGranted: false,
+      );
+      final requester = AndroidPermissionRequester(
+        capabilities: _FakeAndroidCapabilities(
+          notificationListenerEnabled: false,
+        ),
+        overlayBubble: overlayBubble,
+      );
 
-    final state = await requester.status(KoloPermission.overlay);
+      final state = await requester.status(KoloPermission.overlay);
 
-    expect(state, PermissionGrantState.denied);
-    expect(overlayBubble.permissionChecks, 1);
-    expect(overlayBubble.requestPermissionCalls, 0);
-  });
+      expect(state, PermissionGrantState.denied);
+      expect(overlayBubble.permissionChecks, 1);
+      expect(overlayBubble.requestPermissionCalls, 0);
+    },
+  );
 
   test('status reads Android listener and accessibility settings', () async {
     final capabilities = _FakeAndroidCapabilities(
@@ -176,6 +225,26 @@ void main() {
     expect(capabilities.openedNotificationSettings, isFalse);
     expect(capabilities.openedAccessibilitySettings, isFalse);
   });
+}
+
+class _FakeKoloBackgroundServiceController
+    extends KoloBackgroundServiceController {
+  _FakeKoloBackgroundServiceController() : super(platform: null);
+
+  int configureCalls = 0;
+  int startCalls = 0;
+
+  @override
+  Future<bool> configure() async {
+    configureCalls += 1;
+    return true;
+  }
+
+  @override
+  Future<bool> start() async {
+    startCalls += 1;
+    return true;
+  }
 }
 
 class _FakeOverlayBubbleService implements OverlayBubbleService {
@@ -203,6 +272,18 @@ class _FakeOverlayBubbleService implements OverlayBubbleService {
 
   @override
   Future<bool> showKoloBubble() async => true;
+
+  @override
+  Future<bool?> expandConversation() async => true;
+
+  @override
+  Future<bool?> collapseToBubble() async => true;
+
+  @override
+  Future<Object?> sendPromptToOverlay(String prompt) async => null;
+
+  @override
+  Stream<Object?> get overlayMessages => const Stream.empty();
 }
 
 class _FakeAndroidCapabilities extends AndroidCapabilityService {

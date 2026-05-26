@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kolo/app/providers.dart';
 import 'package:kolo/domain/models/models.dart';
-import 'package:kolo/domain/services/ai_override_tone.dart';
 import 'package:kolo/domain/services/bill_protection_advisor.dart';
 import 'package:kolo/domain/services/bill_reminder_schedule.dart';
 import 'package:kolo/domain/services/financial_calculator.dart';
@@ -428,6 +427,8 @@ class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
   String _category = 'Food & Snacks';
   String? _error;
   bool _needsJustification = false;
+  bool _evaluatingJustification = false;
+  SpendingJustificationDecision? _spendingDecision;
   int? _pendingAmountKobo;
   String? _pendingDescription;
   DateTime? _pendingDate;
@@ -587,6 +588,16 @@ class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
                     prefixIcon: Icon(Icons.chat_bubble_outline),
                   ),
                 ),
+                if (_spendingDecision != null) ...[
+                  const SizedBox(height: 12),
+                  _SpendingDecisionCard(
+                    decision: _spendingDecision!,
+                    onCancel: () => Navigator.of(context).pop(),
+                    onLog: () => _logDecidedExpense(overrideDecision: false),
+                    onOverride: () =>
+                        _logDecidedExpense(overrideDecision: true),
+                  ),
+                ],
               ],
               if (_error != null) ...[
                 const SizedBox(height: 10),
@@ -600,14 +611,26 @@ class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
                 key: _needsJustification
                     ? const Key('save_spending_justification')
                     : const Key('save_transaction'),
-                onPressed: _needsJustification ? _saveJustifiedExpense : _save,
-                child: Text(
-                  _needsJustification
-                      ? 'Save with Kolo note'
-                      : _isIncome
-                      ? 'Save income'
-                      : 'Save expense',
-                ),
+                onPressed: _evaluatingJustification
+                    ? null
+                    : _needsJustification
+                    ? _saveJustifiedExpense
+                    : _save,
+                child: _evaluatingJustification
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Text(
+                        _needsJustification
+                            ? 'Ask Kolo to evaluate'
+                            : _isIncome
+                            ? 'Save income'
+                            : 'Save expense',
+                      ),
               ),
             ],
           ),
@@ -638,6 +661,7 @@ class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
         _pendingAmountKobo = amountKobo;
         _pendingDescription = description;
         _pendingDate = date;
+        _spendingDecision = null;
       });
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || !_scrollController.hasClients) return;
@@ -672,11 +696,85 @@ class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
       return;
     }
 
+    final dashboard = _dashboard();
+    if (dashboard == null) {
+      setState(() => _error = 'Kolo needs your current money context first.');
+      return;
+    }
+
+    final transaction = _expenseCandidate(
+      amountKobo: amountKobo,
+      description: description,
+      date: date,
+    );
+    setState(() {
+      _evaluatingJustification = true;
+      _error = null;
+    });
+
+    try {
+      final decision = await widget.ref
+          .read(spendingJustificationAdvisorProvider)
+          .evaluateSpendingJustification(
+            context: dashboard,
+            transaction: transaction,
+            justification: justification,
+            modelName: dashboard.profile.preferredAiModel,
+          );
+      if (!mounted) return;
+      if (decision.approved) {
+        await _logTransaction(
+          amountKobo: amountKobo,
+          description: description,
+          date: date,
+          decision: decision,
+        );
+        return;
+      }
+      setState(() {
+        _spendingDecision = decision;
+      });
+    } on Object {
+      if (!mounted) return;
+      setState(() {
+        _spendingDecision = SpendingJustificationDecision(
+          status: SpendingDecisionStatus.caution,
+          message:
+              'I could not fully evaluate this right now. If it matters, log it with a note and I will keep it visible.',
+          aiNote:
+              'Caution - $justification. Kolo could not reach Gemini before logging.',
+        );
+      });
+    } finally {
+      if (mounted) setState(() => _evaluatingJustification = false);
+    }
+  }
+
+  Future<void> _logDecidedExpense({required bool overrideDecision}) async {
+    final amountKobo = _pendingAmountKobo;
+    final description = _pendingDescription;
+    final date = _pendingDate;
+    final decision = _spendingDecision;
+    if (amountKobo == null ||
+        description == null ||
+        date == null ||
+        decision == null) {
+      setState(() => _error = 'Ask Kolo to evaluate the expense first.');
+      return;
+    }
+
+    final note = overrideDecision && decision.requiresOverride
+        ? SpendingJustificationDecision(
+            status: decision.status,
+            message: decision.message,
+            aiNote: '${decision.aiNote} User overrode Kolo advice.',
+          )
+        : decision;
     await _logTransaction(
       amountKobo: amountKobo,
       description: description,
       date: date,
-      justification: justification,
+      decision: note,
     );
   }
 
@@ -684,15 +782,10 @@ class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
     required int amountKobo,
     required String description,
     required DateTime date,
-    String? justification,
+    SpendingJustificationDecision? decision,
   }) async {
     final id = 'manual-${DateTime.now().microsecondsSinceEpoch}';
-    final aiNote = !_isIncome && justification != null
-        ? _spendingJustificationNote(
-            amountKobo: amountKobo,
-            justification: justification,
-          )
-        : null;
+    final aiNote = !_isIncome ? decision?.aiNote : null;
     final transaction = _isIncome
         ? TransactionRecord.income(
             id: id,
@@ -709,7 +802,7 @@ class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
             description: description,
             date: date,
             source: TransactionSource.manual,
-            aiApproved: aiNote == null || aiNote.startsWith('Approved'),
+            aiApproved: decision?.approved ?? true,
             aiNote: aiNote,
           );
 
@@ -756,38 +849,19 @@ class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
     return 'This pushes past your $_category budget. What is this for?';
   }
 
-  String _spendingJustificationNote({
+  TransactionRecord _expenseCandidate({
     required int amountKobo,
-    required String justification,
+    required String description,
+    required DateTime date,
   }) {
-    final dashboard = _dashboard();
-    if (dashboard == null) return 'Caution - $justification.';
-
-    final allocatedKobo = _categoryBudgetKobo(dashboard);
-    final spendAfter = _categorySpendKobo(dashboard) + amountKobo;
-    final overBy = spendAfter - allocatedKobo;
-    final adjustedTonePrefix =
-        AiOverrideTone.shouldAdjustTone(dashboard.transactions)
-        ? '${AiOverrideTone.repeatedOverrideMessage} '
-        : '';
-
-    if (allocatedKobo > 0 && overBy > 0) {
-      return '${adjustedTonePrefix}Caution - $justification. This leaves you ${MoneyFormatter.formatKobo(overBy)} over $_category.';
-    }
-
-    final vaultWarning = _vaultProtectionWarning(amountKobo);
-    if (vaultWarning.dipsIntoVault) {
-      final vaultName = vaultWarning.primaryVaultName ?? 'a vault';
-      return '${adjustedTonePrefix}Caution - $justification. This would touch ${MoneyFormatter.formatKobo(vaultWarning.shortfallKobo)} of protected vault money for $vaultName.';
-    }
-
-    final billWarning = _billProtectionWarning(amountKobo);
-    if (billWarning.risksDueBills) {
-      final billName = billWarning.primaryBillName ?? 'a bill';
-      return '${adjustedTonePrefix}Caution - $justification. This would leave you ${MoneyFormatter.formatKobo(billWarning.shortfallKobo)} short for $billName, a bill due soon.';
-    }
-
-    return '${adjustedTonePrefix}Approved - $justification. Kolo reviewed it against your current balance.';
+    return TransactionRecord.expense(
+      id: 'pending-spend-${DateTime.now().microsecondsSinceEpoch}',
+      amountKobo: amountKobo,
+      category: _category,
+      description: description,
+      date: date,
+      source: TransactionSource.manual,
+    );
   }
 
   VaultProtectionWarning _vaultProtectionWarning(int amountKobo) {
@@ -866,6 +940,115 @@ class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
     final month = date.month.toString().padLeft(2, '0');
     final day = date.day.toString().padLeft(2, '0');
     return '${date.year}-$month-$day';
+  }
+}
+
+class _SpendingDecisionCard extends StatelessWidget {
+  const _SpendingDecisionCard({
+    required this.decision,
+    required this.onCancel,
+    required this.onLog,
+    required this.onOverride,
+  });
+
+  final SpendingJustificationDecision decision;
+  final VoidCallback onCancel;
+  final VoidCallback onLog;
+  final VoidCallback onOverride;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = switch (decision.status) {
+      SpendingDecisionStatus.approved => KoloColors.income,
+      SpendingDecisionStatus.caution => KoloColors.warning,
+      SpendingDecisionStatus.advisedAgainst => KoloColors.expense,
+    };
+    final title = switch (decision.status) {
+      SpendingDecisionStatus.approved => 'Kolo approved this',
+      SpendingDecisionStatus.caution => 'Kolo says caution',
+      SpendingDecisionStatus.advisedAgainst => 'Kolo advises against this',
+    };
+
+    return Container(
+      key: const Key('spending_decision_card'),
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 20,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                backgroundColor: KoloColors.primaryPastel,
+                child: Icon(Icons.auto_awesome, color: color, size: 18),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: KoloColors.textPrimary,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      decision.message,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: KoloColors.textSecondary,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          if (decision.approved)
+            FilledButton(
+              key: const Key('accept_spending_decision'),
+              onPressed: onLog,
+              child: const Text('Log approved spend'),
+            )
+          else
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    key: const Key('cancel_spending_decision'),
+                    onPressed: onCancel,
+                    child: const Text('Skip it'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton(
+                    key: const Key('override_spending_decision'),
+                    onPressed: onOverride,
+                    child: const Text('Do it anyway'),
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
   }
 }
 

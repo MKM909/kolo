@@ -30,4 +30,14 @@ void main() {
       greaterThanOrEqualTo(2),
     );
   });
+
+  test('partners do not write owner share documents directly', () {
+    final rules = File('firestore.rules').readAsStringSync();
+
+    expect(rules, contains('allow read, write: if isOwner(uid);'));
+    expect(
+      rules,
+      isNot(contains('allow update: if signedIn() && resource.data.partnerEmail')),
+    );
+  });
 }

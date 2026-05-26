@@ -66,4 +66,13 @@ void main() {
     expect(providersSource, contains('OfflineSyncDispatcher('));
     expect(appSource, contains('ref.watch(offlineSyncRetryProvider)'));
   });
+
+  test('reminder sync is wired into startup', () {
+    final providersSource = File('lib/app/providers.dart').readAsStringSync();
+    final appSource = File('lib/app/kolo_app.dart').readAsStringSync();
+
+    expect(providersSource, contains('reminderSyncProvider'));
+    expect(providersSource, contains('ReminderSyncService('));
+    expect(appSource, contains('ref.watch(reminderSyncProvider)'));
+  });
 }

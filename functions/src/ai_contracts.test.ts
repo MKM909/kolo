@@ -3,8 +3,11 @@ import test from "node:test";
 import {
   fallbackInterventionMessage,
   fallbackReminderDraft,
+  fallbackSpendingJustificationDecision,
   smsReceivedInputSchema,
   smsReceivedOutputSchema,
+  spendingJustificationDecisionSchema,
+  spendingJustificationInputSchema,
   fallbackTransactionCategorization,
   fallbackWeeklyInsight,
   transactionCategorizationSchema,
@@ -98,6 +101,35 @@ test("intervention and insight contracts expose user-facing copy", () => {
   );
 });
 
+test("spending justification contracts classify user explanations", () => {
+  const input = spendingJustificationInputSchema.parse({
+    transaction: {
+      amountKobo: 450000,
+      type: "expense",
+      category: "Food & Snacks",
+      description: "Birthday food",
+      source: "manual",
+    },
+    justification: "It is a birthday contribution I already promised.",
+  });
+  const decision = spendingJustificationDecisionSchema.parse({
+    status: "caution",
+    message: "You can do it, but food will be tight this week.",
+    aiNote: "Caution - accepted social obligation but budget is strained.",
+  });
+
+  assert.equal(input.transaction.category, "Food & Snacks");
+  assert.equal(decision.status, "caution");
+  assert.equal(
+    spendingJustificationDecisionSchema.safeParse({
+      status: "maybe",
+      message: "Not valid.",
+      aiNote: "Nope.",
+    }).success,
+    false,
+  );
+});
+
 test("fallback outputs satisfy the typed AI contracts", () => {
   assert.equal(
     transactionCategorizationSchema.safeParse(
@@ -111,6 +143,12 @@ test("fallback outputs satisfy the typed AI contracts", () => {
 
   assert.equal(
     interventionMessageSchema.safeParse(fallbackInterventionMessage()).success,
+    true,
+  );
+  assert.equal(
+    spendingJustificationDecisionSchema.safeParse(
+      fallbackSpendingJustificationDecision(),
+    ).success,
     true,
   );
   assert.equal(

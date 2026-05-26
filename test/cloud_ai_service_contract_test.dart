@@ -13,15 +13,26 @@ void main() {
       'chatWithKolo',
       'generateBudget',
       'interventionMessage',
+      'evaluateSpendingJustification',
       'categorizeTransaction',
       'onSmsReceived',
       'draftReminder',
       'analyzeSpending',
     ]) {
-      expect(source, contains("httpsCallable('$callable')"));
+      expect(
+        RegExp("httpsCallable\\(\\s*'$callable'\\s*,?\\s*\\)").hasMatch(source),
+        isTrue,
+        reason: 'Expected CloudAiService to call $callable',
+      );
     }
 
     expect(source, contains('Future<String> interventionMessage'));
+    expect(
+      source,
+      contains(
+        'Future<SpendingJustificationDecision> evaluateSpendingJustification',
+      ),
+    );
     expect(source, contains('Future<TransactionDraft?> categorizeTransaction'));
     expect(source, contains('Future<bool> onSmsReceived'));
     expect(source, contains('Future<String> draftReminder'));
@@ -64,6 +75,7 @@ void main() {
     for (final marker in [
       'return _fallbackBudget(answers);',
       'return AiFailureMessage.intervention;',
+      'return _fallbackSpendingJustificationDecision();',
       'return null;',
       'return _fallbackReminder(owing);',
       'return _fallbackInsight();',

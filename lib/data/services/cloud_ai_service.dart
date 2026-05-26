@@ -4,6 +4,7 @@ import 'package:kolo/domain/services/ai_context_builder.dart';
 import 'package:kolo/domain/services/ai_failure_message.dart';
 import 'package:kolo/domain/services/ai_model_config.dart';
 import 'package:kolo/domain/services/sms_received_handler.dart';
+import 'package:kolo/domain/services/spending_justification_advisor.dart';
 import 'package:kolo/domain/services/spending_intervention_advisor.dart';
 import 'package:kolo/domain/services/transaction_categorizer.dart';
 
@@ -11,6 +12,7 @@ class CloudAiService
     implements
         TransactionCategorizer,
         SpendingInterventionAdvisor,
+        SpendingJustificationAdvisor,
         SmsReceivedHandler {
   CloudAiService({
     FirebaseFunctions? functions,
@@ -75,6 +77,36 @@ class CloudAiService
           AiFailureMessage.intervention;
     } on Object catch (_) {
       return AiFailureMessage.intervention;
+    }
+  }
+
+  @override
+  Future<SpendingJustificationDecision> evaluateSpendingJustification({
+    required DashboardState context,
+    required TransactionRecord transaction,
+    required String justification,
+    String? modelName,
+  }) async {
+    try {
+      final callable = _functions.httpsCallable(
+        'evaluateSpendingJustification',
+      );
+      final response = await callable.call<Map<String, dynamic>>({
+        'transaction': {
+          'amountKobo': transaction.amountKobo,
+          'type': transaction.type.name,
+          'category': transaction.category,
+          'description': transaction.description,
+          'source': transaction.source.name,
+          'merchantName': transaction.merchantName,
+        },
+        'justification': justification,
+        'context': _contextPayload(context),
+        'model': _resolvedModel(modelName),
+      });
+      return _spendingDecisionFromPayload(response.data);
+    } on Object catch (_) {
+      return _fallbackSpendingJustificationDecision();
     }
   }
 
@@ -226,6 +258,16 @@ class CloudAiService
     );
   }
 
+  SpendingJustificationDecision _spendingDecisionFromPayload(
+    Map<String, dynamic> payload,
+  ) {
+    return SpendingJustificationDecision.fromJson({
+      'status': payload['status'],
+      'message': payload['message'],
+      'aiNote': payload['aiNote'],
+    });
+  }
+
   int _intFromPayload(Object? value) {
     return switch (value) {
       final int amount => amount,
@@ -276,6 +318,16 @@ class CloudAiService
 
   String _fallbackReminder(Owing owing) {
     return '${AiFailureMessage.reminder} ${owing.person}, please send it when you can.';
+  }
+
+  SpendingJustificationDecision _fallbackSpendingJustificationDecision() {
+    return const SpendingJustificationDecision(
+      status: SpendingDecisionStatus.caution,
+      message:
+          'I could not fully evaluate this right now. If it matters, log it with a note and I will keep it visible.',
+      aiNote:
+          'Caution - Gemini unavailable, user explanation kept for history.',
+    );
   }
 
   WeeklyInsight _fallbackInsight() {

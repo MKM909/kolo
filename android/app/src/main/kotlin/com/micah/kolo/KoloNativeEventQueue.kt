@@ -9,19 +9,48 @@ object KoloNativeEventQueue {
     private const val EVENTS_KEY = "events"
 
     fun enqueue(context: Context, type: String, payload: Map<String, Any?>) {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val events = JSONArray(prefs.getString(EVENTS_KEY, "[]"))
         val event = JSONObject()
             .put("id", "${System.currentTimeMillis()}-$type")
             .put("type", type)
             .put("createdAt", System.currentTimeMillis())
             .put("payload", JSONObject(payload))
 
+        appendJson(context, event)
+    }
+
+    fun append(context: Context, event: Map<Any?, Any?>) {
+        val payload = event["payload"] as? Map<*, *> ?: emptyMap<Any?, Any?>()
+        val now = System.currentTimeMillis()
+        val eventJson = JSONObject()
+            .put("id", event["id"]?.toString() ?: "$now-unknown")
+            .put("type", event["type"]?.toString() ?: "unknown")
+            .put("createdAt", (event["createdAt"] as? Number)?.toLong() ?: now)
+            .put("payload", JSONObject(payload))
+
+        appendJson(context, eventJson)
+    }
+
+    fun peek(context: Context): List<Map<String, Any?>> {
+        return readEvents(context)
+    }
+
+    fun drain(context: Context): List<Map<String, Any?>> {
+        val drained = readEvents(context)
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .remove(EVENTS_KEY)
+            .apply()
+        return drained
+    }
+
+    private fun appendJson(context: Context, event: JSONObject) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val events = JSONArray(prefs.getString(EVENTS_KEY, "[]"))
         events.put(event)
         prefs.edit().putString(EVENTS_KEY, events.toString()).apply()
     }
 
-    fun drain(context: Context): List<Map<String, Any?>> {
+    private fun readEvents(context: Context): List<Map<String, Any?>> {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val events = JSONArray(prefs.getString(EVENTS_KEY, "[]"))
         val drained = mutableListOf<Map<String, Any?>>()
@@ -38,7 +67,6 @@ object KoloNativeEventQueue {
             )
         }
 
-        prefs.edit().remove(EVENTS_KEY).apply()
         return drained
     }
 
