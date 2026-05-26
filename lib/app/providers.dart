@@ -26,6 +26,7 @@ import 'package:kolo/data/services/hive_dashboard_cache_store.dart';
 import 'package:kolo/data/services/native_event_ingestor.dart';
 import 'package:kolo/data/services/offline_sync_dispatcher.dart';
 import 'package:kolo/data/services/offline_sync_queue.dart';
+import 'package:kolo/data/services/overlay_conversation_bridge.dart';
 import 'package:kolo/data/services/overlay_bubble_service.dart';
 import 'package:kolo/data/services/reminder_sync_service.dart';
 import 'package:kolo/domain/models/models.dart';
@@ -296,4 +297,18 @@ final nativeEventDrainProvider = FutureProvider<int>((ref) async {
   if (!bootstrap.initialized || authUser == null) return 0;
 
   return ref.watch(nativeEventIngestorProvider).drainAndProcess();
+});
+
+final overlayConversationBridgeProvider = Provider<OverlayConversationBridge>((
+  ref,
+) {
+  final bridge = OverlayConversationBridge(
+    overlayBubble: ref.watch(overlayBubbleServiceProvider),
+    repository: ref.watch(koloRepositoryProvider),
+    spendingAdvisor: ref.watch(spendingJustificationAdvisorProvider),
+    loadDashboard: () => ref.read(dashboardProvider.future),
+  );
+  bridge.start();
+  ref.onDispose(() => unawaited(bridge.dispose()));
+  return bridge;
 });
