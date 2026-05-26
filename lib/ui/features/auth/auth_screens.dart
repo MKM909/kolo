@@ -1539,6 +1539,27 @@ class _PermissionSetupPanel extends ConsumerStatefulWidget {
 
 class _PermissionSetupPanelState extends ConsumerState<_PermissionSetupPanel> {
   final Map<KoloPermission, PermissionGrantState> _localStates = {};
+  bool _grantingAll = false;
+
+  Future<void> _grantAll(List<_PermissionSpec> permissions) async {
+    setState(() => _grantingAll = true);
+    try {
+      for (final permission in permissions) {
+        final state = await ref
+            .read(permissionRequesterProvider)
+            .request(permission.permission);
+        await ref
+            .read(koloRepositoryProvider)
+            .updatePermission(permission.permission, state);
+        if (!mounted) return;
+        setState(() {
+          _localStates[permission.permission] = state;
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _grantingAll = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1611,6 +1632,66 @@ class _PermissionSetupPanelState extends ConsumerState<_PermissionSetupPanel> {
               ),
             ),
             const SizedBox(height: 20),
+            KoloCard(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        height: 44,
+                        width: 44,
+                        decoration: BoxDecoration(
+                          color: KoloColors.primaryPastel,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.verified_user_outlined,
+                          color: KoloColors.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      const Expanded(
+                        child: Text(
+                          'Choose your launch mode',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  ElevatedButton.icon(
+                    key: const Key('permission_setup_grant_all'),
+                    onPressed: _grantingAll
+                        ? null
+                        : () => _grantAll(permissions),
+                    icon: _grantingAll
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.bolt_outlined),
+                    label: Text(_grantingAll ? 'Granting...' : 'Grant all'),
+                  ),
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    key: const Key('permission_setup_skip'),
+                    onPressed: _grantingAll
+                        ? null
+                        : () => GoRouter.maybeOf(context)?.go('/home'),
+                    icon: const Icon(Icons.arrow_forward_outlined),
+                    label: const Text('Skip reduced features'),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
             for (final permission in permissions)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
@@ -1635,10 +1716,6 @@ class _PermissionSetupPanelState extends ConsumerState<_PermissionSetupPanel> {
                 ),
               ),
             const SizedBox(height: 8),
-            ElevatedButton(
-              onPressed: () => GoRouter.maybeOf(context)?.go('/home'),
-              child: const Text('Continue'),
-            ),
           ],
         ),
       ),

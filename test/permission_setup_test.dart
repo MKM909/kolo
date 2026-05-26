@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:kolo/app/providers.dart';
 import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/repositories/kolo_repository.dart';
@@ -90,6 +91,69 @@ void main() {
     expect(repository.state, PermissionGrantState.denied);
     expect(find.byKey(const Key('permission_locked_sms')), findsOneWidget);
   });
+
+  testWidgets('permission setup grant all requests every capability', (
+    tester,
+  ) async {
+    final repository = _RecordingKoloRepository();
+    final requester = _RecordingPermissionRequester();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          koloRepositoryProvider.overrideWithValue(repository),
+          permissionRequesterProvider.overrideWithValue(requester),
+        ],
+        child: MaterialApp(
+          theme: KoloTheme.light,
+          home: const PermissionSetupScreen(),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('permission_setup_grant_all')));
+    await tester.pumpAndSettle();
+
+    expect(requester.permissions, KoloPermission.values);
+    expect(repository.permissionStates.keys, KoloPermission.values);
+    expect(find.byKey(const Key('permission_granted_sms')), findsOneWidget);
+    expect(
+      find.byKey(const Key('permission_granted_backgroundService')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('permission setup skip opens home without storing grants', (
+    tester,
+  ) async {
+    final repository = _RecordingKoloRepository();
+    final router = GoRouter(
+      initialLocation: '/permissions',
+      routes: [
+        GoRoute(
+          path: '/permissions',
+          builder: (context, state) => const PermissionSetupScreen(),
+        ),
+        GoRoute(
+          path: '/home',
+          builder: (context, state) => const Text('Home reached'),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [koloRepositoryProvider.overrideWithValue(repository)],
+        child: MaterialApp.router(theme: KoloTheme.light, routerConfig: router),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('permission_setup_skip')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Home reached'), findsOneWidget);
+    expect(repository.permissionStates, isEmpty);
+  });
 }
 
 class _RecordingPermissionRequester implements PermissionRequester {
@@ -97,16 +161,19 @@ class _RecordingPermissionRequester implements PermissionRequester {
 
   final PermissionGrantState result;
   KoloPermission? permission;
+  final List<KoloPermission> permissions = [];
 
   @override
   Future<PermissionGrantState> status(KoloPermission permission) async {
     this.permission = permission;
+    permissions.add(permission);
     return result;
   }
 
   @override
   Future<PermissionGrantState> request(KoloPermission permission) async {
     this.permission = permission;
+    permissions.add(permission);
     return result;
   }
 }
@@ -119,6 +186,7 @@ class _RecordingKoloRepository implements KoloRepository {
   DashboardState _state;
   KoloPermission? permission;
   PermissionGrantState? state;
+  final Map<KoloPermission, PermissionGrantState> permissionStates = {};
 
   @override
   Future<void> adjustBalance(BalanceAdjustment adjustment) {
@@ -238,6 +306,7 @@ class _RecordingKoloRepository implements KoloRepository {
   ) async {
     this.permission = permission;
     this.state = state;
+    permissionStates[permission] = state;
     _state = _state.copyWith(
       permissions: {..._state.permissions, permission: state},
     );
