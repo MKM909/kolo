@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -69,6 +70,42 @@ void main() {
     expect(find.textContaining('opening Kuda'), findsOneWidget);
     expect(find.textContaining('What is the plan?'), findsOneWidget);
     expect(find.byKey(const Key('kolo_block_input')), findsOneWidget);
+    expect(find.byKey(const Key('kolo_block_cancel')), findsOneWidget);
+  });
+
+  testWidgets('block overlay reacts to caution decisions with proceed action', (
+    tester,
+  ) async {
+    final controller = StreamController<Object?>.broadcast();
+    addTearDown(controller.close);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: KoloOverlayBubble(
+          overlayMessages: controller.stream,
+          initialOverlayData: const {
+            'type': 'blockOverlay',
+            'appName': 'Kuda',
+            'packageName': 'com.kuda.android',
+            'blockLevel': 'hardLock',
+            'prompt': 'Hold on. You just opened Kuda. What is the plan?',
+          },
+        ),
+      ),
+    );
+
+    controller.add({
+      'type': 'blockDecision',
+      'status': 'caution',
+      'message': 'This is risky, but you can override.',
+      'appName': 'Kuda',
+      'packageName': 'com.kuda.android',
+      'blockLevel': 'hardLock',
+    });
+    await tester.pump();
+
+    expect(find.text('This is risky, but you can override.'), findsOneWidget);
+    expect(find.byKey(const Key('kolo_block_proceed_anyway')), findsOneWidget);
     expect(find.byKey(const Key('kolo_block_cancel')), findsOneWidget);
   });
 

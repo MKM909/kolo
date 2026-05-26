@@ -38,9 +38,14 @@ void overlayMain() {
 }
 
 class KoloOverlayBubble extends StatefulWidget {
-  const KoloOverlayBubble({super.key, this.initialOverlayData});
+  const KoloOverlayBubble({
+    super.key,
+    this.initialOverlayData,
+    this.overlayMessages,
+  });
 
   final Map<String, Object?>? initialOverlayData;
+  final Stream<Object?>? overlayMessages;
 
   @override
   State<KoloOverlayBubble> createState() => _KoloOverlayBubbleState();
@@ -59,12 +64,15 @@ class _KoloOverlayBubbleState extends State<KoloOverlayBubble> {
   ];
   StreamSubscription<Object?>? _overlaySubscription;
   _OverlayBlockContext? _blockContext;
+  _OverlayBlockDecision? _blockDecision;
   bool _expanded = false;
 
   @override
   void initState() {
     super.initState();
-    _overlaySubscription = _overlayMessages.listen(_handleOverlayMessage);
+    _overlaySubscription = (widget.overlayMessages ?? _overlayMessages).listen(
+      _handleOverlayMessage,
+    );
     _handleOverlayMessage(widget.initialOverlayData);
   }
 
@@ -83,10 +91,24 @@ class _KoloOverlayBubbleState extends State<KoloOverlayBubble> {
       if (blockContext == null) return;
       setState(() {
         _blockContext = blockContext;
+        _blockDecision = null;
         _expanded = false;
         _messages
           ..clear()
           ..add(_OverlayChatMessage.assistant(blockContext.prompt));
+      });
+      return;
+    }
+
+    if (type == 'blockDecision') {
+      final decision = _OverlayBlockDecision.fromMap(message);
+      if (decision == null) return;
+      setState(() {
+        _blockDecision = decision;
+        if (decision.message.isNotEmpty &&
+            (_messages.isEmpty || _messages.last.text != decision.message)) {
+          _messages.add(_OverlayChatMessage.assistant(decision.message));
+        }
       });
       return;
     }
@@ -172,6 +194,28 @@ class _KoloOverlayBubbleState extends State<KoloOverlayBubble> {
     }
   }
 
+  Future<void> _proceedFromBlockOverlay() async {
+    final blockContext = _blockContext;
+    final blockDecision = _blockDecision;
+    if (mounted) {
+      setState(() => _blockContext = null);
+    }
+    try {
+      await FlutterOverlayWindow.shareData({
+        'type': 'blockProceed',
+        if (blockContext != null) ...{
+          'packageName': blockContext.packageName,
+          'appName': blockContext.appName,
+          'blockLevel': blockContext.blockLevel,
+        },
+        if (blockDecision != null) 'status': blockDecision.status,
+      });
+      await FlutterOverlayWindow.closeOverlay();
+    } on Object {
+      // Tests and unsupported platforms do not have the Android overlay channel.
+    }
+  }
+
   String _replyFor(String text) {
     final lower = text.toLowerCase();
     if (lower.contains('spend') ||
@@ -191,9 +235,11 @@ class _KoloOverlayBubbleState extends State<KoloOverlayBubble> {
     if (blockContext != null) {
       return _BlockOverlay(
         contextData: blockContext,
+        decision: _blockDecision,
         controller: _controller,
         messages: _messages,
         onCancel: _cancelBlockOverlay,
+        onProceed: _proceedFromBlockOverlay,
         onSend: _sendMessage,
       );
     }
@@ -279,16 +325,20 @@ class _KoloOverlayBubbleState extends State<KoloOverlayBubble> {
 class _BlockOverlay extends StatelessWidget {
   const _BlockOverlay({
     required this.contextData,
+    required this.decision,
     required this.controller,
     required this.messages,
     required this.onCancel,
+    required this.onProceed,
     required this.onSend,
   });
 
   final _OverlayBlockContext contextData;
+  final _OverlayBlockDecision? decision;
   final TextEditingController controller;
   final List<_OverlayChatMessage> messages;
   final VoidCallback onCancel;
+  final VoidCallback onProceed;
   final VoidCallback onSend;
 
   @override
@@ -318,9 +368,11 @@ class _BlockOverlay extends StatelessWidget {
             alignment: Alignment.bottomCenter,
             child: _BlockChatPanel(
               contextData: contextData,
+              decision: decision,
               controller: controller,
               messages: messages,
               onCancel: onCancel,
+              onProceed: onProceed,
               onSend: onSend,
             ),
           ),
@@ -333,16 +385,20 @@ class _BlockOverlay extends StatelessWidget {
 class _BlockChatPanel extends StatelessWidget {
   const _BlockChatPanel({
     required this.contextData,
+    required this.decision,
     required this.controller,
     required this.messages,
     required this.onCancel,
+    required this.onProceed,
     required this.onSend,
   });
 
   final _OverlayBlockContext contextData;
+  final _OverlayBlockDecision? decision;
   final TextEditingController controller;
   final List<_OverlayChatMessage> messages;
   final VoidCallback onCancel;
+  final VoidCallback onProceed;
   final VoidCallback onSend;
 
   @override
@@ -435,6 +491,13 @@ class _BlockChatPanel extends StatelessWidget {
                 ),
               ),
             ),
+            if (decision != null)
+              _BlockDecisionActions(
+                appName: contextData.appName,
+                decision: decision!,
+                onCancel: onCancel,
+                onProceed: onProceed,
+              ),
             _BlockOverlayInput(controller: controller, onSend: onSend),
             TextButton(
               key: const Key('kolo_block_cancel'),
@@ -447,6 +510,59 @@ class _BlockChatPanel extends StatelessWidget {
             const SizedBox(height: 4),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _BlockDecisionActions extends StatelessWidget {
+  const _BlockDecisionActions({
+    required this.appName,
+    required this.decision,
+    required this.onCancel,
+    required this.onProceed,
+  });
+
+  final String appName;
+  final _OverlayBlockDecision decision;
+  final VoidCallback onCancel;
+  final VoidCallback onProceed;
+
+  @override
+  Widget build(BuildContext context) {
+    final (key, label) = switch (decision.status) {
+      'approved' => (const Key('kolo_block_continue'), 'Continue to $appName'),
+      'caution' => (const Key('kolo_block_proceed_anyway'), 'Proceed anyway'),
+      'advisedAgainst' => (
+        const Key('kolo_block_confirm_override'),
+        'I understand, proceed',
+      ),
+      _ => (const Key('kolo_block_continue'), 'Continue'),
+    };
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.76),
+        border: const Border(top: BorderSide(color: Color(0xFFEDE9FE))),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: FilledButton(
+              key: key,
+              onPressed: onProceed,
+              child: Text(label),
+            ),
+          ),
+          const SizedBox(width: 10),
+          OutlinedButton(
+            key: const Key('kolo_block_go_back'),
+            onPressed: onCancel,
+            child: const Text('Go back'),
+          ),
+        ],
       ),
     );
   }
@@ -972,6 +1088,22 @@ class _OverlayBlockContext {
       return 'Hold on. You are opening $appName. What is the plan?';
     }
     return 'Before you go in, what is this for?';
+  }
+}
+
+class _OverlayBlockDecision {
+  const _OverlayBlockDecision({required this.status, required this.message});
+
+  final String status;
+  final String message;
+
+  static _OverlayBlockDecision? fromMap(Map<Object?, Object?> map) {
+    final status = map['status']?.toString().trim();
+    if (status == null || status.isEmpty) return null;
+    return _OverlayBlockDecision(
+      status: status,
+      message: map['message']?.toString().trim() ?? '',
+    );
   }
 }
 
