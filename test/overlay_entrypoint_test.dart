@@ -42,7 +42,45 @@ void main() {
     await tester.pump();
 
     expect(find.text('Can I spend 5000 on food?'), findsOneWidget);
-    expect(find.textContaining('I can help you pressure-test'), findsOneWidget);
+    expect(find.text('Kolo is thinking...'), findsOneWidget);
+    expect(find.textContaining('I can help you pressure-test'), findsNothing);
+  });
+
+  testWidgets('overlay shows bridge assistant replies without duplicates', (
+    tester,
+  ) async {
+    final controller = StreamController<Object?>.broadcast();
+    addTearDown(controller.close);
+
+    await tester.pumpWidget(
+      MaterialApp(home: KoloOverlayBubble(overlayMessages: controller.stream)),
+    );
+
+    await tester.tap(find.byKey(const Key('kolo_overlay_orb')));
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const Key('kolo_overlay_input')),
+      'Can I spend 5000 on food?',
+    );
+    await tester.tap(find.byKey(const Key('kolo_overlay_send')));
+    await tester.pump();
+
+    controller
+      ..add({
+        'type': 'assistantMessage',
+        'text': 'That food spend fits if you keep dinner simple.',
+      })
+      ..add({
+        'type': 'assistantMessage',
+        'text': 'That food spend fits if you keep dinner simple.',
+      });
+    await tester.pump();
+
+    expect(find.text('Kolo is thinking...'), findsNothing);
+    expect(
+      find.text('That food spend fits if you keep dinner simple.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('overlay renders block mode with aether background and chat', (

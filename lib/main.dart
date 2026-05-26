@@ -105,6 +105,7 @@ class _KoloOverlayBubbleState extends State<KoloOverlayBubble> {
       if (decision == null) return;
       setState(() {
         _blockDecision = decision;
+        _removePendingAssistantMessage();
         if (decision.message.isNotEmpty &&
             (_messages.isEmpty || _messages.last.text != decision.message)) {
           _messages.add(_OverlayChatMessage.assistant(decision.message));
@@ -117,7 +118,10 @@ class _KoloOverlayBubbleState extends State<KoloOverlayBubble> {
     if (prompt == null || prompt.isEmpty) return;
     if (type == 'assistantMessage') {
       setState(() {
-        _messages.add(_OverlayChatMessage.assistant(prompt));
+        _removePendingAssistantMessage();
+        if (_messages.isEmpty || _messages.last.text != prompt) {
+          _messages.add(_OverlayChatMessage.assistant(prompt));
+        }
       });
       if (!_expanded) {
         _setExpanded(true);
@@ -157,7 +161,7 @@ class _KoloOverlayBubbleState extends State<KoloOverlayBubble> {
     _controller.clear();
     setState(() {
       _messages.add(_OverlayChatMessage.user(text));
-      _messages.add(_OverlayChatMessage.assistant(_replyFor(text)));
+      _messages.add(const _OverlayChatMessage.assistant('Kolo is thinking...'));
     });
     try {
       await FlutterOverlayWindow.shareData({
@@ -216,17 +220,10 @@ class _KoloOverlayBubbleState extends State<KoloOverlayBubble> {
     }
   }
 
-  String _replyFor(String text) {
-    final lower = text.toLowerCase();
-    if (lower.contains('spend') ||
-        lower.contains('send') ||
-        lower.contains('buy')) {
-      return 'I can help you pressure-test it. Tell me the amount, what it is for, and whether it protects something important.';
-    }
-    if (lower.contains('log')) {
-      return 'Tell me the amount and category. I will keep the note ready for Kolo when you return to the app.';
-    }
-    return 'I am listening. Give me the money move in one sentence and I will help you think it through.';
+  void _removePendingAssistantMessage() {
+    _messages.removeWhere((message) {
+      return !message.isUser && message.text == 'Kolo is thinking...';
+    });
   }
 
   @override
