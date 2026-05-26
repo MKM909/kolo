@@ -1189,6 +1189,49 @@ void main() {
     expect(tester.widget<SwitchListTile>(kudaToggle).value, isFalse);
   });
 
+  testWidgets('watched apps sheet changes a watched app block level', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const KoloApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.person_outline));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Watched Apps'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const Key('open_watched_apps')));
+    await tester.pumpAndSettle();
+
+    final explainOption = find.byKey(
+      const Key('block_level_com.kuda.android_explain'),
+    );
+    await tester.scrollUntilVisible(
+      explainOption,
+      250,
+      scrollable: find.byType(Scrollable).last,
+    );
+
+    expect(
+      tester
+          .widget<ChoiceChip>(
+            find.byKey(const Key('block_level_com.kuda.android_soft')),
+          )
+          .selected,
+      isTrue,
+    );
+
+    await tester.tap(explainOption);
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<ChoiceChip>(explainOption).selected, isTrue);
+    expect(find.text('Explain mode'), findsOneWidget);
+    expect(find.textContaining('must type a reason'), findsOneWidget);
+  });
+
   testWidgets('watched apps sheet prompts for accessibility permission', (
     tester,
   ) async {

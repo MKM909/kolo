@@ -2740,45 +2740,147 @@ class _WatchedAppToggle extends ConsumerWidget {
           ),
         ],
       ),
-      child: SwitchListTile(
-        key: Key('toggle_watched_app_${app.packageName}'),
-        value: app.enabled,
-        activeThumbColor: KoloColors.primary,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        secondary: CircleAvatar(
-          backgroundColor: KoloColors.primaryPastel,
-          child: Icon(
-            Icons.visibility_outlined,
-            color: app.enabled ? KoloColors.primary : KoloColors.textMuted,
+      child: Column(
+        children: [
+          SwitchListTile(
+            key: Key('toggle_watched_app_${app.packageName}'),
+            value: app.enabled,
+            activeThumbColor: KoloColors.primary,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 4,
+            ),
+            secondary: CircleAvatar(
+              backgroundColor: KoloColors.primaryPastel,
+              child: Icon(
+                Icons.visibility_outlined,
+                color: app.enabled ? KoloColors.primary : KoloColors.textMuted,
+              ),
+            ),
+            title: Text(
+              app.displayName,
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+            subtitle: Text(
+              app.enabled
+                  ? _blockLevelSummary(app.blockLevel)
+                  : canChange
+                  ? 'Off'
+                  : 'Grant Accessibility before enabling',
+            ),
+            onChanged: canChange
+                ? (enabled) async {
+                    await _saveWatchedApp(ref, enabled: enabled);
+                  }
+                : null,
           ),
-        ),
-        title: Text(
-          app.displayName,
-          style: const TextStyle(fontWeight: FontWeight.w800),
-        ),
-        subtitle: Text(
-          app.enabled
-              ? 'On'
-              : canChange
-              ? 'Off'
-              : 'Grant Accessibility before enabling',
-        ),
-        onChanged: canChange
-            ? (enabled) async {
-                await ref
-                    .read(koloRepositoryProvider)
-                    .upsertWatchedApp(
-                      WatchedApp(
-                        packageName: app.packageName,
-                        displayName: app.displayName,
-                        enabled: enabled,
-                      ),
-                    );
-              }
-            : null,
+          if (app.enabled) ...[
+            const Divider(height: 1, color: Color(0xFFEDE9FE)),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Block Level',
+                    style: TextStyle(
+                      color: KoloColors.textPrimary,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final level in WatchedAppBlockLevel.values)
+                        ChoiceChip(
+                          key: Key(
+                            'block_level_${app.packageName}_${level.name}',
+                          ),
+                          selected: app.blockLevel == level,
+                          label: Text(_blockLevelLabel(level)),
+                          selectedColor: KoloColors.primaryPastel,
+                          backgroundColor: const Color(0xFFF9FAFB),
+                          checkmarkColor: KoloColors.primary,
+                          labelStyle: TextStyle(
+                            color: app.blockLevel == level
+                                ? KoloColors.primary
+                                : KoloColors.textSecondary,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 12,
+                          ),
+                          side: BorderSide(
+                            color: app.blockLevel == level
+                                ? KoloColors.primaryLight
+                                : const Color(0xFFE5E7EB),
+                          ),
+                          onSelected: (_) async {
+                            await _saveWatchedApp(ref, blockLevel: level);
+                          },
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _blockLevelDescription(app.blockLevel),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: KoloColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
+
+  Future<void> _saveWatchedApp(
+    WidgetRef ref, {
+    bool? enabled,
+    WatchedAppBlockLevel? blockLevel,
+  }) {
+    return ref
+        .read(koloRepositoryProvider)
+        .upsertWatchedApp(
+          WatchedApp(
+            packageName: app.packageName,
+            displayName: app.displayName,
+            enabled: enabled ?? app.enabled,
+            blockLevel: blockLevel ?? app.blockLevel,
+          ),
+        );
+  }
+}
+
+String _blockLevelLabel(WatchedAppBlockLevel level) {
+  return switch (level) {
+    WatchedAppBlockLevel.soft => 'Soft',
+    WatchedAppBlockLevel.explain => 'Explain',
+    WatchedAppBlockLevel.hardLock => 'Hard Lock',
+  };
+}
+
+String _blockLevelSummary(WatchedAppBlockLevel level) {
+  return switch (level) {
+    WatchedAppBlockLevel.soft => 'Soft mode',
+    WatchedAppBlockLevel.explain => 'Explain mode',
+    WatchedAppBlockLevel.hardLock => 'Hard Lock mode',
+  };
+}
+
+String _blockLevelDescription(WatchedAppBlockLevel level) {
+  return switch (level) {
+    WatchedAppBlockLevel.soft =>
+      'Soft mode - Kolo shows a dismissible bubble when this app opens.',
+    WatchedAppBlockLevel.explain =>
+      'Explain mode - you must type a reason before Kolo lets you through.',
+    WatchedAppBlockLevel.hardLock =>
+      'Hard Lock mode - Kolo checks budget context before you proceed.',
+  };
 }
 
 class _InstalledAppCandidateTile extends ConsumerWidget {
