@@ -67,6 +67,15 @@ void main() {
     }
   });
 
+  test('native event queue generates collision-safe event ids', () {
+    final queue = File(
+      'android/app/src/main/kotlin/com/micah/kolo/KoloNativeEventQueue.kt',
+    ).readAsStringSync();
+
+    expect(queue, contains('UUID.randomUUID()'));
+    expect(queue, isNot(contains(r'"${System.currentTimeMillis()}-$type"')));
+  });
+
   test('SMS receiver forwards sender metadata with the message body', () {
     final smsReceiver = File(
       'android/app/src/main/kotlin/com/example/kolo/KoloSmsReceiver.kt',
