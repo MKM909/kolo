@@ -20,6 +20,7 @@ class _KoloFloatingAssistantState extends ConsumerState<KoloFloatingAssistant> {
   final TextEditingController _controller = TextEditingController();
   bool _expanded = false;
   bool _sending = false;
+  bool _showLogSheet = false;
 
   @override
   void dispose() {
@@ -47,8 +48,11 @@ class _KoloFloatingAssistantState extends ConsumerState<KoloFloatingAssistant> {
       return _FloatingConversationPanel(
         controller: _controller,
         sending: _sending,
+        showLogSheet: _showLogSheet,
         onClose: () => setState(() => _expanded = false),
         onSend: _sendMessage,
+        onShowLogSheet: () => setState(() => _showLogSheet = true),
+        onHideLogSheet: () => setState(() => _showLogSheet = false),
       );
     }
 
@@ -144,14 +148,20 @@ class _FloatingConversationPanel extends ConsumerWidget {
   const _FloatingConversationPanel({
     required this.controller,
     required this.sending,
+    required this.showLogSheet,
     required this.onClose,
     required this.onSend,
+    required this.onShowLogSheet,
+    required this.onHideLogSheet,
   });
 
   final TextEditingController controller;
   final bool sending;
+  final bool showLogSheet;
   final VoidCallback onClose;
   final VoidCallback onSend;
+  final VoidCallback onShowLogSheet;
+  final VoidCallback onHideLogSheet;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -220,39 +230,53 @@ class _FloatingConversationPanel extends ConsumerWidget {
                       ),
                     ),
                     Expanded(
-                      child: dashboard.when(
-                        loading: () => const Center(
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                        error: (error, _) => Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(20),
-                            child: Text(
-                              'Kolo cannot load chats right now.',
-                              style: Theme.of(context).textTheme.bodyMedium,
-                              textAlign: TextAlign.center,
+                      child: showLogSheet
+                          ? SingleChildScrollView(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: _AssistantLogTransactionCard(
+                                onCancel: onHideLogSheet,
+                                onSaved: onHideLogSheet,
+                              ),
+                            )
+                          : dashboard.when(
+                              loading: () => const Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                              error: (error, _) => Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(20),
+                                  child: Text(
+                                    'Kolo cannot load chats right now.',
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodyMedium,
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              ),
+                              data: (state) => _FloatingMessageList(
+                                messages: state.aiMessages,
+                              ),
                             ),
-                          ),
+                    ),
+                    if (!showLogSheet) ...[
+                      _FloatingQuickActions(
+                        onDismiss: onClose,
+                        onLogIt: onShowLogSheet,
+                        onWrongCategory: () => sendPrompt(
+                          'That transaction is in the wrong category.',
                         ),
-                        data: (state) =>
-                            _FloatingMessageList(messages: state.aiMessages),
+                        onTellMore: () =>
+                            sendPrompt('Tell me more about this money check.'),
                       ),
-                    ),
-                    _FloatingQuickActions(
-                      onDismiss: onClose,
-                      onLogIt: () =>
-                          sendPrompt('Help me log this transaction.'),
-                      onWrongCategory: () => sendPrompt(
-                        'That transaction is in the wrong category.',
+                      _FloatingInput(
+                        controller: controller,
+                        sending: sending,
+                        onSend: onSend,
                       ),
-                      onTellMore: () =>
-                          sendPrompt('Tell me more about this money check.'),
-                    ),
-                    _FloatingInput(
-                      controller: controller,
-                      sending: sending,
-                      onSend: onSend,
-                    ),
+                    ],
                   ],
                 ),
               ),
@@ -261,6 +285,217 @@ class _FloatingConversationPanel extends ConsumerWidget {
         ),
       ),
     );
+  }
+}
+
+class _AssistantLogTransactionCard extends ConsumerStatefulWidget {
+  const _AssistantLogTransactionCard({
+    required this.onCancel,
+    required this.onSaved,
+  });
+
+  final VoidCallback onCancel;
+  final VoidCallback onSaved;
+
+  @override
+  ConsumerState<_AssistantLogTransactionCard> createState() =>
+      _AssistantLogTransactionCardState();
+}
+
+class _AssistantLogTransactionCardState
+    extends ConsumerState<_AssistantLogTransactionCard> {
+  final TextEditingController _amountController = TextEditingController();
+  final TextEditingController _descriptionController = TextEditingController();
+  String _category = 'Food & Snacks';
+  String? _error;
+  bool _saving = false;
+
+  static const _categories = [
+    'Food & Snacks',
+    'Transport',
+    'Data & Airtime',
+    'Entertainment',
+    'Utilities & Bills',
+    'Miscellaneous',
+  ];
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('kolo_assistant_log_sheet'),
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFEDE9FE)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 20,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                height: 34,
+                width: 34,
+                decoration: BoxDecoration(
+                  color: KoloColors.primaryPastel,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.receipt_long_outlined,
+                  color: KoloColors.primary,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Log quick expense',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              IconButton(
+                key: const Key('kolo_assistant_log_cancel'),
+                tooltip: 'Cancel quick log',
+                onPressed: widget.onCancel,
+                icon: const Icon(Icons.close_rounded, size: 18),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            key: const Key('kolo_assistant_log_amount'),
+            controller: _amountController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'Amount',
+              prefixText: '\u20A6 ',
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            key: const Key('kolo_assistant_log_description'),
+            controller: _descriptionController,
+            textInputAction: TextInputAction.next,
+            decoration: const InputDecoration(
+              labelText: 'What was it?',
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          DropdownButtonFormField<String>(
+            key: const Key('kolo_assistant_log_category'),
+            initialValue: _category,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: 'Category',
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+            ),
+            items: [
+              for (final category in _categories)
+                DropdownMenuItem(value: category, child: Text(category)),
+            ],
+            onChanged: (value) {
+              if (value == null) return;
+              setState(() {
+                _category = value;
+                _error = null;
+              });
+            },
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              _error!,
+              style: const TextStyle(
+                color: KoloColors.expense,
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              key: const Key('kolo_assistant_log_save'),
+              onPressed: _saving ? null : _save,
+              icon: _saving
+                  ? const SizedBox.square(
+                      dimension: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.add_circle_outline, size: 18),
+              label: Text(_saving ? 'Saving...' : 'Save expense'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _save() async {
+    final amountKobo = MoneyFormatter.parseNairaToKobo(
+      _amountController.text.trim(),
+    );
+    final description = _descriptionController.text.trim();
+    if (amountKobo == null || amountKobo <= 0 || description.isEmpty) {
+      setState(() => _error = 'Enter an amount and what happened.');
+      return;
+    }
+
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    final now = DateTime.now();
+    await ref
+        .read(koloRepositoryProvider)
+        .logTransaction(
+          TransactionRecord.expense(
+            id: 'assistant-expense-${now.microsecondsSinceEpoch}',
+            amountKobo: amountKobo,
+            category: _category,
+            description: description,
+            date: now,
+            source: TransactionSource.manual,
+            aiNote: 'Logged from Kolo quick assistant.',
+          ),
+        );
+    if (!mounted) return;
+    setState(() => _saving = false);
+    widget.onSaved();
   }
 }
 
