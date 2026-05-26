@@ -21,6 +21,7 @@ class _KoloFloatingAssistantState extends ConsumerState<KoloFloatingAssistant> {
   bool _expanded = false;
   bool _sending = false;
   bool _showLogSheet = false;
+  bool _showCategorySheet = false;
 
   @override
   void dispose() {
@@ -49,10 +50,21 @@ class _KoloFloatingAssistantState extends ConsumerState<KoloFloatingAssistant> {
         controller: _controller,
         sending: _sending,
         showLogSheet: _showLogSheet,
+        showCategorySheet: _showCategorySheet,
         onClose: () => setState(() => _expanded = false),
         onSend: _sendMessage,
-        onShowLogSheet: () => setState(() => _showLogSheet = true),
-        onHideLogSheet: () => setState(() => _showLogSheet = false),
+        onShowLogSheet: () => setState(() {
+          _showLogSheet = true;
+          _showCategorySheet = false;
+        }),
+        onShowCategorySheet: () => setState(() {
+          _showLogSheet = false;
+          _showCategorySheet = true;
+        }),
+        onHideToolSheet: () => setState(() {
+          _showLogSheet = false;
+          _showCategorySheet = false;
+        }),
       );
     }
 
@@ -149,19 +161,23 @@ class _FloatingConversationPanel extends ConsumerWidget {
     required this.controller,
     required this.sending,
     required this.showLogSheet,
+    required this.showCategorySheet,
     required this.onClose,
     required this.onSend,
     required this.onShowLogSheet,
-    required this.onHideLogSheet,
+    required this.onShowCategorySheet,
+    required this.onHideToolSheet,
   });
 
   final TextEditingController controller;
   final bool sending;
   final bool showLogSheet;
+  final bool showCategorySheet;
   final VoidCallback onClose;
   final VoidCallback onSend;
   final VoidCallback onShowLogSheet;
-  final VoidCallback onHideLogSheet;
+  final VoidCallback onShowCategorySheet;
+  final VoidCallback onHideToolSheet;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -171,6 +187,7 @@ class _FloatingConversationPanel extends ConsumerWidget {
       controller.selection = TextSelection.collapsed(offset: text.length);
       onSend();
     }
+    final toolSheetOpen = showLogSheet || showCategorySheet;
 
     return Align(
       key: const Key('kolo_floating_assistant'),
@@ -234,8 +251,29 @@ class _FloatingConversationPanel extends ConsumerWidget {
                           ? SingleChildScrollView(
                               padding: const EdgeInsets.only(bottom: 8),
                               child: _AssistantLogTransactionCard(
-                                onCancel: onHideLogSheet,
-                                onSaved: onHideLogSheet,
+                                onCancel: onHideToolSheet,
+                                onSaved: onHideToolSheet,
+                              ),
+                            )
+                          : showCategorySheet
+                          ? dashboard.when(
+                              loading: () => const Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                              error: (error, _) => _AssistantToolErrorCard(
+                                message:
+                                    'Kolo cannot load transactions right now.',
+                                onClose: onHideToolSheet,
+                              ),
+                              data: (state) => SingleChildScrollView(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: _AssistantCategoryCorrectionCard(
+                                  transactions: state.transactions,
+                                  onCancel: onHideToolSheet,
+                                  onSaved: onHideToolSheet,
+                                ),
                               ),
                             )
                           : dashboard.when(
@@ -261,13 +299,11 @@ class _FloatingConversationPanel extends ConsumerWidget {
                               ),
                             ),
                     ),
-                    if (!showLogSheet) ...[
+                    if (!toolSheetOpen) ...[
                       _FloatingQuickActions(
                         onDismiss: onClose,
                         onLogIt: onShowLogSheet,
-                        onWrongCategory: () => sendPrompt(
-                          'That transaction is in the wrong category.',
-                        ),
+                        onWrongCategory: onShowCategorySheet,
                         onTellMore: () =>
                             sendPrompt('Tell me more about this money check.'),
                       ),
@@ -283,6 +319,53 @@ class _FloatingConversationPanel extends ConsumerWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+const _assistantCategoryOptions = [
+  'Food & Snacks',
+  'Transport',
+  'Data & Airtime',
+  'Entertainment',
+  'Utilities & Bills',
+  'Gig Income',
+  'Family/Gift Income',
+  'Savings',
+  'Miscellaneous',
+];
+
+class _AssistantToolErrorCard extends StatelessWidget {
+  const _AssistantToolErrorCard({
+    required this.message,
+    required this.onClose,
+  });
+
+  final String message;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFEDE9FE)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.cloud_off_outlined, color: KoloColors.warning),
+          const SizedBox(width: 10),
+          Expanded(child: Text(message)),
+          IconButton(
+            tooltip: 'Close',
+            onPressed: onClose,
+            icon: const Icon(Icons.close_rounded, size: 18),
+          ),
+        ],
       ),
     );
   }
@@ -309,15 +392,6 @@ class _AssistantLogTransactionCardState
   String _category = 'Food & Snacks';
   String? _error;
   bool _saving = false;
-
-  static const _categories = [
-    'Food & Snacks',
-    'Transport',
-    'Data & Airtime',
-    'Entertainment',
-    'Utilities & Bills',
-    'Miscellaneous',
-  ];
 
   @override
   void dispose() {
@@ -420,7 +494,7 @@ class _AssistantLogTransactionCardState
               ),
             ),
             items: [
-              for (final category in _categories)
+              for (final category in _assistantCategoryOptions)
                 DropdownMenuItem(value: category, child: Text(category)),
             ],
             onChanged: (value) {
@@ -492,6 +566,261 @@ class _AssistantLogTransactionCardState
             source: TransactionSource.manual,
             aiNote: 'Logged from Kolo quick assistant.',
           ),
+        );
+    if (!mounted) return;
+    setState(() => _saving = false);
+    widget.onSaved();
+  }
+}
+
+class _AssistantCategoryCorrectionCard extends ConsumerStatefulWidget {
+  const _AssistantCategoryCorrectionCard({
+    required this.transactions,
+    required this.onCancel,
+    required this.onSaved,
+  });
+
+  final List<TransactionRecord> transactions;
+  final VoidCallback onCancel;
+  final VoidCallback onSaved;
+
+  @override
+  ConsumerState<_AssistantCategoryCorrectionCard> createState() =>
+      _AssistantCategoryCorrectionCardState();
+}
+
+class _AssistantCategoryCorrectionCardState
+    extends ConsumerState<_AssistantCategoryCorrectionCard> {
+  String? _transactionId;
+  String? _category;
+  String? _error;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final first = widget.transactions.firstOrNull;
+    _transactionId = first?.id;
+    _category = first?.category;
+  }
+
+  TransactionRecord? get _selectedTransaction {
+    final id = _transactionId;
+    if (id == null) return null;
+    return widget.transactions
+        .where((transaction) => transaction.id == id)
+        .firstOrNull;
+  }
+
+  List<String> get _categoryOptions {
+    final category = _category;
+    if (category == null || _assistantCategoryOptions.contains(category)) {
+      return _assistantCategoryOptions;
+    }
+    return [category, ..._assistantCategoryOptions];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedTransaction = _selectedTransaction;
+    return Container(
+      key: const Key('kolo_assistant_category_sheet'),
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFEDE9FE)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 20,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                height: 34,
+                width: 34,
+                decoration: BoxDecoration(
+                  color: KoloColors.primaryPastel,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.category_outlined,
+                  color: KoloColors.primary,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Correct category',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              IconButton(
+                key: const Key('kolo_assistant_category_cancel'),
+                tooltip: 'Cancel category correction',
+                onPressed: widget.onCancel,
+                icon: const Icon(Icons.close_rounded, size: 18),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (widget.transactions.isEmpty)
+            const Text(
+              'No transactions to correct yet.',
+              style: TextStyle(color: KoloColors.textSecondary),
+            )
+          else ...[
+            DropdownButtonFormField<String>(
+              key: const Key('kolo_assistant_transaction_dropdown'),
+              initialValue: _transactionId,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: 'Transaction',
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+              ),
+              items: [
+                for (final transaction in widget.transactions.take(8))
+                  DropdownMenuItem(
+                    value: transaction.id,
+                    child: Text(
+                      transaction.description,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+              ],
+              onChanged: (value) {
+                if (value == null) return;
+                final transaction = widget.transactions
+                    .where((candidate) => candidate.id == value)
+                    .firstOrNull;
+                setState(() {
+                  _transactionId = value;
+                  _category = transaction?.category;
+                  _error = null;
+                });
+              },
+            ),
+            if (selectedTransaction != null) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      selectedTransaction.description,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    MoneyFormatter.formatKobo(selectedTransaction.amountKobo),
+                    style: TextStyle(
+                      color:
+                          selectedTransaction.type == TransactionType.income
+                          ? KoloColors.income
+                          : KoloColors.expense,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 10),
+            DropdownButtonFormField<String>(
+              key: const Key('kolo_assistant_category_dropdown'),
+              initialValue: _category,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: 'Move to category',
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+              ),
+              items: [
+                for (final category in _categoryOptions)
+                  DropdownMenuItem(value: category, child: Text(category)),
+              ],
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() {
+                  _category = value;
+                  _error = null;
+                });
+              },
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _error!,
+                style: const TextStyle(
+                  color: KoloColors.expense,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                key: const Key('kolo_assistant_category_save'),
+                onPressed: _saving ? null : _save,
+                icon: _saving
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.category_outlined, size: 18),
+                label: Text(_saving ? 'Saving...' : 'Save category'),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _save() async {
+    final transaction = _selectedTransaction;
+    final category = _category;
+    if (transaction == null || category == null || category.isEmpty) {
+      setState(() => _error = 'Choose a transaction and category.');
+      return;
+    }
+    if (transaction.category == category) {
+      setState(() => _error = 'Choose a different category first.');
+      return;
+    }
+
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    await ref
+        .read(koloRepositoryProvider)
+        .updateTransactionCategory(
+          transactionId: transaction.id,
+          category: category,
         );
     if (!mounted) return;
     setState(() => _saving = false);
