@@ -52,18 +52,23 @@ class HomeScreen extends ConsumerWidget {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
             children: [
-              BalanceCard(
-                balanceKobo: state.balanceKobo,
-                name: state.profile.name,
-                onAdjust: () => _openBalanceAdjustmentSheet(
-                  context,
-                  currentBalanceKobo: state.balanceKobo,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerRight,
-                child: _HomeSyncStatusPill(syncState: syncState),
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  BalanceCard(
+                    balanceKobo: state.balanceKobo,
+                    name: state.profile.name,
+                    onAdjust: () => _openBalanceAdjustmentSheet(
+                      context,
+                      currentBalanceKobo: state.balanceKobo,
+                    ),
+                  ),
+                  Positioned(
+                    right: 14,
+                    bottom: -18,
+                    child: _HomeSyncStatusPill(syncState: syncState),
+                  ),
+                ],
               ),
               const SizedBox(height: 20),
               _QuickActions(

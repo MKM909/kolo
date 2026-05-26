@@ -70,34 +70,39 @@ class _KoloFloatingAssistantState extends ConsumerState<KoloFloatingAssistant> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Container(
-              constraints: const BoxConstraints(maxWidth: 178),
-              margin: const EdgeInsets.only(right: 10, bottom: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: KoloColors.surfaceDark.withValues(alpha: 0.92),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(18),
-                  topRight: Radius.circular(18),
-                  bottomLeft: Radius.circular(18),
-                  bottomRight: Radius.circular(5),
+            IgnorePointer(
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 178),
+                margin: const EdgeInsets.only(right: 10, bottom: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
                 ),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x24000000),
-                    blurRadius: 24,
-                    offset: Offset(0, 8),
+                decoration: BoxDecoration(
+                  color: KoloColors.surfaceDark.withValues(alpha: 0.92),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(18),
+                    topRight: Radius.circular(18),
+                    bottomLeft: Radius.circular(18),
+                    bottomRight: Radius.circular(5),
                   ),
-                ],
-              ),
-              child: Text(
-                idlePrompt,
-                style: TextStyle(
-                  color: balanceIsNegative
-                      ? const Color(0xFFFFE4E6)
-                      : Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x24000000),
+                      blurRadius: 24,
+                      offset: Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  idlePrompt,
+                  style: TextStyle(
+                    color: balanceIsNegative
+                        ? const Color(0xFFFFE4E6)
+                        : Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ),
