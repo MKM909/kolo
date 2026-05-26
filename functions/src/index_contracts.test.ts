@@ -6,6 +6,8 @@ test("Gemini callable exports use typed AI contract schemas", () => {
   const source = readFileSync("src/index.ts", "utf8");
 
   assert.match(source, /DEFAULT_GEMINI_MODEL = "gemini-3\.1-flash-lite"/);
+  assert.match(source, /defineSecret\("GEMINI_API_KEY"\)/);
+  assert.match(source, /geminiCallableOptions = \{secrets: \[geminiApiKeySecret\]\}/);
   assert.match(source, /process\.env\.GEMINI_API_KEY/);
   assert.match(source, /googleAI\.model\(resolveGeminiModelName/);
   assert.match(source, /model: modelNameSchema\.optional\(\)/);
@@ -35,6 +37,7 @@ test("Gemini callable exports use typed AI contract schemas", () => {
   assert.doesNotMatch(source, /balance: FieldValue\.increment/);
   assert.match(source, /export const onSmsReceived = onCallGenkit/);
   assert.match(source, /export const evaluateSpendingJustification = onCallGenkit/);
+  assert.match(source, /onCallGenkit\(geminiCallableOptions,/);
   assert.match(source, /export const acceptPartnerShare = onCall/);
   assert.match(source, /partnerShares"\)\.doc\(shareId\)/);
   assert.match(source, /partnerSummaries"\)\.doc\(shareId\)/);

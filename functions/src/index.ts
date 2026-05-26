@@ -2,6 +2,7 @@ import {createHash} from "node:crypto";
 import {genkit, z} from "genkit";
 import {googleAI} from "@genkit-ai/googleai";
 import {HttpsError, onCall, onCallGenkit} from "firebase-functions/https";
+import {defineSecret} from "firebase-functions/params";
 import {getApps, initializeApp} from "firebase-admin/app";
 import {
   FieldValue,
@@ -38,6 +39,8 @@ const SUPPORTED_KOLO_GEMINI_MODELS = [
   "gemini-3.1-pro",
 ] as const;
 const modelNameSchema = z.enum(SUPPORTED_KOLO_GEMINI_MODELS);
+const geminiApiKeySecret = defineSecret("GEMINI_API_KEY");
+const geminiCallableOptions = {secrets: [geminiApiKeySecret]};
 const geminiApiKey = process.env.GEMINI_API_KEY;
 if (getApps().length === 0) initializeApp();
 const firestore = getFirestore();
@@ -649,16 +652,26 @@ const analyzeSpendingFlow = ai.defineFlow(
   },
 );
 
-export const chatWithKolo = onCallGenkit(chatFlow);
-export const generateBudget = onCallGenkit(generateBudgetFlow);
-export const interventionMessage = onCallGenkit(interventionMessageFlow);
+export const chatWithKolo = onCallGenkit(geminiCallableOptions, chatFlow);
+export const generateBudget = onCallGenkit(geminiCallableOptions, generateBudgetFlow);
+export const interventionMessage = onCallGenkit(
+  geminiCallableOptions,
+  interventionMessageFlow,
+);
 export const evaluateSpendingJustification = onCallGenkit(
+  geminiCallableOptions,
   evaluateSpendingJustificationFlow,
 );
-export const categorizeTransaction = onCallGenkit(categorizeTransactionFlow);
-export const onSmsReceived = onCallGenkit(onSmsReceivedFlow);
-export const draftReminder = onCallGenkit(draftReminderFlow);
-export const analyzeSpending = onCallGenkit(analyzeSpendingFlow);
+export const categorizeTransaction = onCallGenkit(
+  geminiCallableOptions,
+  categorizeTransactionFlow,
+);
+export const onSmsReceived = onCallGenkit(geminiCallableOptions, onSmsReceivedFlow);
+export const draftReminder = onCallGenkit(geminiCallableOptions, draftReminderFlow);
+export const analyzeSpending = onCallGenkit(
+  geminiCallableOptions,
+  analyzeSpendingFlow,
+);
 
 export const acceptPartnerShare = onCall(async (request) => {
   if (!request.auth?.uid || !request.auth.token.email) {
