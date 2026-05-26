@@ -100,6 +100,16 @@ void main() {
     },
   );
 
+  test('Android boot receiver queues boot events for Dart processing', () {
+    final receiver = File(
+      'android/app/src/main/kotlin/com/example/kolo/KoloBootReceiver.kt',
+    ).readAsStringSync();
+
+    expect(receiver, contains('KoloNativeEventQueue.enqueue'));
+    expect(receiver, contains('"boot_completed"'));
+    expect(receiver, contains('"action" to intent.action'));
+  });
+
   test('MainActivity exposes notification listener enabled status', () {
     final mainActivity = File(
       'android/app/src/main/kotlin/com/micah/kolo/MainActivity.kt',
