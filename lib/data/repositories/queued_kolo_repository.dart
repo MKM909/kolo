@@ -110,7 +110,11 @@ class QueuedKoloRepository implements KoloRepository {
 
   @override
   Future<void> recordAiMessage(AiMessage message) {
-    return _remote.recordAiMessage(message);
+    return _writeOrQueue(
+      kind: 'aiMessage',
+      payload: _aiMessagePayload(message),
+      write: () => _remote.recordAiMessage(message),
+    );
   }
 
   @override
@@ -279,6 +283,16 @@ class QueuedKoloRepository implements KoloRepository {
       'newBalanceKobo': adjustment.newBalanceKobo,
       'note': adjustment.note,
       'createdAt': adjustment.createdAt.toIso8601String(),
+    };
+  }
+
+  Map<String, Object?> _aiMessagePayload(AiMessage message) {
+    return {
+      'id': message.id,
+      'role': message.role.name,
+      'content': message.content,
+      'timestamp': message.timestamp.toIso8601String(),
+      'context': message.context,
     };
   }
 

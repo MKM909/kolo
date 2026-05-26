@@ -28,6 +28,11 @@ class OfflineSyncDispatcher {
         if (adjustment == null) return false;
         await _repository.adjustBalance(adjustment);
         return true;
+      case 'aiMessage':
+        final message = _aiMessageFromPayload(operation.payload);
+        if (message == null) return false;
+        await _repository.recordAiMessage(message);
+        return true;
       case 'budget':
         final budget = _budgetFromPayload(operation.payload);
         if (budget == null) return false;
@@ -140,6 +145,29 @@ class OfflineSyncDispatcher {
           ? payload['aiApproved'] as bool
           : null,
       aiNote: _string(payload['aiNote']),
+    );
+  }
+
+  AiMessage? _aiMessageFromPayload(Map<String, Object?> payload) {
+    final id = _string(payload['id']);
+    final role = _enumByName(AiRole.values, payload['role']);
+    final content = _string(payload['content']);
+    final timestamp = DateTime.tryParse(_string(payload['timestamp']) ?? '');
+    final context = _string(payload['context']);
+    if (id == null ||
+        role == null ||
+        content == null ||
+        timestamp == null ||
+        context == null) {
+      return null;
+    }
+
+    return AiMessage(
+      id: id,
+      role: role,
+      content: content,
+      timestamp: timestamp,
+      context: context,
     );
   }
 

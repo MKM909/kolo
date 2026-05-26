@@ -531,4 +531,39 @@ void main() {
       isFalse,
     );
   });
+
+  test('retryPending records queued AI messages', () async {
+    final repository = FakeKoloRepository.seeded();
+    final queue = OfflineSyncQueue();
+    await queue.enqueue(
+      PendingSyncOperation(
+        id: 'offline-ai-message',
+        kind: 'aiMessage',
+        payload: {
+          'id': 'ai-offline-overlay',
+          'role': 'assistant',
+          'content': 'I saw a money alert while offline.',
+          'timestamp': DateTime(2026, 5, 24, 22).toIso8601String(),
+          'context': 'unrecognized_transaction',
+        },
+        createdAt: DateTime(2026, 5, 24, 22),
+      ),
+    );
+
+    final synced = await OfflineSyncDispatcher(
+      queue: queue,
+      repository: repository,
+    ).retryPending();
+    final pending = await queue.watchPendingOperations().first;
+    final dashboard = await repository.watchDashboard().first;
+    final message = dashboard.aiMessages.firstWhere(
+      (message) => message.id == 'ai-offline-overlay',
+    );
+
+    expect(synced, 1);
+    expect(pending, isEmpty);
+    expect(message.role, AiRole.assistant);
+    expect(message.content, 'I saw a money alert while offline.');
+    expect(message.context, 'unrecognized_transaction');
+  });
 }

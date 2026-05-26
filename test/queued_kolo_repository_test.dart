@@ -271,6 +271,39 @@ void main() {
     },
   );
 
+  test('recordAiMessage queues the message when remote write fails', () async {
+    final queue = OfflineSyncQueue();
+    final repository = QueuedKoloRepository(
+      remote: _OfflineRepository(),
+      queue: queue,
+      now: () => fixedNow,
+      idFactory: (kind) => 'pending-$kind',
+    );
+
+    await repository.recordAiMessage(
+      AiMessage(
+        id: 'ai-offline-overlay',
+        role: AiRole.assistant,
+        content: 'I saw a money alert while offline.',
+        timestamp: DateTime(2026, 5, 26, 10),
+        context: 'unrecognized_transaction',
+      ),
+    );
+
+    final pending = await queue.watchPendingOperations().first;
+
+    expect(pending, hasLength(1));
+    expect(pending.single.id, 'pending-aiMessage');
+    expect(pending.single.kind, 'aiMessage');
+    expect(pending.single.payload, {
+      'id': 'ai-offline-overlay',
+      'role': 'assistant',
+      'content': 'I saw a money alert while offline.',
+      'timestamp': DateTime(2026, 5, 26, 10).toIso8601String(),
+      'context': 'unrecognized_transaction',
+    });
+  });
+
   test(
     'app wires queued Firebase writes without using the queue for retry replay',
     () {
