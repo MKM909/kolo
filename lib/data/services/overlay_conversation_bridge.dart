@@ -62,6 +62,11 @@ class OverlayConversationBridge {
       return;
     }
 
+    if (_looksLikeCategoryCorrection(text)) {
+      await _handleCategoryCorrection(text);
+      return;
+    }
+
     if (_looksLikeSpendIntent(text)) {
       await _handleSpendMessage(text);
       return;
@@ -176,6 +181,40 @@ class OverlayConversationBridge {
     }
   }
 
+  Future<void> _handleCategoryCorrection(String text) async {
+    final dashboard = await _loadDashboard();
+    final transaction = _latestCorrectableTransaction(dashboard.transactions);
+    if (transaction == null) {
+      await _overlayBubble.sendAssistantMessageToOverlay(
+        'I do not see a recent detected transaction to correct yet.',
+      );
+      return;
+    }
+
+    final category = _categoryFromCorrection(text, dashboard);
+    if (category == null) {
+      await _overlayBubble.sendAssistantMessageToOverlay(
+        'Tell me the right category, like "move it to Transport" or "Food & Snacks".',
+      );
+      return;
+    }
+
+    if (category == transaction.category) {
+      await _overlayBubble.sendAssistantMessageToOverlay(
+        '${transaction.description} is already in $category.',
+      );
+      return;
+    }
+
+    await _repository.updateTransactionCategory(
+      transactionId: transaction.id,
+      category: category,
+    );
+    await _overlayBubble.sendAssistantMessageToOverlay(
+      'Moved ${transaction.description} from ${transaction.category} to $category.',
+    );
+  }
+
   Future<void> _recordOverlayConversation({
     required String userText,
     required String assistantText,
@@ -201,6 +240,15 @@ class OverlayConversationBridge {
     );
   }
 
+  bool _looksLikeCategoryCorrection(String text) {
+    final lower = text.toLowerCase();
+    return lower.contains('wrong category') ||
+        lower.contains('correct category') ||
+        lower.contains('change category') ||
+        lower.contains('move it to') ||
+        lower.contains('categorize it as');
+  }
+
   bool _looksLikeSpendIntent(String text) {
     final lower = text.toLowerCase();
     return lower.contains('spend') ||
@@ -208,6 +256,40 @@ class OverlayConversationBridge {
         lower.contains('send') ||
         lower.contains('pay') ||
         lower.contains('transfer');
+  }
+
+  TransactionRecord? _latestCorrectableTransaction(
+    List<TransactionRecord> transactions,
+  ) {
+    final detected = transactions
+        .where(
+          (transaction) =>
+              transaction.source == TransactionSource.sms ||
+              transaction.source == TransactionSource.notification ||
+              transaction.source == TransactionSource.watchedApp,
+        )
+        .toList();
+    final candidates = detected.isEmpty ? transactions.toList() : detected;
+    if (candidates.isEmpty) return null;
+    candidates.sort((a, b) => b.date.compareTo(a.date));
+    return candidates.first;
+  }
+
+  String? _categoryFromCorrection(String text, DashboardState dashboard) {
+    final lower = text.toLowerCase();
+    final categories = <String>{
+      for (final category in dashboard.budgetPlan.categories) category.name,
+      ..._defaultCategoryNames,
+    }.toList()..sort((a, b) => b.length.compareTo(a.length));
+
+    for (final category in categories) {
+      final normalizedCategory = category.toLowerCase();
+      final ampersandFree = normalizedCategory.replaceAll('&', 'and');
+      if (lower.contains(normalizedCategory) || lower.contains(ampersandFree)) {
+        return category;
+      }
+    }
+    return null;
   }
 
   int? _amountKoboFrom(String text) {
@@ -250,6 +332,18 @@ class OverlayConversationBridge {
         );
   }
 }
+
+const _defaultCategoryNames = [
+  'Food & Snacks',
+  'Transport',
+  'Data & Airtime',
+  'Entertainment',
+  'Utilities & Bills',
+  'Gig Income',
+  'Family/Gift Income',
+  'Savings',
+  'Miscellaneous',
+];
 
 class _OverlayBlockRequest {
   const _OverlayBlockRequest({

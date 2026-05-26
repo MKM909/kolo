@@ -127,6 +127,62 @@ void main() {
   );
 
   test(
+    'wrong-category overlay messages update the latest detected transaction',
+    () async {
+      final platform = _FakeOverlayWindow();
+      final advisor = _RecordingSpendingAdvisor();
+      final repository = _RecordingRepository();
+      final bridge = OverlayConversationBridge(
+        overlayBubble: OverlayBubbleService(platform: platform),
+        repository: repository,
+        spendingAdvisor: advisor,
+        loadDashboard: () async => _dashboard(
+          transactions: [
+            TransactionRecord.expense(
+              id: 'native-newer',
+              amountKobo: 250000,
+              category: 'Food & Snacks',
+              description: 'POS debit',
+              date: DateTime(2026, 5, 26, 12),
+              source: TransactionSource.sms,
+            ),
+            TransactionRecord.expense(
+              id: 'manual-older',
+              amountKobo: 120000,
+              category: 'Miscellaneous',
+              description: 'Manual note',
+              date: DateTime(2026, 5, 25, 12),
+              source: TransactionSource.manual,
+            ),
+          ],
+        ),
+        now: () => DateTime(2026, 5, 26, 12),
+      );
+      addTearDown(() async {
+        await bridge.dispose();
+        await platform.close();
+      });
+
+      bridge.start();
+      platform.emit({
+        'type': 'userMessage',
+        'text': "That's wrong category, it should be Transport",
+      });
+      await pumpEventQueue();
+
+      expect(repository.sentChatMessages, isEmpty);
+      expect(advisor.transactions, isEmpty);
+      expect(repository.categoryUpdates, [('native-newer', 'Transport')]);
+      expect(platform.sharedData, [
+        {
+          'type': 'assistantMessage',
+          'text': 'Moved POS debit from Food & Snacks to Transport.',
+        },
+      ]);
+    },
+  );
+
+  test(
     'explain mode block messages log the reason and approve the gate',
     () async {
       final platform = _FakeOverlayWindow();
@@ -254,7 +310,10 @@ void main() {
       await pumpEventQueue();
 
       expect(advisor.transactions.single.amountKobo, 0);
-      expect(advisor.transactions.single.description, 'Just checking my balance.');
+      expect(
+        advisor.transactions.single.description,
+        'Just checking my balance.',
+      );
       expect(advisor.justifications, ['Just checking my balance.']);
       expect(repository.recordedMessages.map((message) => message.content), [
         'Just checking my balance.',
@@ -409,10 +468,19 @@ class _RecordingRepository implements KoloRepository {
   final AiMessage _chatReply;
   final List<String> sentChatMessages = [];
   final List<AiMessage> recordedMessages = [];
+  final List<(String transactionId, String category)> categoryUpdates = [];
 
   @override
   Future<void> recordAiMessage(AiMessage message) async {
     recordedMessages.add(message);
+  }
+
+  @override
+  Future<void> updateTransactionCategory({
+    required String transactionId,
+    required String category,
+  }) async {
+    categoryUpdates.add((transactionId, category));
   }
 
   @override
@@ -435,7 +503,7 @@ class _RecordingAndroidCapabilities extends AndroidCapabilityService {
   }
 }
 
-DashboardState _dashboard() {
+DashboardState _dashboard({List<TransactionRecord> transactions = const []}) {
   return DashboardState(
     profile: UserProfile(
       uid: 'demo-user',
@@ -462,7 +530,7 @@ DashboardState _dashboard() {
       savingsGoal: 'Rent buffer',
       aiNotes: 'Keep food under control.',
     ),
-    transactions: const [],
+    transactions: transactions,
     aiMessages: const [],
     vaults: const [],
     owings: const [],
