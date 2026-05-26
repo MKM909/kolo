@@ -83,6 +83,28 @@ void main() {
     );
   });
 
+  testWidgets('overlay quick actions can start category correction', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: KoloOverlayBubble()));
+
+    await tester.tap(find.byKey(const Key('kolo_overlay_orb')));
+    await tester.pump();
+
+    expect(
+      find.byKey(const Key('kolo_overlay_wrong_category')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const Key('kolo_overlay_wrong_category')));
+    await tester.pump();
+
+    final input = tester.widget<TextField>(
+      find.byKey(const Key('kolo_overlay_input')),
+    );
+    expect(input.controller?.text, "That's wrong category, it should be ");
+  });
+
   testWidgets('overlay renders block mode with aether background and chat', (
     tester,
   ) async {

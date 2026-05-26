@@ -916,6 +916,13 @@ class _OverlayQuickActions extends StatelessWidget {
             onPressed: () => onQuickPrompt('Help me log this.'),
           ),
           _OverlayQuickActionButton(
+            key: const Key('kolo_overlay_wrong_category'),
+            icon: Icons.category_outlined,
+            label: 'Wrong category',
+            onPressed: () =>
+                onQuickPrompt("That's wrong category, it should be "),
+          ),
+          _OverlayQuickActionButton(
             icon: Icons.pause_circle_outline,
             label: 'Pause me',
             onPressed: () => onQuickPrompt('Help me pause before spending.'),
@@ -931,6 +938,7 @@ class _OverlayQuickActionButton extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onPressed,
+    super.key,
   });
 
   final IconData icon;
