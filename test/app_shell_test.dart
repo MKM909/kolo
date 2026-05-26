@@ -1173,20 +1173,37 @@ void main() {
 
     expect(find.byKey(const Key('watched_apps_sheet')), findsOneWidget);
 
-    final opayToggle = find.byKey(
-      const Key('toggle_watched_app_team.opay.pay'),
+    final kudaToggle = find.byKey(
+      const Key('toggle_watched_app_com.kuda.android'),
     );
-    expect(tester.widget<SwitchListTile>(opayToggle).value, isFalse);
+    await tester.scrollUntilVisible(
+      kudaToggle,
+      250,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(tester.widget<SwitchListTile>(kudaToggle).value, isTrue);
 
-    await tester.tap(opayToggle);
+    await tester.tap(kudaToggle);
     await tester.pumpAndSettle();
 
-    expect(tester.widget<SwitchListTile>(opayToggle).value, isTrue);
+    expect(tester.widget<SwitchListTile>(kudaToggle).value, isFalse);
   });
 
   testWidgets('watched apps sheet prompts for accessibility permission', (
     tester,
   ) async {
+    const channel = MethodChannel('kolo/android_capabilities');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          if (call.method == 'openAccessibilitySettings') return true;
+          if (call.method == 'isAccessibilityServiceEnabled') return true;
+          return null;
+        });
+    addTearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null);
+    });
+
     await tester.pumpWidget(const KoloApp());
     await tester.pumpAndSettle();
 
@@ -1214,18 +1231,25 @@ void main() {
     expect(find.text('Accessibility service ready'), findsOneWidget);
   });
 
-  testWidgets('profile refresh imports suggested watched apps disabled', (
+  testWidgets('watched apps sheet searches installed app candidates', (
     tester,
   ) async {
     const channel = MethodChannel('kolo/android_capabilities');
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
-          if (call.method == 'getSuggestedBankingApps') {
+          if (call.method == 'getInstalledAppCandidates') {
             return [
               {
-                'packageName': 'com.palmpay.android',
-                'displayName': 'PalmPay',
-                'enabled': true,
+                'packageName': 'com.android.calculator2',
+                'displayName': 'Calculator',
+                'installed': true,
+                'isKnownFinancialApp': false,
+              },
+              {
+                'packageName': 'com.lenddo.mobile.paylater',
+                'displayName': 'Carbon',
+                'installed': true,
+                'isKnownFinancialApp': true,
               },
             ];
           }
@@ -1250,16 +1274,115 @@ void main() {
     await tester.tap(find.byKey(const Key('open_watched_apps')));
     await tester.pumpAndSettle();
 
-    const palmpayToggleKey = Key('toggle_watched_app_com.palmpay.android');
-    expect(find.byKey(palmpayToggleKey), findsNothing);
-
     await tester.tap(find.byKey(const Key('refresh_watched_apps')));
     await tester.pumpAndSettle();
 
-    final palmpayToggle = find.byKey(palmpayToggleKey);
-    expect(palmpayToggle, findsOneWidget);
-    expect(tester.widget<SwitchListTile>(palmpayToggle).value, isFalse);
+    await tester.enterText(
+      find.byKey(const Key('watched_apps_search')),
+      'carbon',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Carbon'), findsOneWidget);
+    expect(find.text('Calculator'), findsNothing);
+
+    await tester.tap(
+      find.byKey(const Key('add_watched_app_com.lenddo.mobile.paylater')),
+    );
+    await tester.pumpAndSettle();
+
+    final carbonToggle = find.byKey(
+      const Key('toggle_watched_app_com.lenddo.mobile.paylater'),
+    );
+    expect(carbonToggle, findsOneWidget);
+    expect(tester.widget<SwitchListTile>(carbonToggle).value, isFalse);
   });
+
+  testWidgets(
+    'watched apps require accessibility before enabling a new app trigger',
+    (tester) async {
+      await tester.pumpWidget(const KoloApp());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.person_outline));
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(
+        find.text('Watched Apps'),
+        500,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.byKey(const Key('open_watched_apps')));
+      await tester.pumpAndSettle();
+
+      final opayToggle = find.byKey(
+        const Key('toggle_watched_app_team.opay.pay'),
+      );
+      expect(tester.widget<SwitchListTile>(opayToggle).value, isFalse);
+      expect(tester.widget<SwitchListTile>(opayToggle).onChanged, isNull);
+      expect(find.text('Grant Accessibility before enabling'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'profile refresh adds installed watched app candidates disabled',
+    (tester) async {
+      const channel = MethodChannel('kolo/android_capabilities');
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            if (call.method == 'getInstalledAppCandidates') {
+              return [
+                {
+                  'packageName': 'com.palmpay.android',
+                  'displayName': 'PalmPay',
+                  'installed': true,
+                  'isKnownFinancialApp': true,
+                },
+              ];
+            }
+            return null;
+          });
+      addTearDown(() {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
+      });
+
+      await tester.pumpWidget(const KoloApp());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.person_outline));
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(
+        find.text('Watched Apps'),
+        500,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.byKey(const Key('open_watched_apps')));
+      await tester.pumpAndSettle();
+
+      const palmpayToggleKey = Key('toggle_watched_app_com.palmpay.android');
+      const palmpayAddKey = Key('add_watched_app_com.palmpay.android');
+      expect(find.byKey(palmpayToggleKey), findsNothing);
+
+      await tester.tap(find.byKey(const Key('refresh_watched_apps')));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byKey(const Key('watched_apps_search')),
+        'palmpay',
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(palmpayAddKey), findsOneWidget);
+      await tester.tap(find.byKey(palmpayAddKey));
+      await tester.pumpAndSettle();
+
+      final palmpayToggle = find.byKey(palmpayToggleKey);
+      expect(palmpayToggle, findsOneWidget);
+      expect(tester.widget<SwitchListTile>(palmpayToggle).value, isFalse);
+    },
+  );
 
   testWidgets('profile can grant a permission from locked state', (
     tester,
