@@ -368,6 +368,42 @@ void main() {
     },
   );
 
+  test('keeps locally parsed watched app notifications as notifications', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          expect(call.method, 'drainNativeEvents');
+          return [
+            {
+              'id': 'notif-local-source-1',
+              'type': 'notification_posted',
+              'createdAt': DateTime(2026, 5, 24, 11).millisecondsSinceEpoch,
+              'payload': {
+                'packageName': 'com.kuda.android',
+                'title': 'Debit alert',
+                'text':
+                    'Debit NGN2,500.00 at Chicken Republic. Bal: NGN47,500.00',
+              },
+            },
+          ];
+        });
+
+    final repository = FakeKoloRepository.seeded();
+    final ingestor = NativeEventIngestor(
+      capabilities: AndroidCapabilityService(channel: channel),
+      repository: repository,
+    );
+
+    final processed = await ingestor.drainAndProcess();
+    final dashboard = await repository.watchDashboard().first;
+    final transaction = dashboard.transactions.firstWhere(
+      (tx) => tx.id == 'native-notif-local-source-1',
+    );
+
+    expect(processed, 1);
+    expect(transaction.merchantName, 'Chicken Republic');
+    expect(transaction.source, TransactionSource.notification);
+  });
+
   test('uses server SMS ingestion before local logging when available', () async {
     final createdAt = DateTime(2026, 5, 24, 11);
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger

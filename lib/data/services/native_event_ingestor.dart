@@ -265,6 +265,7 @@ class NativeEventIngestor {
     TransactionDraft draft,
   ) {
     final id = 'native-${event.id}';
+    final source = _sourceFor(event);
     final description = draft.merchantName.isEmpty
         ? 'Native transaction'
         : draft.merchantName;
@@ -276,7 +277,7 @@ class NativeEventIngestor {
             category: draft.category,
             description: description,
             date: draft.occurredAt ?? event.createdAt,
-            source: draft.source,
+            source: source,
             merchantName: draft.merchantName,
           )
         : TransactionRecord.expense(
@@ -285,7 +286,7 @@ class NativeEventIngestor {
             category: draft.category,
             description: description,
             date: draft.occurredAt ?? event.createdAt,
-            source: draft.source,
+            source: source,
             merchantName: draft.merchantName,
           );
   }
