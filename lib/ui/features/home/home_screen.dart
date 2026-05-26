@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
@@ -520,9 +522,13 @@ class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
       TextEditingController();
   final ScrollController _scrollController = ScrollController();
   String _category = 'Food & Snacks';
+  String? _suggestedCategory;
   String? _error;
   bool _needsJustification = false;
   bool _evaluatingJustification = false;
+  bool _suggestingCategory = false;
+  bool _categoryManuallyChanged = false;
+  Timer? _categorySuggestionDebounce;
   SpendingJustificationDecision? _spendingDecision;
   int? _pendingAmountKobo;
   String? _pendingDescription;
@@ -543,6 +549,7 @@ class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
     _descriptionController.dispose();
     _dateController.dispose();
     _justificationController.dispose();
+    _categorySuggestionDebounce?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
@@ -597,6 +604,7 @@ class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
               TextField(
                 key: const Key('transaction_description'),
                 controller: _descriptionController,
+                onChanged: _scheduleCategorySuggestion,
                 decoration: const InputDecoration(labelText: 'Description'),
               ),
               const SizedBox(height: 12),
@@ -614,29 +622,55 @@ class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
               DropdownButtonFormField<String>(
                 initialValue: _category,
                 items: [
-                  for (final category
-                      in _isIncome
-                          ? const [
-                              'Gig Income',
-                              'Family/Gift Income',
-                              'Miscellaneous',
-                            ]
-                          : const [
-                              'Food & Snacks',
-                              'Transport',
-                              'Data & Airtime',
-                              'Entertainment',
-                              'Utilities & Bills',
-                              'Miscellaneous',
-                            ])
+                  for (final category in _categoryOptions)
                     DropdownMenuItem(value: category, child: Text(category)),
                 ],
                 onChanged: (value) {
                   if (value == null) return;
-                  setState(() => _category = value);
+                  setState(() {
+                    _category = value;
+                    _categoryManuallyChanged = true;
+                  });
                 },
                 decoration: const InputDecoration(labelText: 'Category'),
               ),
+              if (_suggestingCategory || _suggestedCategory != null) ...[
+                const SizedBox(height: 10),
+                Container(
+                  key: const Key('transaction_category_suggestion'),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: KoloColors.primaryPastel,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.auto_awesome,
+                        size: 16,
+                        color: KoloColors.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          _suggestingCategory
+                              ? 'Kolo is checking the category...'
+                              : 'Kolo suggested $_suggestedCategory',
+                          style: const TextStyle(
+                            color: KoloColors.primary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               if (_needsJustification) ...[
                 const SizedBox(height: 14),
                 Container(
@@ -903,6 +937,70 @@ class _TransactionEntrySheetState extends State<_TransactionEntrySheet> {
 
     await widget.ref.read(koloRepositoryProvider).logTransaction(transaction);
     if (mounted) Navigator.of(context).pop();
+  }
+
+  List<String> get _categoryOptions => _isIncome
+      ? const ['Gig Income', 'Family/Gift Income', 'Miscellaneous']
+      : const [
+          'Food & Snacks',
+          'Transport',
+          'Data & Airtime',
+          'Entertainment',
+          'Utilities & Bills',
+          'Miscellaneous',
+        ];
+
+  void _scheduleCategorySuggestion(String description) {
+    _categorySuggestionDebounce?.cancel();
+    final trimmed = description.trim();
+    if (trimmed.length < 3) {
+      setState(() {
+        _suggestedCategory = null;
+        _suggestingCategory = false;
+      });
+      return;
+    }
+
+    _categorySuggestionDebounce = Timer(const Duration(milliseconds: 450), () {
+      _suggestCategory(trimmed);
+    });
+  }
+
+  Future<void> _suggestCategory(String description) async {
+    final categorizer = widget.ref.read(transactionCategorizerProvider);
+    final dashboard = _dashboard();
+    if (categorizer == null || dashboard == null) return;
+
+    setState(() => _suggestingCategory = true);
+    try {
+      final draft = await categorizer.categorizeTransaction(
+        rawText: description,
+        source: TransactionSource.manual,
+        context: dashboard,
+        modelName: dashboard.profile.preferredAiModel,
+      );
+      if (!mounted || description != _descriptionController.text.trim()) return;
+
+      final suggested = _normalizeCategory(draft?.category);
+      setState(() {
+        _suggestedCategory = suggested;
+        if (suggested != null && !_categoryManuallyChanged) {
+          _category = suggested;
+        }
+      });
+    } finally {
+      if (mounted) setState(() => _suggestingCategory = false);
+    }
+  }
+
+  String? _normalizeCategory(String? category) {
+    if (category == null || category.trim().isEmpty) return null;
+    for (final option in _categoryOptions) {
+      if (option.toLowerCase() == category.trim().toLowerCase()) {
+        return option;
+      }
+    }
+    return null;
   }
 
   bool _requiresJustification(int amountKobo) {
