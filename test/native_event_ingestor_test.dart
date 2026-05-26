@@ -85,6 +85,43 @@ void main() {
     expect(dashboard.transactions.first.date, DateTime(2026, 5, 23));
   });
 
+  test('logs native SMS silently when transaction alerts are disabled', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          expect(call.method, 'drainNativeEvents');
+          return [
+            {
+              'id': 'sms-silent',
+              'type': 'sms_received',
+              'createdAt': DateTime(2026, 5, 24).millisecondsSinceEpoch,
+              'payload': {
+                'body':
+                    'GTBank Alert: Acct 0123456789 DR NGN2,500.00 at Chicken Republic. Bal: NGN47,500.00',
+              },
+            },
+          ];
+        });
+
+    final repository = FakeKoloRepository.seeded();
+    await repository.updateNotificationPreferences(
+      const NotificationPreferences(transactionAlerts: false),
+    );
+    final overlayBubble = _FakeOverlayBubbleService();
+    final ingestor = NativeEventIngestor(
+      capabilities: AndroidCapabilityService(channel: channel),
+      repository: repository,
+      overlayBubble: overlayBubble,
+    );
+
+    final processed = await ingestor.drainAndProcess();
+    final dashboard = await repository.watchDashboard().first;
+
+    expect(processed, 1);
+    expect(dashboard.transactions.first.id, 'native-sms-silent');
+    expect(dashboard.balanceKobo, 4750000);
+    expect(overlayBubble.showCalls, 0);
+  });
+
   test('does not apply the same native event twice', () async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
@@ -265,6 +302,38 @@ void main() {
     expect(overlayBubble.showCalls, 1);
     expect(overlayBubble.expandCalls, 1);
     expect(overlayBubble.assistantMessages.single, contains('Kuda'));
+  });
+
+  test('skips soft watched app bubbles when interventions are disabled', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          expect(call.method, 'drainNativeEvents');
+          return [
+            {
+              'id': 'app-bubble-off',
+              'type': 'foreground_app',
+              'createdAt': DateTime(2026, 5, 24, 10).millisecondsSinceEpoch,
+              'payload': {'packageName': 'com.kuda.android'},
+            },
+          ];
+        });
+
+    final repository = FakeKoloRepository.seeded();
+    await repository.updateNotificationPreferences(
+      const NotificationPreferences(bubbleInterventions: false),
+    );
+    final overlayBubble = _FakeOverlayBubbleService();
+    final ingestor = NativeEventIngestor(
+      capabilities: AndroidCapabilityService(channel: channel),
+      repository: repository,
+      overlayBubble: overlayBubble,
+    );
+
+    final processed = await ingestor.drainAndProcess();
+
+    expect(processed, 0);
+    expect(overlayBubble.showCalls, 0);
+    expect(overlayBubble.expandCalls, 0);
   });
 
   test('routes hard lock watched app events to a block overlay', () async {

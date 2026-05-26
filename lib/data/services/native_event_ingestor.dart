@@ -63,7 +63,7 @@ class NativeEventIngestor {
 
       if (event.type == 'sms_received' &&
           await _processServerSms(event, rawText)) {
-        await _overlayBubble?.showKoloBubble();
+        await _surfaceTransactionAlert();
         processed += 1;
         continue;
       }
@@ -72,14 +72,14 @@ class NativeEventIngestor {
           TransactionParser.parse(rawText) ?? await _aiDraft(event, rawText);
       if (draft == null) {
         await _recordUnrecognizedTransaction(event);
-        await _overlayBubble?.showKoloBubble();
+        await _surfaceTransactionAlert();
         processed += 1;
         continue;
       }
 
       await _repository.logTransaction(_transactionFromDraft(event, draft));
       await _reconcileParsedBalance(event, draft);
-      await _overlayBubble?.showKoloBubble();
+      await _surfaceTransactionAlert();
       processed += 1;
     }
 
@@ -156,6 +156,10 @@ class NativeEventIngestor {
       }
     }
     if (watchedApp == null || !watchedApp.enabled) return false;
+    if (watchedApp.blockLevel == WatchedAppBlockLevel.soft &&
+        !dashboard.profile.notificationPreferences.bubbleInterventions) {
+      return false;
+    }
 
     final content = await _interventionMessage(
       dashboard: dashboard,
@@ -233,6 +237,16 @@ class NativeEventIngestor {
       // Keep native interventions useful if Functions or Gemini is unavailable.
     }
     return _fallbackIntervention(dashboard, watchedApp);
+  }
+
+  Future<void> _surfaceTransactionAlert() async {
+    final overlayBubble = _overlayBubble;
+    if (overlayBubble == null) return;
+
+    final dashboard = await _repository.watchDashboard().first;
+    if (!dashboard.profile.notificationPreferences.transactionAlerts) return;
+
+    await overlayBubble.showKoloBubble();
   }
 
   String _fallbackIntervention(
