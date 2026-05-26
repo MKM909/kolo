@@ -267,6 +267,49 @@ void main() {
     expect(overlayBubble.assistantMessages.single, contains('Kuda'));
   });
 
+  test('routes hard lock watched app events to a block overlay', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          expect(call.method, 'drainNativeEvents');
+          return [
+            {
+              'id': 'app-hard-lock-1',
+              'type': 'foreground_app',
+              'createdAt': DateTime(2026, 5, 24, 10).millisecondsSinceEpoch,
+              'payload': {'packageName': 'com.kuda.android'},
+            },
+          ];
+        });
+
+    final repository = FakeKoloRepository.seeded();
+    await repository.upsertWatchedApp(
+      const WatchedApp(
+        packageName: 'com.kuda.android',
+        displayName: 'Kuda',
+        enabled: true,
+        blockLevel: WatchedAppBlockLevel.hardLock,
+      ),
+    );
+    final overlayBubble = _FakeOverlayBubbleService();
+    final ingestor = NativeEventIngestor(
+      capabilities: AndroidCapabilityService(channel: channel),
+      repository: repository,
+      overlayBubble: overlayBubble,
+    );
+
+    final processed = await ingestor.drainAndProcess();
+
+    expect(processed, 1);
+    expect(overlayBubble.showCalls, 0);
+    expect(overlayBubble.expandCalls, 0);
+    expect(overlayBubble.blockOverlays.single.appName, 'Kuda');
+    expect(
+      overlayBubble.blockOverlays.single.blockLevel,
+      WatchedAppBlockLevel.hardLock,
+    );
+    expect(overlayBubble.blockOverlays.single.prompt, contains('Kuda'));
+  });
+
   test(
     'uses Gemini categorization when local notification parsing fails',
     () async {
@@ -563,6 +606,15 @@ class _FakeOverlayBubbleService implements OverlayBubbleService {
   int showCalls = 0;
   int expandCalls = 0;
   final List<String> assistantMessages = [];
+  final List<
+    ({
+      String appName,
+      String packageName,
+      WatchedAppBlockLevel blockLevel,
+      String prompt,
+    })
+  >
+  blockOverlays = [];
 
   @override
   Future<bool> isPermissionGranted() async => true;
@@ -570,6 +622,22 @@ class _FakeOverlayBubbleService implements OverlayBubbleService {
   @override
   Future<bool> showKoloBubble() async {
     showCalls += 1;
+    return true;
+  }
+
+  @override
+  Future<bool> showBlockOverlay({
+    required String appName,
+    required String packageName,
+    required WatchedAppBlockLevel blockLevel,
+    required String prompt,
+  }) async {
+    blockOverlays.add((
+      appName: appName,
+      packageName: packageName,
+      blockLevel: blockLevel,
+      prompt: prompt,
+    ));
     return true;
   }
 

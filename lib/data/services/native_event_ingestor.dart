@@ -169,7 +169,7 @@ class NativeEventIngestor {
         context: 'intervention',
       ),
     );
-    await _surfaceOverlayIntervention(content);
+    await _surfaceOverlayIntervention(content, watchedApp);
     return true;
   }
 
@@ -187,11 +187,24 @@ class NativeEventIngestor {
     }
   }
 
-  Future<void> _surfaceOverlayIntervention(String content) async {
+  Future<void> _surfaceOverlayIntervention(
+    String content,
+    WatchedApp watchedApp,
+  ) async {
     final overlayBubble = _overlayBubble;
     if (overlayBubble == null) return;
 
     try {
+      if (watchedApp.blockLevel != WatchedAppBlockLevel.soft) {
+        await overlayBubble.showBlockOverlay(
+          appName: watchedApp.displayName,
+          packageName: watchedApp.packageName,
+          blockLevel: watchedApp.blockLevel,
+          prompt: content,
+        );
+        return;
+      }
+
       await overlayBubble.showKoloBubble();
       await overlayBubble.sendAssistantMessageToOverlay(content);
       await overlayBubble.expandConversation();

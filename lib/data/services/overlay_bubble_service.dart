@@ -1,4 +1,5 @@
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
+import 'package:kolo/domain/models/models.dart';
 
 abstract class OverlayWindowPlatform {
   Future<bool> isPermissionGranted();
@@ -123,6 +124,47 @@ class OverlayBubbleService {
       enableDrag: true,
       positionGravity: PositionGravity.auto,
     );
+    return true;
+  }
+
+  Future<bool> showBlockOverlay({
+    required String appName,
+    required String packageName,
+    required WatchedAppBlockLevel blockLevel,
+    required String prompt,
+  }) async {
+    final hasPermission = await isPermissionGranted();
+    if (!hasPermission) {
+      return false;
+    }
+
+    final isActive = await _platform.isActive();
+    if (isActive) {
+      await _platform.resizeOverlay(
+        width: WindowSize.fullCover,
+        height: WindowSize.fullCover,
+        enableDrag: false,
+      );
+    } else {
+      await _platform.showOverlay(
+        height: WindowSize.fullCover,
+        width: WindowSize.fullCover,
+        alignment: OverlayAlignment.center,
+        flag: OverlayFlag.focusPointer,
+        overlayTitle: 'Kolo block overlay active',
+        overlayContent: 'Kolo is checking this app launch with you.',
+        enableDrag: false,
+        positionGravity: PositionGravity.none,
+      );
+    }
+
+    await _platform.shareData({
+      'type': 'blockOverlay',
+      'appName': appName,
+      'packageName': packageName,
+      'blockLevel': blockLevel.name,
+      'prompt': prompt,
+    });
     return true;
   }
 

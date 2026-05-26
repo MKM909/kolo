@@ -1,6 +1,7 @@
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kolo/data/services/overlay_bubble_service.dart';
+import 'package:kolo/domain/models/models.dart';
 
 void main() {
   test('does not show overlay when permission is missing', () async {
@@ -72,6 +73,57 @@ void main() {
     expect(platform.sharedData, [
       {'type': 'assistantMessage', 'text': 'Pause before sending money.'},
     ]);
+  });
+
+  test('shows full-screen block overlays with watched app context', () async {
+    final platform = _FakeOverlayWindow(permissionGranted: true);
+    final service = OverlayBubbleService(platform: platform);
+
+    final shown = await service.showBlockOverlay(
+      appName: 'Kuda',
+      packageName: 'com.kuda.android',
+      blockLevel: WatchedAppBlockLevel.hardLock,
+      prompt: 'Before you go in, what is the plan?',
+    );
+
+    expect(shown, isTrue);
+    expect(platform.showCalls, 1);
+    expect(platform.height, WindowSize.fullCover);
+    expect(platform.width, WindowSize.fullCover);
+    expect(platform.alignment, OverlayAlignment.center);
+    expect(platform.positionGravity, PositionGravity.none);
+    expect(platform.enableDrag, isFalse);
+    expect(platform.overlayTitle, 'Kolo block overlay active');
+    expect(platform.sharedData.single, {
+      'type': 'blockOverlay',
+      'appName': 'Kuda',
+      'packageName': 'com.kuda.android',
+      'blockLevel': 'hardLock',
+      'prompt': 'Before you go in, what is the plan?',
+    });
+  });
+
+  test('resizes an active overlay before sharing block context', () async {
+    final platform = _FakeOverlayWindow(permissionGranted: true, active: true);
+    final service = OverlayBubbleService(platform: platform);
+
+    final shown = await service.showBlockOverlay(
+      appName: 'Kuda',
+      packageName: 'com.kuda.android',
+      blockLevel: WatchedAppBlockLevel.explain,
+      prompt: 'Before you go in, what is this for?',
+    );
+
+    expect(shown, isTrue);
+    expect(platform.showCalls, 0);
+    expect(platform.resizeCalls, [
+      (
+        width: WindowSize.fullCover,
+        height: WindowSize.fullCover,
+        enableDrag: false,
+      ),
+    ]);
+    expect(platform.sharedData.single, containsPair('blockLevel', 'explain'));
   });
 
   test('requests overlay permission through the overlay platform', () async {
