@@ -125,6 +125,7 @@ class FirebaseKoloMapper {
       'packageName': app.packageName,
       'displayName': app.displayName,
       'enabled': app.enabled,
+      'blockLevel': app.blockLevel.name,
     };
   }
 
@@ -310,6 +311,11 @@ class FirebaseKoloMapper {
       packageName: _string(map['packageName']),
       displayName: _string(map['displayName'], fallback: 'App'),
       enabled: _bool(map['enabled']),
+      blockLevel: _enumByName(
+        WatchedAppBlockLevel.values,
+        map['blockLevel'],
+        WatchedAppBlockLevel.soft,
+      ),
     );
   }
 

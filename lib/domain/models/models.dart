@@ -10,6 +10,8 @@ enum OwingType { theyOweMe, iOweThem }
 
 enum ShareStatus { pending, active, revoked }
 
+enum WatchedAppBlockLevel { soft, explain, hardLock }
+
 enum KoloPermission {
   sms,
   notifications,
@@ -557,11 +559,13 @@ class WatchedApp {
     required this.packageName,
     required this.displayName,
     this.enabled = false,
+    this.blockLevel = WatchedAppBlockLevel.soft,
   });
 
   final String packageName;
   final String displayName;
   final bool enabled;
+  final WatchedAppBlockLevel blockLevel;
 }
 
 class NativeAndroidEvent {

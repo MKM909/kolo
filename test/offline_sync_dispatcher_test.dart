@@ -315,6 +315,7 @@ void main() {
             'packageName': 'com.kuda.app',
             'displayName': 'Kuda',
             'enabled': true,
+            'blockLevel': 'hardLock',
           },
           createdAt: DateTime(2026, 5, 24),
         ),
@@ -334,6 +335,7 @@ void main() {
       expect(pending, isEmpty);
       expect(app.displayName, 'Kuda');
       expect(app.enabled, isTrue);
+      expect(app.blockLevel, WatchedAppBlockLevel.hardLock);
     },
   );
 

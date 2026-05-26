@@ -273,6 +273,9 @@ class OfflineSyncDispatcher {
       packageName: packageName,
       displayName: displayName,
       enabled: _bool(payload['enabled']) ?? false,
+      blockLevel:
+          _enumByName(WatchedAppBlockLevel.values, payload['blockLevel']) ??
+          WatchedAppBlockLevel.soft,
     );
   }
 

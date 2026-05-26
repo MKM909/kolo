@@ -84,7 +84,14 @@ void main() {
       owings: const [],
       gigs: const [],
       bills: const [],
-      watchedApps: const [],
+      watchedApps: const [
+        {
+          'packageName': 'com.kuda.app',
+          'displayName': 'Kuda',
+          'enabled': true,
+          'blockLevel': 'hardLock',
+        },
+      ],
       partnerShares: const [],
       insights: const [],
       now: DateTime(2026, 5, 24),
@@ -106,6 +113,7 @@ void main() {
     expect(state.transactions.single.aiApproved, isFalse);
     expect(state.aiMessages.single.role, AiRole.assistant);
     expect(state.vaults.single.progress, closeTo(0.023, 0.001));
+    expect(state.watchedApps.single.blockLevel, WatchedAppBlockLevel.hardLock);
     expect(state.permissions[KoloPermission.sms], PermissionGrantState.granted);
     expect(
       state.permissions[KoloPermission.overlay],
@@ -259,12 +267,14 @@ void main() {
         packageName: 'com.moniebank.personal',
         displayName: 'Moniepoint',
         enabled: true,
+        blockLevel: WatchedAppBlockLevel.explain,
       ),
     );
 
     expect(payload['packageName'], 'com.moniebank.personal');
     expect(payload['displayName'], 'Moniepoint');
     expect(payload['enabled'], isTrue);
+    expect(payload['blockLevel'], 'explain');
   });
 
   test('serializes weekly insights for Firebase persistence', () {

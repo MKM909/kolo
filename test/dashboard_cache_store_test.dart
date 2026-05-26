@@ -43,6 +43,10 @@ void main() {
       expect(cached.dashboard.transactions.single.aiNote, 'Allowed for lunch');
       expect(cached.dashboard.bills.single.name, 'Data');
       expect(cached.dashboard.watchedApps.single.packageName, 'team.opay.pay');
+      expect(
+        cached.dashboard.watchedApps.single.blockLevel,
+        WatchedAppBlockLevel.explain,
+      );
       expect(cached.dashboard.partnerShares.single.permissions, {'balance'});
       expect(
         cached.dashboard.permissions[KoloPermission.notifications],
@@ -197,7 +201,11 @@ DashboardState _dashboardState({int balanceKobo = 1250000}) {
       ),
     ],
     watchedApps: const [
-      WatchedApp(packageName: 'team.opay.pay', displayName: 'Opay'),
+      WatchedApp(
+        packageName: 'team.opay.pay',
+        displayName: 'Opay',
+        blockLevel: WatchedAppBlockLevel.explain,
+      ),
     ],
     partnerShares: [
       PartnerShare(

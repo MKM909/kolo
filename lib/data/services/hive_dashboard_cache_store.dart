@@ -252,6 +252,7 @@ class HiveDashboardCacheStore implements DashboardCacheStore {
       'packageName': app.packageName,
       'displayName': app.displayName,
       'enabled': app.enabled,
+      'blockLevel': app.blockLevel.name,
     };
   }
 
