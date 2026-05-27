@@ -2,8 +2,8 @@
 **Version:** 1.0.0  
 **Status:** Planning  
 **Platform:** Android (Flutter)  
-**Backend:** Firebase (Firestore, Auth, Cloud Functions)  
-**AI:** Google Gemini via Cloud Functions  
+**Backend:** Firebase (Firestore, Auth)
+**AI:** Google Gemini REST via Flutter/Dio on Spark; Cloud Functions adapter retained for future Blaze deployment
 
 ---
 
@@ -148,7 +148,7 @@ The signature Kolo experience. A persistent floating bubble that lives on top of
 
 ### 5.6 Kolo AI — The Fund Manager
 
-The core intelligence of the app. Powered by Google Gemini via Firebase Cloud Functions.
+The core intelligence of the app. Powered by Google Gemini through a direct Flutter/Dio REST adapter while the Firebase project is on Spark, with a Cloud Functions adapter retained for future Blaze deployment.
 
 #### 5.6.1 Onboarding Conversation
 On first launch, Kolo AI has a setup conversation:
@@ -311,12 +311,11 @@ users/{uid}/partnerShares/{shareId}
   - partnerEmail, status, permissions, createdAt, revokedAt
 ```
 
-### Cloud Functions
-- `onSmsReceived` — parse SMS, log transaction, trigger AI response
-- `chatWithKolo` — handle AI chat messages with full context injection
-- `generateBudget` — create/regenerate budget from conversation
-- `analyzeSpending` — weekly pattern analysis job
-- `interventionMessage` — generate context-aware message when watched app opens
+### AI Adapter
+- Direct Flutter/Dio Gemini REST adapter reads `GEMINI_API_KEY` from `--dart-define`
+- Firebase Cloud Functions versions remain available in code for a later Blaze-plan migration
+- `chatWithKolo`, `generateBudget`, `categorizeTransaction`, `evaluateSpendingJustification`, `analyzeSpending`, `draftReminder`, and `interventionMessage` call Gemini from Flutter on Spark
+- SMS events use local parsing first, then the direct Gemini categorizer when needed
 
 ---
 
@@ -326,8 +325,8 @@ users/{uid}/partnerShares/{shareId}
 |---|---|
 | Mobile | Flutter (Dart) |
 | State Management | Riverpod |
-| Backend | Firebase (Firestore, Auth, Functions) |
-| AI | Google Gemini via Cloud Functions |
+| Backend | Firebase (Firestore, Auth) |
+| AI | Google Gemini REST via Flutter/Dio; optional Firebase Functions adapter later |
 | Local Storage | Hive (for offline cache) |
 | Background Services | flutter_background_service |
 | Overlay | flutter_overlay_window |

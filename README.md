@@ -27,7 +27,7 @@ All planned product capabilities are v1 launch scope.
 - Notification listener for supported fintech apps.
 - Android app watcher through AccessibilityService.
 - Floating overlay bubble for alerts, chat, and spending interventions.
-- Full Kolo AI chat powered by Google Gemini via Firebase Cloud Functions.
+- Full Kolo AI chat powered by Google Gemini through a direct Dio REST adapter on the Spark plan, with the Firebase Cloud Functions adapter kept for a future Blaze deployment.
 - Budget dashboard, analytics, transactions, and category breakdowns.
 - Savings vaults, owings tracker, gig tracker, and bill reminders.
 - Pattern insights and trusted partner sharing.
@@ -38,8 +38,8 @@ All planned product capabilities are v1 launch scope.
 |---|---|
 | Mobile | Flutter / Dart |
 | State management | Riverpod |
-| Backend | Firebase Auth, Firestore, Cloud Functions |
-| AI | Google Gemini via Cloud Functions |
+| Backend | Firebase Auth, Firestore |
+| AI | Google Gemini REST via `dio` (`GEMINI_API_KEY` from `--dart-define`) |
 | Local cache | Hive |
 | Background services | `flutter_background_service` |
 | Overlay | `flutter_overlay_window` |
@@ -89,6 +89,12 @@ npm test
 
 ## Gemini Configuration
 
-Kolo calls Gemini only from Firebase Cloud Functions. Functions read the API key from `GEMINI_API_KEY`; do not commit the raw key. Set it as a Firebase secret or local Functions environment value before running live AI calls.
+Kolo can call Gemini directly from Flutter while the Firebase project is on the Spark plan. Pass the API key at run/build time with `--dart-define`; do not commit the raw key.
 
-The default model is `gemini-3.1-flash-lite`. Users can change the model from Profile > Kolo AI Model, and the selected model is sent with Gemini-backed callable requests.
+```sh
+flutter run --dart-define=GEMINI_API_KEY=your_key_here
+```
+
+The default model is `gemini-3.1-flash-lite`. Users can change the model from Profile > Kolo AI Model, and the selected model is sent to the Gemini REST endpoint.
+
+For production, restrict the Gemini API key to the Gemini API in Google AI Studio or Google Cloud. A mobile app cannot fully hide an API key, so the Firebase Cloud Functions adapter remains in the repo for a later Blaze-plan server-side deployment.

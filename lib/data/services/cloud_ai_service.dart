@@ -3,17 +3,9 @@ import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/services/ai_context_builder.dart';
 import 'package:kolo/domain/services/ai_failure_message.dart';
 import 'package:kolo/domain/services/ai_model_config.dart';
-import 'package:kolo/domain/services/sms_received_handler.dart';
-import 'package:kolo/domain/services/spending_justification_advisor.dart';
-import 'package:kolo/domain/services/spending_intervention_advisor.dart';
-import 'package:kolo/domain/services/transaction_categorizer.dart';
+import 'package:kolo/domain/services/kolo_ai_service.dart';
 
-class CloudAiService
-    implements
-        TransactionCategorizer,
-        SpendingInterventionAdvisor,
-        SpendingJustificationAdvisor,
-        SmsReceivedHandler {
+class CloudAiService implements KoloAiService {
   CloudAiService({
     FirebaseFunctions? functions,
     this.modelName = defaultGeminiModelName,
@@ -22,6 +14,7 @@ class CloudAiService
   final FirebaseFunctions _functions;
   final String modelName;
 
+  @override
   Future<String> chatWithKolo({
     required String message,
     required DashboardState context,
@@ -40,6 +33,7 @@ class CloudAiService
     }
   }
 
+  @override
   Future<BudgetPlan> generateBudget(
     OnboardingAnswers answers, {
     String? modelName,
@@ -160,6 +154,7 @@ class CloudAiService
     }
   }
 
+  @override
   Future<String> draftReminder({
     required Owing owing,
     required DashboardState context,
@@ -182,6 +177,7 @@ class CloudAiService
     }
   }
 
+  @override
   Future<WeeklyInsight> analyzeSpending({
     required DashboardState context,
     String? modelName,

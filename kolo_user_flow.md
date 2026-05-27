@@ -196,7 +196,7 @@ Kolo AI flags it
 User types explanation
     │
     ▼
-AI evaluates (Cloud Function call with full context)
+AI evaluates (direct Gemini REST call with full context)
     │
     ├── APPROVED
     │       "Okay, birthday food is valid. 
@@ -222,6 +222,8 @@ AI evaluates (Cloud Function call with full context)
 
 ## 7. Kolo AI Chat Screen Flow
 
+Current Spark-plan implementation calls Gemini directly from Flutter through the Dio REST adapter. The Cloud Functions path remains a future Blaze-plan adapter.
+
 ```
 Kolo AI tab
     │
@@ -238,7 +240,7 @@ Full screen chat interface
     │       "Who owes me money?"
     │
     ▼
-Cloud Function → Gemini API (with full context injected)
+Flutter Dio Gemini REST adapter -> Gemini API (with full context injected)
     │
     ▼
 AI responds in chat

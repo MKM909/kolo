@@ -19,6 +19,7 @@ import 'package:kolo/data/services/biometric_unlock_service.dart';
 import 'package:kolo/data/services/cloud_ai_service.dart';
 import 'package:kolo/data/services/connectivity_sync_retry_service.dart';
 import 'package:kolo/data/services/due_bill_processor.dart';
+import 'package:kolo/data/services/direct_gemini_ai_service.dart';
 import 'package:kolo/data/services/firebase_bootstrap.dart';
 import 'package:kolo/data/services/android_permission_requester.dart';
 import 'package:kolo/data/services/android_reminder_scheduler.dart';
@@ -35,6 +36,7 @@ import 'package:kolo/domain/repositories/auth_repository.dart';
 import 'package:kolo/domain/repositories/kolo_repository.dart';
 import 'package:kolo/domain/repositories/partner_repository.dart';
 import 'package:kolo/domain/services/dashboard_cache_store.dart';
+import 'package:kolo/domain/services/kolo_ai_service.dart';
 import 'package:kolo/domain/services/permission_requester.dart';
 import 'package:kolo/domain/services/local_spending_justification_advisor.dart';
 import 'package:kolo/domain/services/reminder_scheduler.dart';
@@ -89,32 +91,41 @@ final biometricSessionRequiresUnlockProvider = Provider<bool>((ref) {
   return ref.watch(biometricSessionLockProvider).requiresUnlock;
 });
 
-final transactionCategorizerProvider = Provider<TransactionCategorizer?>((ref) {
+final directGeminiApiKeyProvider = Provider<String>((ref) {
+  return const String.fromEnvironment('GEMINI_API_KEY');
+});
+
+final koloAiServiceProvider = Provider<KoloAiService?>((ref) {
+  final directApiKey = ref.watch(directGeminiApiKeyProvider).trim();
+  if (directApiKey.isNotEmpty) {
+    return DirectGeminiAiService(apiKey: directApiKey);
+  }
+
   final bootstrap = ref.watch(firebaseBootstrapResultProvider);
   if (!bootstrap.initialized) return null;
   return CloudAiService();
 });
 
+final transactionCategorizerProvider = Provider<TransactionCategorizer?>((ref) {
+  return ref.watch(koloAiServiceProvider);
+});
+
 final spendingInterventionAdvisorProvider =
     Provider<SpendingInterventionAdvisor?>((ref) {
-      final bootstrap = ref.watch(firebaseBootstrapResultProvider);
-      if (!bootstrap.initialized) return null;
-      return CloudAiService();
+      return ref.watch(koloAiServiceProvider);
     });
 
 final spendingJustificationAdvisorProvider =
     Provider<SpendingJustificationAdvisor>((ref) {
-      final bootstrap = ref.watch(firebaseBootstrapResultProvider);
-      if (!bootstrap.initialized) {
+      final aiService = ref.watch(koloAiServiceProvider);
+      if (aiService == null) {
         return const LocalSpendingJustificationAdvisor();
       }
-      return CloudAiService();
+      return aiService;
     });
 
 final smsReceivedHandlerProvider = Provider<SmsReceivedHandler?>((ref) {
-  final bootstrap = ref.watch(firebaseBootstrapResultProvider);
-  if (!bootstrap.initialized) return null;
-  return CloudAiService();
+  return ref.watch(koloAiServiceProvider);
 });
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
@@ -151,7 +162,10 @@ final firebaseKoloRemoteRepositoryProvider = Provider<KoloRepository?>((ref) {
 
   return CachedKoloRepository(
     uid: authUser.uid,
-    remote: FirebaseKoloRepository(uid: authUser.uid),
+    remote: FirebaseKoloRepository(
+      uid: authUser.uid,
+      aiService: ref.watch(koloAiServiceProvider),
+    ),
     cache: ref.watch(dashboardCacheStoreProvider),
   );
 });
@@ -267,7 +281,7 @@ final dueBillProcessorProvider = FutureProvider<int>((ref) async {
   final authUser = ref
       .watch(authStateProvider)
       .when(data: (user) => user, error: (_, _) => null, loading: () => null);
-  if (bootstrap.initialized && authUser == null) return 0;
+  if (!bootstrap.initialized || authUser == null) return 0;
 
   return DueBillProcessor(
     repository: ref.watch(koloRepositoryProvider),

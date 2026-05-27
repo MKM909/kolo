@@ -6,6 +6,7 @@ import 'package:kolo/data/services/cloud_ai_service.dart';
 import 'package:kolo/domain/models/models.dart';
 import 'package:kolo/domain/repositories/kolo_repository.dart';
 import 'package:kolo/domain/services/ai_model_config.dart';
+import 'package:kolo/domain/services/kolo_ai_service.dart';
 import 'package:kolo/domain/services/partner_share_policy.dart';
 import 'package:kolo/domain/services/partner_summary_builder.dart';
 import 'package:kolo/domain/services/vault_milestone_advisor.dart';
@@ -14,14 +15,14 @@ class FirebaseKoloRepository implements KoloRepository {
   FirebaseKoloRepository({
     required String uid,
     FirebaseFirestore? firestore,
-    CloudAiService? aiService,
+    KoloAiService? aiService,
   }) : _uid = uid,
        _firestore = firestore ?? FirebaseFirestore.instance,
        _aiService = aiService ?? CloudAiService();
 
   final String _uid;
   final FirebaseFirestore _firestore;
-  final CloudAiService _aiService;
+  final KoloAiService _aiService;
 
   DocumentReference<Map<String, dynamic>> get _userDoc =>
       _firestore.collection('users').doc(_uid);
